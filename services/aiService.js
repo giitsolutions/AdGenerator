@@ -6,7 +6,7 @@ const INTERACTIONS_URL = 'https://generativelanguage.googleapis.com/v1beta/inter
 
 // gemini-2.5-flash is not available to new API accounts (Google's error
 // explicitly recommends this replacement for new projects).
-const MODEL = 'gemini-3.6-flash';
+const MODEL = 'gemini-3.5-flash-lite';
 
 // JSON schema for the ad content — the API enforces this shape directly,
 // so we don't need to ask the model to "please output JSON" in the prompt
@@ -46,9 +46,9 @@ const AD_CONTENT_SCHEMA = {
       type: 'string',
       description: 'A very short action label (2-3 words max) PREFIXED with one relevant emoji, e.g. "📅 BOOK NOW", "🛒 SHOP NOW". Must be short enough to fit on a small button — never a full sentence.'
     },
-    photoKeywords: {
+        photoKeywords: {
       type: 'string',
-      description: 'A detailed, specific real-world scene description (6-10 words) describing exactly what the product photo should show, tied precisely to the product/service category. E.g. for a home gym service: "person running on treadmill at home". For a shoe brand: "single running shoe studio product shot". For a cafe: "latte art coffee cup on wooden table". Be concrete and unambiguous — avoid the brand name.'
+      description: 'A detailed, specific real-world scene description (6-10 words) describing exactly what the product photo should show. The setting MUST match what THIS SPECIFIC business actually does, based on the product/service description above — do not default to generic fitness stereotypes. IMPORTANT: if the business involves fitness, exercise, or gym equipment (even if it operates in homes), the photo\'s main subject must be the EQUIPMENT or the PHYSICAL ACTIVITY itself (a treadmill, dumbbells, a person mid-exercise) — never the room, furniture, or interior decor around it, and never words like "cozy", "living room", or "home decor". For a running or outdoor training brand, an outdoor running scene is correct. For a shoe brand, a studio product shot. For a cafe, the food/drink itself. Read the product name and offer details carefully and pick the setting that genuinely matches that business — be concrete and unambiguous, avoid the brand name.'
     }
   },
   required: [
@@ -58,10 +58,20 @@ const AD_CONTENT_SCHEMA = {
   ]
 };
 
-async function generateAdContent(campaignInput) {
-  const prompt = buildAdPrompt(campaignInput);
+// Retryable = Google's side being temporarily unavailable/overloaded
+// (500, 502, 503) or a short-window rate limit (429). These are
+// transient and usually succeed on a retry a few seconds later.
+// Permanent errors (bad key = 401/403, bad request = 400) are NOT
+// retried — retrying those just wastes time.
+const RETRYABLE_STATUS = [429, 500, 502, 503];
+const MAX_ATTEMPTS = 3;
 
-  const response = await axios.post(
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function callGemini(prompt) {
+  return axios.post(
     INTERACTIONS_URL,
     {
       model: MODEL,
@@ -81,6 +91,33 @@ async function generateAdContent(campaignInput) {
       }
     }
   );
+}
+
+async function generateAdContent(campaignInput) {
+  const prompt = buildAdPrompt(campaignInput);
+
+  let response;
+  let lastErr;
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    try {
+      response = await callGemini(prompt);
+      break; // success — stop retrying
+    } catch (err) {
+      lastErr = err;
+      const status = err.response?.status;
+      const isRetryable = RETRYABLE_STATUS.includes(status);
+
+      if (!isRetryable || attempt === MAX_ATTEMPTS) {
+        throw err; // permanent error, or we've run out of attempts
+      }
+
+      // Exponential backoff: 3s, then 6s (keeps total wait reasonable
+      // for a background job while riding out a brief Google hiccup).
+      const waitMs = 3000 * attempt;
+      console.warn(`[aiService] Gemini returned ${status} (attempt ${attempt}/${MAX_ATTEMPTS}) — retrying in ${waitMs / 1000}s...`);
+      await sleep(waitMs);
+    }
+  }
 
   const modelOutputStep = response.data.steps.find(step => step.type === 'model_output');
   if (!modelOutputStep) {

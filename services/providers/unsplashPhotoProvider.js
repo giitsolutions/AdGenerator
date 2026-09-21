@@ -40,13 +40,13 @@ async function fetchStockPhoto(query) {
       if (results.length === 0) continue;
 
       const queryWords = attemptQuery.toLowerCase().split(/\s+/).filter(w => w.length > 3);
-      const scored = results
+            const scored = results
         .map(result => {
           const text = `${result.alt_description || ''} ${result.description || ''}`.toLowerCase();
           const matches = queryWords.filter(w => text.includes(w)).length;
           return { result, matches, likes: result.likes || 0 };
         })
-        .filter(r => r.matches > 0) // reject completely irrelevant photos — try a different query instead of accepting a random top result
+        .filter(r => r.matches > 0)
         .sort((a, b) => (b.matches - a.matches) || (b.likes - a.likes));
 
       if (scored.length === 0) {
@@ -54,7 +54,18 @@ async function fetchStockPhoto(query) {
         continue;
       }
 
-      for (const { result } of scored) {
+      // Randomize among the top few equally-good matches instead of
+      // always picking #1 — otherwise identical/near-identical
+      // photoKeywords across generations always return the same photo.
+      const topPool = scored.slice(0, Math.min(5, scored.length));
+      for (let i = topPool.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [topPool[i], topPool[j]] = [topPool[j], topPool[i]];
+      }
+      const rest = scored.slice(topPool.length);
+      const shuffledCandidates = [...topPool, ...rest];
+
+      for (const { result } of shuffledCandidates) {
         try {
           const imageRes = await axios.get(result.urls.regular, { responseType: 'arraybuffer' });
           return await loadImage(Buffer.from(imageRes.data));

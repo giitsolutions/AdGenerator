@@ -10,6 +10,7 @@ Target Audience: ${audience || 'general audience'}
 Tone: ${tone || 'friendly and engaging'}
 Offer/Details: ${offerDetails || 'none specified'}
 ${theme ? `\nToday's specific content angle/theme (build the post around this): ${theme}\n` : ''}
+
 Write:
 - A caption with a strong hook in the first line
 - A short list of relevant hashtags
@@ -20,8 +21,8 @@ Write:
 - Exactly 4 short feature/benefit bullet points (2-4 words each), each starting with one relevant emoji
 - The core offer (offerText) — under 6 words, short enough to fit in a circular badge
 - A very short button label (ctaButtonLabel) — 2-3 words max, starting with one relevant emoji
-- A detailed, specific real-world scene description (photoKeywords) — 6-10 words, precisely describing what the product photo should show, concrete enough to reliably find a matching real photo (not vague, not the brand name)
-`.trim();
+- A detailed, specific real-world scene description (photoKeywords) — 6-10 words, precisely describing what the product photo should show. The setting must match what THIS business actually does (read the product/service and offer details above). IMPORTANT: if the business involves fitness/exercise/gym equipment (even home-based), the photo's main subject must be the equipment or the physical activity itself — never the room, furniture, or "cozy home" decor around it. A running or outdoor training brand should still show outdoor running. Not vague, not the brand name.
+`;
 }
 
 module.exports = { buildAdPrompt };

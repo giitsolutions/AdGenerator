@@ -99,14 +99,6 @@ function roundedRectPath(ctx, x, y, w, h, radius) {
   ctx.closePath();
 }
 
-/**
- * Samples the average brightness of a region already drawn on the
- * canvas (photo + any gradient already applied). Used to GUARANTEE
- * text contrast: if a region is still too bright for white text even
- * after the normal gradient, we darken it further specifically there
- * — this is what was missing before, causing text to merge into
- * light-colored photos.
- */
 function getRegionBrightness(ctx, x, y, w, h) {
   const safeX = Math.max(0, Math.floor(x));
   const safeY = Math.max(0, Math.floor(y));
@@ -116,24 +108,16 @@ function getRegionBrightness(ctx, x, y, w, h) {
   const data = imageData.data;
   let total = 0;
   let count = 0;
-  for (let i = 0; i < data.length; i += 32) { // sample every 8th pixel for speed
+  for (let i = 0; i < data.length; i += 32) {
     total += 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
     count++;
   }
   return count > 0 ? total / count : 128;
 }
 
-/**
- * Checks the brightness behind a text region and adds extra dark
- * overlay ONLY if needed (photo is too bright there for white text
- * to read clearly). Guarantees legibility regardless of what the
- * underlying photo looks like, while keeping the minimal look intact
- * on photos that were already dark enough.
- */
 function ensureContrast(ctx, x, y, w, h) {
   const brightness = getRegionBrightness(ctx, x, y, w, h);
   if (brightness > 110) {
-    // Extra darkening, strength scales with how bright it actually is
     const extraOpacity = Math.min(0.75, 0.35 + (brightness - 110) / 200);
     ctx.fillStyle = `rgba(0,0,0,${extraOpacity})`;
     roundedRectPath(ctx, x - 20, y - 20, w + 40, h + 40, 24);
@@ -236,12 +220,6 @@ async function fetchLogo(logoUrl) {
   }
 }
 
-/**
- * TEMPLATE 1 — "Bottom": full-bleed photo, gradient rising from the
- * bottom, PLUS an adaptive contrast check — if the photo is still too
- * bright in the text area even after the gradient, extra darkening is
- * added automatically so text can never merge into the background.
- */
 function renderBottomTemplate(ctx, size, accent, data) {
   const { productName, headlineMain, headlineAccent, subheadline, offerText, ctaButtonLabel, logo } = data;
 
@@ -252,16 +230,12 @@ function renderBottomTemplate(ctx, size, accent, data) {
   ctx.fillStyle = scrim;
   ctx.fillRect(0, 0, size, size);
 
-  // Measure the headline FIRST so we know the real content height
-  // before checking/boosting contrast for it — a 1-line and 2-line
-  // headline need different amounts of guaranteed-dark space.
   ctx.font = `bold 72px ${FONT}`;
   const headline = `${headlineMain} ${headlineAccent}`;
   const headlineLines = wrapText(ctx, headline, size - 100).slice(0, 2);
   const neededHeight = 115 + headlineLines.length * 78 + 36 + 40 + 52;
   const offerY = size - neededHeight - 20;
 
-  // Guarantee contrast for the exact content zone, regardless of photo
   ensureContrast(ctx, 0, offerY - 20, size, neededHeight + 40);
 
   if (logo) drawLogoCircle(ctx, logo, size - 55, 55, 50);
@@ -276,8 +250,11 @@ function renderBottomTemplate(ctx, size, accent, data) {
   ctx.textAlign = 'left';
   ctx.font = `bold 72px ${FONT}`;
   ctx.fillStyle = '#ffffff';
+  ctx.shadowColor = 'rgba(0,0,0,0.4)';
+  ctx.shadowBlur = 12;
   const headlineStartY = offerY + 115;
   headlineLines.forEach((line, i) => ctx.fillText(line, 50, headlineStartY + i * 78));
+  ctx.shadowBlur = 0;
 
   ctx.textAlign = 'left';
   ctx.font = `24px ${FONT}`;
@@ -288,10 +265,6 @@ function renderBottomTemplate(ctx, size, accent, data) {
   drawCtaPill(ctx, ctaButtonLabel.toUpperCase(), 50, subY + 40, '#ffffff', accent, 'left');
 }
 
-/**
- * TEMPLATE 2 — "Top": mirrors Template 1 anchored to the top, with
- * the same adaptive contrast guarantee.
- */
 function renderTopTemplate(ctx, size, accent, data) {
   const { productName, headlineMain, headlineAccent, subheadline, offerText, ctaButtonLabel, logo } = data;
 
@@ -329,10 +302,6 @@ function renderTopTemplate(ctx, size, accent, data) {
   drawCtaPill(ctx, ctaButtonLabel.toUpperCase(), 50, subY + 26, '#ffffff', accent, 'left');
 }
 
-/**
- * TEMPLATE 3 — "Centered": vignette plus adaptive contrast guarantee
- * behind the central text band.
- */
 function renderCenteredTemplate(ctx, size, accent, data) {
   const { productName, headlineMain, headlineAccent, subheadline, offerText, ctaButtonLabel, logo } = data;
 
@@ -406,7 +375,27 @@ async function generateAdImage({
   return canvas.toBuffer('image/jpeg', { quality: 0.93 });
 }
 
-async function uploadImage(imageBuffer) {
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function withRetry(uploadFn, imageBuffer, hostName, attempts = 2) {
+  let lastErr;
+  for (let i = 1; i <= attempts; i++) {
+    try {
+      return await uploadFn(imageBuffer);
+    } catch (err) {
+      lastErr = err;
+      if (i < attempts) {
+        console.warn(`[imageService] ${hostName} attempt ${i}/${attempts} failed, retrying in 2s...`);
+        await sleep(2000);
+      }
+    }
+  }
+  throw lastErr;
+}
+
+async function uploadToImgbb(imageBuffer) {
   const form = new FormData();
   form.append('image', imageBuffer.toString('base64'));
   const response = await axios.post(
@@ -415,6 +404,53 @@ async function uploadImage(imageBuffer) {
     { headers: form.getHeaders() }
   );
   return response.data.data.url;
+}
+
+async function uploadToImgur(imageBuffer) {
+  if (!config.imgur.clientId) {
+    throw new Error('IMGUR_CLIENT_ID is not set — cannot use Imgur fallback.');
+  }
+  const response = await axios.post(
+    'https://api.imgur.com/3/image',
+    { image: imageBuffer.toString('base64'), type: 'base64' },
+    { headers: { Authorization: `Client-ID ${config.imgur.clientId}` } }
+  );
+  return response.data.data.link;
+}
+
+async function uploadToCatbox(imageBuffer) {
+  const form = new FormData();
+  form.append('reqtype', 'fileupload');
+  form.append('fileToUpload', imageBuffer, { filename: 'ad.jpg', contentType: 'image/jpeg' });
+  const response = await axios.post('https://catbox.moe/user/api.php', form, {
+    headers: form.getHeaders()
+  });
+  const url = response.data?.trim();
+  if (!url || !url.startsWith('http')) {
+    throw new Error(`Catbox returned an unexpected response: ${url}`);
+  }
+  return url;
+}
+
+async function uploadImage(imageBuffer) {
+  const hosts = [
+    { name: 'imgbb', fn: uploadToImgbb },
+    { name: 'Imgur', fn: uploadToImgur },
+    { name: 'Catbox', fn: uploadToCatbox }
+  ];
+
+  let lastErr;
+  for (const host of hosts) {
+    try {
+      return await withRetry(host.fn, imageBuffer, host.name);
+    } catch (err) {
+      lastErr = err;
+      const detail = err.response ? `status ${err.response.status}` : err.message;
+      console.warn(`[imageService] ${host.name} failed after retries (${detail}) — trying next host.`);
+    }
+  }
+
+  throw new Error(`All image hosts failed. Last error: ${lastErr.message}`);
 }
 
 async function generateAndHostAdImage({
