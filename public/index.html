@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>AI Instagram Ad Generator</title>
+<style>
+  body { font-family: Arial, sans-serif; max-width: 700px; margin: 40px auto; background: #fafafa; color: #222; }
+  h1 { font-size: 22px; display: flex; justify-content: space-between; align-items: center; }
+  .topbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+  .topbar span { font-size: 13px; color: #666; }
+  .topbar button { font-size: 12px; padding: 6px 10px; background: #eee; color: #333; }
+  section { background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 20px; margin-bottom: 20px; }
+  input, textarea, select { width: 100%; padding: 8px; margin: 6px 0 14px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+  button { background: #405de6; color: #fff; border: none; padding: 10px 16px; border-radius: 5px; cursor: pointer; }
+  button:hover { opacity: 0.9; }
+  .post-card { border: 1px solid #eee; border-radius: 6px; padding: 12px; margin-bottom: 10px; }
+  .status { font-size: 12px; padding: 2px 8px; border-radius: 10px; color: #fff; }
+  .draft { background: #999; }
+  .approved, .posted { background: #2ecc71; }
+  .rejected { background: #e74c3c; }
+  .actions button { margin-right: 8px; font-size: 13px; padding: 6px 10px; }
+  .settings-note { font-size: 13px; color: #666; margin-bottom: 10px; }
+  .ig-connected { background: #e8f8f0; border: 1px solid #2ecc71; border-radius: 6px; padding: 12px; font-size: 14px; }
+  .ig-banner-error { background: #fdecea; border: 1px solid #e74c3c; border-radius: 6px; padding: 12px; font-size: 14px; margin-bottom: 16px; color: #c0392b; }
+  .ig-banner-success { background: #e8f8f0; border: 1px solid #2ecc71; border-radius: 6px; padding: 12px; font-size: 14px; margin-bottom: 16px; color: #1e8449; }
+</style>
+</head>
+<body>
+
+<h1>📣 AI Instagram Ad Generator</h1>
+
+<section>
+  <h2>1. Create Campaign</h2>
+  <input id="productName" placeholder="Product/Service name" />
+  <input id="audience" placeholder="Target audience (e.g. college students)" />
+  <input id="tone" placeholder="Tone (e.g. fun, professional)" />
+  <textarea id="offerDetails" placeholder="Offer details / key message"></textarea>
+  <input id="website" placeholder="Website or link (optional — shown in caption)" />
+  <input id="logoUrl" placeholder="Logo image URL (optional — shown on the ad graphic)" />
+  <button onclick="createCampaign()">Save Campaign</button>
+</section>
+
+<section>
+  <h2>2. Generate Ad Content</h2>
+  <select id="campaignSelect"></select>
+  <button onclick="generatePost()">Generate with AI</button>
+</section>
+
+<section>
+  <h2>📅 Set Up Daily Themes (Automatic, for the campaign above)</h2>
+  <p class="settings-note">
+    Paste up to 20 themes, one per line — e.g. "Monday motivation", "Behind the scenes", "Customer testimonial".
+    Every day, one unused theme is picked in order, a post is generated around it, and you'll get an
+    <strong>email</strong> with Approve/Reject buttons — no need to open this page daily.
+  </p>
+  <textarea id="themesInput" rows="6" placeholder="Theme for day 1&#10;Theme for day 2&#10;Theme for day 3&#10;..."></textarea>
+  <button onclick="saveThemes()">Save Themes to Queue</button>
+  <p id="themesStatus" class="settings-note"></p>
+</section>
+
+<section>
+  <h2>3. Review & Approve</h2>
+  <div id="postsList">Loading posts...</div>
+</section>
+
+<script src="app.js"></script>
+</body>
+</html>

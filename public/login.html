@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Sign In — AI Instagram Ad Generator</title>
+<style>
+  body { font-family: Arial, sans-serif; max-width: 420px; margin: 80px auto; background: #fafafa; color: #222; }
+  h1 { font-size: 22px; text-align: center; }
+  .card { background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 30px; }
+  input { width: 100%; padding: 10px; margin: 8px 0 16px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+  button { width: 100%; background: #405de6; color: #fff; border: none; padding: 12px; border-radius: 5px; cursor: pointer; font-size: 15px; }
+  button:hover { opacity: 0.9; }
+  .toggle { text-align: center; margin-top: 16px; font-size: 14px; }
+  .toggle a { color: #405de6; cursor: pointer; text-decoration: underline; }
+  .error { color: #e74c3c; font-size: 14px; margin-top: 8px; text-align: center; }
+</style>
+</head>
+<body>
+
+<h1>📣 AI Instagram Ad Generator</h1>
+
+<div class="card">
+  <h2 id="formTitle">Log In</h2>
+  <input id="email" type="email" placeholder="Email" />
+  <input id="password" type="password" placeholder="Password" />
+  <button id="submitBtn" onclick="submitForm()">Log In</button>
+  <div class="error" id="errorMsg"></div>
+  <div class="toggle">
+    <span id="toggleText">Don't have an account? <a onclick="toggleMode()">Sign up</a></span>
+  </div>
+</div>
+
+<script src="auth.js"></script>
+</body>
+</html>
