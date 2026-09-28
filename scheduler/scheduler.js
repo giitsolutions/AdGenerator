@@ -24,6 +24,15 @@ async function runDailyThemedJob() {
 
   for (const campaign of campaigns) {
     try {
+            // Don't pull the next theme while a previous themed post for
+      // this campaign is still awaiting an Approve/Reject decision —
+      // a theme only advances once you've actually approved one.
+      const pending = await postModel.hasPendingThemedPost(campaign.id);
+      if (pending) {
+        console.log(`[scheduler] Campaign ${campaign.id} has a themed post awaiting your decision — skipping until resolved.`);
+        continue;
+      }
+
       const nextTheme = await themeModel.getNextUnusedTheme(campaign.id);
       if (!nextTheme) continue; // no themes queued for this campaign — skip it
 
@@ -32,7 +41,9 @@ async function runDailyThemedJob() {
         theme: nextTheme
       });
 
-      await themeModel.markThemeUsed(nextTheme.id);
+      // NOTE: theme is marked used on APPROVAL now (see postController.js's
+      // performApproval), not here at generation time — that's what
+      // makes advancement wait for your decision instead of the clock.
 
       // TEMPORARY (login disabled): sends to config.notificationEmail
       // instead of a real per-user email, since there's no logged-in

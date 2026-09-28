@@ -40,8 +40,7 @@ const AD_CONTENT_SCHEMA = {
     },
     offerText: {
       type: 'string',
-      description: 'The core offer, short enough to fit inside a circular badge (under 6 words) — e.g. "20% OFF Membership", "Buy 1 Get 1 Free".'
-    },
+      description: 'The complete offer on ONE line, up to 10 words, including what it applies to and any deadline — e.g. "20% OFF annual membership — this month only", "Buy 1 Get 1 Free on all plans". Never trail off or leave it as a fragment.'    },
     ctaButtonLabel: {
       type: 'string',
       description: 'A very short action label (2-3 words max) PREFIXED with one relevant emoji, e.g. "📅 BOOK NOW", "🛒 SHOP NOW". Must be short enough to fit on a small button — never a full sentence.'

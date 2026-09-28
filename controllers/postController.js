@@ -32,10 +32,19 @@ async function performApproval(postId, userId) {
   const linkLine = campaign && campaign.website ? campaign.website : '🔗 Link in bio';
   const fullCaption = `${post.caption}\n\n${post.cta}\n\n${linkLine}\n\n${JSON.parse(post.hashtags).join(' ')}`;
 
-  const igResult = await instagramService.publishToInstagram({ imageUrl, caption: fullCaption });
+   const igResult = await instagramService.publishToInstagram({ imageUrl, caption: fullCaption });
   await postModel.markAsPosted(post.id);
+
+  // A theme only counts as "done" once its post is actually approved —
+  // this is what lets the daily scheduler know it's safe to advance
+  // to the next theme in the queue.
+  if (post.theme_id) {
+    await themeModel.markThemeUsed(post.theme_id);
+  }
+
   return igResult;
 }
+
 
 /**
  * Shared core: rejects a post, and if it was generated from a daily

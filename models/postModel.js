@@ -10,6 +10,21 @@ async function createPost({ userId, campaignId, themeId, caption, hashtags, cta,
   return result.lastID;
 }
 
+/**
+ * True if this campaign has a themed post still waiting on a
+ * decision (not yet approved or rejected). Used by the daily
+ * scheduler to avoid pulling the next theme while a previous one is
+ * still pending in the user's inbox.
+ */
+async function hasPendingThemedPost(campaignId) {
+  const db = await getDb();
+  const row = await db.get(
+    `SELECT id FROM posts WHERE campaign_id = ? AND theme_id IS NOT NULL AND status = 'draft' LIMIT 1`,
+    [campaignId]
+  );
+  return !!row;
+}
+
 async function getAllPosts(userId) {
   const db = await getDb();
   return db.all('SELECT * FROM posts WHERE user_id = ? ORDER BY created_at DESC', [userId]);
@@ -35,5 +50,6 @@ module.exports = {
   getAllPosts,
   getPostById,
   markAsPosted,
-  markAsRejected
+  markAsRejected,
+  hasPendingThemedPost
 };

@@ -125,12 +125,30 @@ function ensureContrast(ctx, x, y, w, h) {
   }
 }
 
-function drawOfferTag(ctx, text, x, y, accent, align = 'left') {
-  ctx.font = `bold 18px ${FONT}`;
+function drawOfferTag(ctx, text, x, y, accent, align = 'left', maxWidth = 980, radius = 5) {
+  let fontSize = 18;
+  ctx.font = `bold ${fontSize}px ${FONT}`;
+  const fits = () => ctx.measureText(text).width + 34 <= maxWidth;
+
+  // Shrink the font first, so a normal-length offer always shows in full.
+  while (!fits() && fontSize > 13) {
+    fontSize -= 1;
+    ctx.font = `bold ${fontSize}px ${FONT}`;
+  }
+  // Only if it is STILL too wide (an unusually long offer): drop trailing
+  // words and add an ellipsis, so the tag can never run off the image.
+  if (!fits()) {
+    const words = text.split(' ');
+    while (words.length > 1 && !fits()) {
+      words.pop();
+      text = words.join(' ') + '…';
+    }
+  }
+
   const w = ctx.measureText(text).width + 34;
-  const drawX = align === 'left' ? x : x - w;
+  const drawX = align === 'left' ? x : align === 'center' ? x - w / 2 : x - w;
   ctx.fillStyle = accent;
-  roundedRectPath(ctx, drawX, y, w, 38, 5);
+  roundedRectPath(ctx, drawX, y, w, 38, radius);
   ctx.fill();
   ctx.fillStyle = '#ffffff';
   ctx.textAlign = 'center';
@@ -202,11 +220,16 @@ async function generateImageWithHuggingFace(prompt) {
   return null;
 }
 
-async function fetchProductPhoto(photoKeywords) {
-  const fromUnsplash = await fetchStockPhoto(photoKeywords);
-  if (fromUnsplash) return fromUnsplash;
-  console.log('[imageService] No Unsplash match — trying Pexels instead.');
-  return fetchPexelsPhoto(photoKeywords);
+ async function fetchProductPhoto(photoKeywords) {
+  // Pass 1: only photos never used in an earlier post (Unsplash, then Pexels).
+  const fresh = (await fetchStockPhoto(photoKeywords)) || (await fetchPexelsPhoto(photoKeywords));
+  if (fresh) return fresh;
+
+  // Pass 2: nothing unused matched. Reusing a good match beats a plain
+  // colour background, so allow a previously used photo as a last resort.
+  console.log('[imageService] No unused photo matched — allowing a previously used one.');
+  return (await fetchStockPhoto(photoKeywords, { allowReuse: true }))
+    || (await fetchPexelsPhoto(photoKeywords, { allowReuse: true }));
 }
 
 async function fetchLogo(logoUrl) {
@@ -332,15 +355,8 @@ function renderCenteredTemplate(ctx, size, accent, data) {
   const subY = startY + headlineLines.length * 72 + 38;
   ctx.fillText(subheadline, size / 2, subY, size - 160);
 
-  const tagY = subY + 26;
-  ctx.font = `bold 18px ${FONT}`;
-  const tagText = offerText.toUpperCase();
-  const tagW = ctx.measureText(tagText).width + 34;
-  ctx.fillStyle = accent;
-  roundedRectPath(ctx, size / 2 - tagW / 2, tagY, tagW, 38, 19);
-  ctx.fill();
-  ctx.fillStyle = '#ffffff';
-  ctx.fillText(tagText, size / 2, tagY + 26);
+    const tagY = subY + 26;
+  drawOfferTag(ctx, offerText.toUpperCase(), size / 2, tagY, accent, 'center', size - 100, 19);
 
   drawCtaPill(ctx, ctaButtonLabel.toUpperCase(), size / 2, size - 110, '#ffffff', accent, 'center');
 }

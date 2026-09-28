@@ -5,6 +5,7 @@ const path = require('path');
 let dbInstance = null;
 
 async function getDb() {
+  
   if (dbInstance) return dbInstance;
 
   dbInstance = await open({
@@ -89,7 +90,17 @@ async function getDb() {
       FOREIGN KEY (user_id) REFERENCES users(id)
     );
   `);
-
+      // Remembers every stock photo already used, so the same photo is
+  // never picked twice (see services/providers/*).
+  await dbInstance.exec(`
+    CREATE TABLE IF NOT EXISTS used_photos (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      provider TEXT NOT NULL,
+      photo_id TEXT NOT NULL,
+      used_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(provider, photo_id)
+    );
+  `);
   return dbInstance;
 }
 
