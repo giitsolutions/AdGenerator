@@ -1,5 +1,5 @@
 {
-  "name": "insta-ai-poster",
+  "name": "kwikpost",
   "version": "2.0.0",
   "description": "Modularized AI Instagram ad campaign tool with approval + auto-posting + scheduling",
   "main": "server.js",

@@ -23,8 +23,7 @@ app.use('/api/posts', postRoutes);
 app.use(errorHandler); // must be registered last
 
 app.listen(config.port, () => {
-  console.log(`Server running on http://localhost:${config.port}`);
-
+  console.log(`Server running on port ${config.port} (public URL: ${config.appBaseUrl})`);
   // The daily theme queue is always active — it's the intended,
   // controlled way to auto-generate posts (one per day, per campaign
   // that has themes loaded), so it doesn't get disabled by the

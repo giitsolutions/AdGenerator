@@ -1,7 +1,16 @@
 require('dotenv').config();
 
+const isProduction = process.env.NODE_ENV === 'production';
+
 if (!process.env.JWT_SECRET) {
-  console.warn('[config] JWT_SECRET is not set in .env — using an insecure default. Set a real secret before any real use.');
+  if (isProduction) {
+    throw new Error('JWT_SECRET must be set in production. The built-in default is public in the GitHub repo.');
+  }
+  console.warn('[config] JWT_SECRET is not set in .env — using an insecure default. Fine for local testing only.');
+}
+
+if (isProduction && !process.env.APP_BASE_URL) {
+  throw new Error('APP_BASE_URL must be set in production, otherwise email Approve/Reject links point to localhost.');
 }
 
 module.exports = {
