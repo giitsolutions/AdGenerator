@@ -73,6 +73,25 @@ async function getDb() {
     await dbInstance.exec(`ALTER TABLE posts ADD COLUMN theme_id INTEGER REFERENCES themes(id)`);
   }
 
+  // Columns that let a draft be edited after it is generated: the text
+  // that is drawn on the image, plus the saved background photo, so the
+  // text can be changed and re-drawn without generating a new image.
+  const editColumns = [
+    ['headline_main', 'TEXT'],
+    ['headline_accent', 'TEXT'],
+    ['subheadline', 'TEXT'],
+    ['offer_text', 'TEXT'],
+    ['cta_label', 'TEXT'],
+    ['photo_keywords', 'TEXT'],
+    ['background_file', 'TEXT'],
+    ['layout_index', 'INTEGER']
+  ];
+  for (const [name, type] of editColumns) {
+    if (!postsColumns.some(col => col.name === name)) {
+      await dbInstance.exec(`ALTER TABLE posts ADD COLUMN ${name} ${type}`);
+    }
+  }
+
   // themes = a pre-loaded queue of daily content ideas per campaign.
   // The daily scheduler picks the lowest-position UNUSED theme each
   // day, generates a post around it, and marks it used — so a user

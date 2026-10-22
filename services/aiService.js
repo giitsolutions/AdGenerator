@@ -8,6 +8,26 @@ const INTERACTIONS_URL = 'https://generativelanguage.googleapis.com/v1beta/inter
 // explicitly recommends this replacement for new projects).
 const MODEL = 'gemini-3.5-flash-lite';
 
+// Fixed photo prompts. When this list is NOT empty, every post's background is
+// generated from one of these (picked at random) instead of the description
+// Gemini writes. One machine per image gives the cleanest results.
+// To go back to Gemini-written photo descriptions, make the list empty: [].
+const STATIC_PHOTO_PROMPTS = [
+  'a black treadmill, side view, in a bright modern living room, soft daylight, blurred background',
+  'a black treadmill, three-quarter view, in a clean home gym with white walls, blurred background',
+  'a treadmill in a sunlit room next to a large window, side view, blurred background',
+  'a treadmill on a light wooden floor, wide shot, minimal room, soft light, blurred background',
+  'a treadmill in a modern apartment, front three-quarter view, warm evening light, blurred background',
+  'a treadmill in a bright home gym with a grey wall, side view, soft studio lighting, blurred background',
+  'a black and silver treadmill in a bright minimalist room, side view, blurred background',
+  'a black cross trainer elliptical machine, side view, in a bright modern living room, soft daylight, blurred background',
+  'a cross trainer elliptical machine, three-quarter view, in a clean home gym with white walls, blurred background',
+  'an elliptical cross trainer in a sunlit room next to a large window, side view, blurred background',
+  'an elliptical cross trainer on a light wooden floor, wide shot, minimal room, soft light, blurred background',
+  'a cross trainer in a bright home gym with a grey wall, side view, soft studio lighting, blurred background',
+  'a black and silver elliptical cross trainer in a bright minimalist room, side view, blurred background'
+];
+
 // JSON schema for the ad content — the API enforces this shape directly,
 // so we don't need to ask the model to "please output JSON" in the prompt
 // or parse loosely-formatted text.
@@ -19,15 +39,15 @@ const AD_CONTENT_SCHEMA = {
     cta: { type: 'string' },
     headlineMain: {
       type: 'string',
-      description: 'The first part of the big headline (under 4 words), e.g. "Premium Treadmills" — shown in plain white.'
+      description: 'The first part of the big headline (under 4 words) — part of an EYE-CATCHING, scroll-stopping line built around today\'s theme, e.g. "Premium Treadmills" — shown in plain white.'
     },
     headlineAccent: {
       type: 'string',
-      description: 'The second, emphasized part of the headline (under 3 words), e.g. "on Rent" — shown in a bright accent color to stand out from headlineMain.'
+      description: 'The second, emphasized part of the headline (under 3 words), e.g. "on Rent". Together with headlineMain it must read as one punchy, attention-grabbing headline.'
     },
     subheadline: {
       type: 'string',
-      description: 'A short supporting line under the headline (under 10 words), e.g. "Stay consistent. Stay fit. Right from home."'
+      description: 'ONE line (under 12 words) shown directly under the headline that plainly states what the business is about / what is actually being sold, e.g. "Premium treadmills and home gym equipment, delivered to your door". Concrete, no hype, must not repeat the headline.'
     },
     tagline: {
       type: 'string',
@@ -40,7 +60,8 @@ const AD_CONTENT_SCHEMA = {
     },
     offerText: {
       type: 'string',
-      description: 'The complete offer on ONE line, up to 10 words, including what it applies to and any deadline — e.g. "20% OFF annual membership — this month only", "Buy 1 Get 1 Free on all plans". Never trail off or leave it as a fragment.'    },
+      description: 'The offer line. Copy the "Offer/Details" from the prompt EXACTLY, word for word, with no changes. Only if it says "none specified", write one short complete offer line (up to 10 words).'
+    },
     ctaButtonLabel: {
       type: 'string',
       description: 'A very short action label (2-3 words max) PREFIXED with one relevant emoji, e.g. "📅 BOOK NOW", "🛒 SHOP NOW". Must be short enough to fit on a small button — never a full sentence.'
@@ -125,6 +146,19 @@ async function generateAdContent(campaignInput) {
 
   const textBlock = modelOutputStep.content.find(block => block.type === 'text');
   const parsed = JSON.parse(textBlock.text);
+
+  // The offer is shown on the image exactly as the user entered it —
+  // never the model's rewording of it. (If the campaign has no offer,
+  // the model's own offerText is kept as a fallback.)
+  const userOffer = (campaignInput.offerDetails || '').trim();
+  if (userOffer) parsed.offerText = userOffer;
+
+  // Fixed photo prompt (treadmills / cross trainers): replaces whatever photo
+  // description the model wrote. The image itself is still generated on the
+  // spot for every post.
+  if (STATIC_PHOTO_PROMPTS.length > 0) {
+    parsed.photoKeywords = STATIC_PHOTO_PROMPTS[Math.floor(Math.random() * STATIC_PHOTO_PROMPTS.length)];
+  }
 
   return parsed; // { caption, hashtags, cta, headlineMain, headlineAccent, subheadline, tagline, features, offerText, ctaButtonLabel, photoKeywords }
 }

@@ -20,11 +20,12 @@ Write:
 - A caption with a strong hook in the first line
 - A short list of relevant hashtags
 - A clear call-to-action sentence (cta) for the caption text
-- A two-part headline for the ad graphic: headlineMain (under 4 words) and headlineAccent (under 3 words) — accent gets a highlighted color
-- A subheadline (under 10 words) supporting the headline
+- A two-part headline for the ad graphic: headlineMain (under 4 words) and headlineAccent (under 3 words). Together they must be an EYE-CATCHING, scroll-stopping line built around today's theme (punchy, bold, curiosity or benefit driven — not a generic slogan).
+- A subheadline (under 12 words) that sits directly under the headline and PLAINLY says what the business is about / what is actually being sold or offered (e.g. "Premium treadmills and home gym equipment, delivered to your door"). Concrete and factual, no hype, and it must not repeat the headline.
 - A short catchy tagline (under 6 words) for beneath the brand name
 - Exactly 4 short feature/benefit bullet points (2-4 words each), each starting with one relevant emoji
-- The complete offer (offerText) on ONE line, up to 10 words, including what it applies to and any deadline (e.g. "20% OFF annual membership — this month only"). Never a fragment.- A very short button label (ctaButtonLabel) — 2-3 words max, starting with one relevant emoji
+- The offer line (offerText): copy the "Offer/Details" given above EXACTLY, word for word, with no changes, shortening or rewording. Only if the offer is "none specified", write one short complete offer line yourself (up to 10 words).
+- A very short button label (ctaButtonLabel) — 2-3 words max, starting with one relevant emoji
 - A detailed, specific real-world scene description (photoKeywords) — 6-10 words, precisely describing what the product photo should show. The setting must match what THIS business actually does (read the product/service and offer details above). IMPORTANT: if the business involves fitness/exercise/gym equipment (even home-based), the photo's main subject must be the equipment or the physical activity itself — never the room, furniture, or "cozy home" decor around it. A running or outdoor training brand should still show outdoor running. Not vague, not the brand name.
 `.trim();
 }

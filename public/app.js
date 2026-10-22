@@ -15,6 +15,46 @@ async function handleAuthFailure(res) {
   return false;
 }
 
+// --- Logo upload: adds a file picker next to the Logo URL box. ---
+// Picking a file uploads it and fills the Logo URL box with the saved path,
+// so every brand can use its own logo in any image format.
+function setupLogoUpload() {
+  const urlInput = document.getElementById('logoUrl');
+  if (!urlInput) return;
+
+  const status = document.createElement('div');
+  status.style.cssText = 'font-size:12px; color:#666; margin:4px 0 8px;';
+  status.textContent = 'Or upload a logo file (PNG, JPG, WebP, SVG, screenshot…):';
+
+  const picker = document.createElement('input');
+  picker.type = 'file';
+  picker.accept = 'image/*';
+  picker.style.display = 'block';
+  picker.style.marginBottom = '8px';
+
+  urlInput.insertAdjacentElement('afterend', status);
+  status.insertAdjacentElement('afterend', picker);
+
+  picker.addEventListener('change', async () => {
+    const file = picker.files && picker.files[0];
+    if (!file) return;
+    status.textContent = 'Uploading logo…';
+    try {
+      const res = await fetch('/api/uploads/logo', {
+        method: 'POST',
+        headers: authHeaders({ 'Content-Type': file.type || 'application/octet-stream' }),
+        body: file
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Upload failed');
+      urlInput.value = data.path;
+      status.textContent = '✅ Logo uploaded. It will be used for this campaign.';
+    } catch (err) {
+      status.textContent = '⚠️ ' + err.message;
+    }
+  });
+}
+
 // --- Campaigns ---
 async function createCampaign() {
   const body = {
@@ -105,6 +145,7 @@ async function loadPosts() {
       ${p.status === 'draft' ? `
         <div class="actions">
           <button onclick="approvePost(${p.id})">✅ Approve & Post</button>
+          ${p.background_file ? `<button onclick="editPost(${p.id})">✏️ Edit</button>` : ''}
           <button onclick="rejectPost(${p.id})">❌ Reject</button>
         </div>
       ` : ''}
@@ -120,12 +161,29 @@ async function approvePost(id) {
   loadPosts();
 }
 
+// Opens the edit page (text on the image, caption, hashtags) in a new tab.
+// The tab is opened first so the browser's popup blocker doesn't stop it.
+async function editPost(id) {
+  const tab = window.open('', '_blank');
+  try {
+    const res = await fetch(`${POSTS_API}/${id}/edit-link`, { headers: authHeaders() });
+    if (await handleAuthFailure(res)) { if (tab) tab.close(); return; }
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    if (tab) tab.location.href = data.url; else window.location.href = data.url;
+  } catch (err) {
+    if (tab) tab.close();
+    alert('Could not open the editor: ' + err.message);
+  }
+}
+
 async function rejectPost(id) {
   const res = await fetch(`${POSTS_API}/${id}/reject`, { method: 'POST', headers: authHeaders() });
   if (await handleAuthFailure(res)) return;
   loadPosts();
 }
 
+setupLogoUpload();
 loadCampaigns();
 loadPosts();
 setInterval(loadPosts, 10000);

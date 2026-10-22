@@ -34,6 +34,14 @@ async function generateForCampaign(req, res, next) {
       offerDetails: campaign.offer_details
     });
 
+    // Same layout rotation as the daily posts: it only changes once a post
+    // has actually been published.
+    const postedCount = await postModel.countPostedPosts(campaign.id);
+    const layoutIndex = postedCount % imageService.LAYOUT_COUNT;
+
+    // The background is saved so the text can be edited later (Edit button).
+    const backgroundFile = `bg-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`;
+
     const imageUrl = await imageService.generateAndHostAdImage({
       productName: campaign.product_name,
       headlineMain: generated.headlineMain,
@@ -45,7 +53,9 @@ async function generateForCampaign(req, res, next) {
       ctaButtonLabel: generated.ctaButtonLabel,
       cta: generated.cta,
       photoKeywords: generated.photoKeywords,
-      logoUrl: campaign.logo_url
+      logoUrl: campaign.logo_url,
+      layoutIndex,
+      backgroundFile
     });
 
     const postId = await postModel.createPost({
@@ -54,7 +64,15 @@ async function generateForCampaign(req, res, next) {
       caption: generated.caption,
       hashtags: generated.hashtags,
       cta: generated.cta,
-      imageUrl
+      imageUrl,
+      headlineMain: generated.headlineMain,
+      headlineAccent: generated.headlineAccent,
+      subheadline: generated.subheadline,
+      offerText: generated.offerText,
+      ctaLabel: generated.ctaButtonLabel,
+      photoKeywords: generated.photoKeywords,
+      backgroundFile: imageService.hasBackground(backgroundFile) ? backgroundFile : null,
+      layoutIndex
     });
 
     res.json({ postId, ...generated, imageUrl });

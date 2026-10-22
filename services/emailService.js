@@ -19,17 +19,21 @@ function getTransporter() {
 
 /**
  * Sends an approval-request email for a freshly generated post,
- * including the image, caption, and one-click Approve/Reject links.
+ * including the image, caption, and one-click Approve/Edit/Reject links.
  * Those links are signed tokens (see routes/postRoutes.js) that work
  * without the user needing to log in first — clicking them directly
- * approves or rejects the post from the inbox.
+ * approves or rejects the post from the inbox, or opens the edit page.
  */
-async function sendApprovalEmail({ toEmail, productName, caption, hashtags, imageUrl, approveUrl, rejectUrl }) {
+async function sendApprovalEmail({ toEmail, productName, caption, hashtags, imageUrl, approveUrl, rejectUrl, editUrl }) {
   const t = getTransporter();
   if (!t) {
     console.warn('[emailService] EMAIL_USER / EMAIL_APP_PASSWORD not set — skipping approval email.');
     return false;
   }
+
+  const editButton = editUrl
+    ? `<a href="${editUrl}" style="background:#405de6; color:#fff; padding:12px 24px; border-radius:6px; text-decoration:none; margin-right:12px; display:inline-block; margin-top:8px;">✏️ Edit</a>`
+    : '';
 
   const html = `
     <div style="font-family: Arial, sans-serif; max-width: 480px; margin: 0 auto;">
@@ -38,10 +42,11 @@ async function sendApprovalEmail({ toEmail, productName, caption, hashtags, imag
       <p><strong>Caption:</strong> ${caption}</p>
       <p><strong>Hashtags:</strong> ${hashtags.join(' ')}</p>
       <div style="margin-top: 24px;">
-        <a href="${approveUrl}" style="background:#2ecc71; color:#fff; padding:12px 24px; border-radius:6px; text-decoration:none; margin-right:12px;">✅ Approve & Post</a>
-        <a href="${rejectUrl}" style="background:#e74c3c; color:#fff; padding:12px 24px; border-radius:6px; text-decoration:none;">❌ Reject</a>
+        <a href="${approveUrl}" style="background:#2ecc71; color:#fff; padding:12px 24px; border-radius:6px; text-decoration:none; margin-right:12px; display:inline-block; margin-top:8px;">✅ Approve & Post</a>
+        ${editButton}
+        <a href="${rejectUrl}" style="background:#e74c3c; color:#fff; padding:12px 24px; border-radius:6px; text-decoration:none; display:inline-block; margin-top:8px;">❌ Reject</a>
       </div>
-      <p style="color:#888; font-size:12px; margin-top:24px;">This link works without logging in — just click to approve or reject today's post.</p>
+      <p style="color:#888; font-size:12px; margin-top:24px;">These links work without logging in — click to approve, edit the text, or reject today's post.</p>
     </div>
   `;
 

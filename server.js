@@ -19,6 +19,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/instagram', instagramAuthRoutes);
 app.use('/api/campaigns', campaignRoutes);
 app.use('/api/posts', postRoutes);
+app.use('/api/uploads', require('./routes/uploadRoutes'));
 
 app.use(errorHandler); // must be registered last
 

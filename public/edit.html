@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>KwikPost – Edit post</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: Arial, Helvetica, sans-serif; background: #f3f4f8; color: #222; }
+    header { background: #1f2a44; color: #fff; padding: 14px 24px; font-size: 18px; font-weight: bold; }
+    .wrap { max-width: 1100px; margin: 24px auto; padding: 0 16px; display: flex; gap: 24px; flex-wrap: wrap; align-items: flex-start; }
+    .card { background: #fff; border-radius: 10px; padding: 20px; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
+    .preview { flex: 1 1 380px; max-width: 520px; position: sticky; top: 16px; }
+    .form { flex: 1 1 420px; }
+    .preview img { width: 100%; border-radius: 8px; display: block; background: #ddd; aspect-ratio: 1 / 1; object-fit: cover; }
+    .busy { position: relative; }
+    .busy::after { content: attr(data-msg); position: absolute; inset: 0; background: rgba(255,255,255,.85); display: flex; align-items: center; justify-content: center; text-align: center; padding: 20px; font-weight: bold; border-radius: 8px; }
+    label { display: block; font-size: 13px; font-weight: bold; margin: 14px 0 4px; color: #444; }
+    input[type=text], textarea, select { width: 100%; padding: 9px 10px; border: 1px solid #ccd; border-radius: 6px; font-size: 14px; font-family: inherit; }
+    textarea { resize: vertical; min-height: 70px; }
+    .hint { font-size: 12px; color: #777; margin-top: 3px; }
+    .row { display: flex; gap: 12px; }
+    .row > div { flex: 1; }
+    h3 { margin: 22px 0 0; font-size: 15px; color: #1f2a44; border-top: 1px solid #eee; padding-top: 16px; }
+    .buttons { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 22px; }
+    button { border: 0; border-radius: 6px; padding: 11px 16px; font-size: 14px; font-weight: bold; cursor: pointer; }
+    button:disabled { opacity: .5; cursor: not-allowed; }
+    .b-grey { background: #e6e8ef; color: #222; }
+    .b-blue { background: #2f6fed; color: #fff; }
+    .b-green { background: #1fa971; color: #fff; }
+    .b-orange { background: #f59e0b; color: #fff; }
+    #msg { margin-top: 16px; padding: 10px 12px; border-radius: 6px; font-size: 14px; display: none; }
+    #msg.ok { display: block; background: #e6f7ef; color: #146c43; }
+    #msg.err { display: block; background: #fdeaea; color: #a12626; }
+    #msg.info { display: block; background: #eaf1ff; color: #1d4ea8; }
+    #fatal { display: none; max-width: 600px; margin: 60px auto; text-align: center; font-size: 17px; }
+  </style>
+</head>
+<body>
+  <header>KwikPost – Edit post <span id="product" style="font-weight:normal; opacity:.8"></span></header>
+
+  <div id="fatal"></div>
+
+  <div class="wrap" id="app" style="display:none">
+    <div class="card preview">
+      <div id="imgBox"><img id="img" alt="Post preview"></div>
+      <div class="hint" id="imgHint">This is the image as it will be posted.</div>
+    </div>
+
+    <div class="card form">
+      <h3 style="border:0; margin-top:0; padding-top:0">Text on the image</h3>
+
+      <div class="row">
+        <div>
+          <label for="headlineMain">Headline</label>
+          <input type="text" id="headlineMain">
+        </div>
+        <div>
+          <label for="headlineAccent">Headline (highlighted part)</label>
+          <input type="text" id="headlineAccent">
+        </div>
+      </div>
+
+      <label for="subheadline">Line under the headline (what you sell)</label>
+      <input type="text" id="subheadline">
+
+      <label for="offerText">Offer line</label>
+      <input type="text" id="offerText">
+
+      <label for="ctaButtonLabel">Button text</label>
+      <input type="text" id="ctaButtonLabel">
+
+      <label for="layoutIndex">Layout</label>
+      <select id="layoutIndex"></select>
+
+      <h3>Caption (not on the image)</h3>
+      <label for="caption">Caption</label>
+      <textarea id="caption" rows="5"></textarea>
+
+      <label for="cta">Call to action (added under the caption)</label>
+      <input type="text" id="cta">
+
+      <label for="hashtags">Hashtags (separated by spaces)</label>
+      <textarea id="hashtags" rows="2"></textarea>
+
+      <div class="buttons">
+        <button class="b-grey" id="btnPreview">Refresh preview</button>
+        <button class="b-blue" id="btnSave">Save changes</button>
+        <button class="b-green" id="btnApprove">Save &amp; approve + post</button>
+        <button class="b-orange" id="btnBg">New background (~4 min)</button>
+      </div>
+      <div class="hint">"Refresh preview" only redraws the text here. "Save changes" stores it. A new background takes a few minutes; you can keep editing while it runs.</div>
+      <div id="msg"></div>
+    </div>
+  </div>
+
+<script>
+  const token = new URLSearchParams(location.search).get('token') || '';
+  const q = '?token=' + encodeURIComponent(token);
+  const $ = id => document.getElementById(id);
+  const TEXT_FIELDS = ['headlineMain', 'headlineAccent', 'subheadline', 'offerText', 'ctaButtonLabel', 'caption', 'cta', 'hashtags'];
+  const LAYOUT_NAMES = [
+    'Dark frame, offer bar on top', 'White frame, stripe + bottom bar', 'Dark frame, white top bar', 'Split bar with button',
+    'Ribbon', 'Glass card', 'Double frame', 'Big two-tone headline'
+  ];
+  let pollTimer = null;
+  let busy = false;
+
+  function say(text, kind) { const m = $('msg'); m.textContent = text; m.className = kind || ''; }
+  function fatal(text) { $('app').style.display = 'none'; $('fatal').style.display = 'block'; $('fatal').textContent = text; }
+
+  function setBusy(on, msg) {
+    busy = on;
+    ['btnPreview', 'btnSave', 'btnApprove'].forEach(id => $(id).disabled = on);
+    $('imgBox').classList.toggle('busy', on);
+    if (on) $('imgBox').setAttribute('data-msg', msg || 'Working…');
+  }
+
+  function values() {
+    const v = {};
+    TEXT_FIELDS.forEach(k => v[k] = $(k).value);
+    v.layoutIndex = $('layoutIndex').value;
+    return v;
+  }
+
+  async function api(path, method, body) {
+    const res = await fetch('/api/posts/' + path + q, {
+      method: method || 'GET',
+      headers: { 'Content-Type': 'application/json' },
+      body: body ? JSON.stringify(body) : undefined
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || 'Something went wrong');
+    return data;
+  }
+
+  async function refreshPreview() {
+    setBusy(true, 'Redrawing…');
+    try {
+      const d = await api('edit-preview', 'POST', { fields: values() });
+      $('img').src = d.image;
+      $('imgHint').textContent = 'Preview – not saved yet.';
+      say('');
+    } catch (e) { say(e.message, 'err'); }
+    setBusy(false);
+  }
+
+  async function save() {
+    setBusy(true, 'Saving…');
+    try {
+      const d = await api('edit-save', 'POST', { fields: values() });
+      $('img').src = d.imageUrl;
+      $('imgHint').textContent = 'Saved. This is the image that will be posted.';
+      say('Saved.', 'ok');
+      setBusy(false);
+      return true;
+    } catch (e) { say(e.message, 'err'); setBusy(false); return false; }
+  }
+
+  async function approve() {
+    if (!confirm('Save and post this to Instagram now?')) return;
+    if (!(await save())) return;
+    setBusy(true, 'Posting…');
+    try {
+      const d = await api('edit-approve', 'POST');
+      fatal('✅ ' + d.message);
+    } catch (e) { say(e.message, 'err'); setBusy(false); }
+  }
+
+  function pollBackground() {
+    clearInterval(pollTimer);
+    $('btnBg').disabled = true;
+    $('btnBg').textContent = 'Generating background…';
+    say('A new background is being generated (a few minutes). You can keep editing.', 'info');
+    pollTimer = setInterval(async () => {
+      try {
+        const s = await api('edit-background-status');
+        if (s.status === 'running') return;
+        clearInterval(pollTimer);
+        $('btnBg').disabled = false;
+        $('btnBg').textContent = 'New background (~4 min)';
+        if (s.status === 'done') {
+          say('New background ready – redrawing…', 'ok');
+          await refreshPreview();
+          say('New background ready. Click "Save changes" to keep it.', 'ok');
+        } else if (s.status === 'error') {
+          say('New background failed: ' + s.error, 'err');
+        }
+      } catch (e) { clearInterval(pollTimer); say(e.message, 'err'); $('btnBg').disabled = false; }
+    }, 5000);
+  }
+
+  async function newBackground() {
+    if (!confirm('Generate a new background? This takes a few minutes.')) return;
+    try {
+      await api('edit-new-background', 'POST');
+      pollBackground();
+    } catch (e) { say(e.message, 'err'); }
+  }
+
+  async function init() {
+    if (!token) return fatal('This link is missing its token. Open it from the email or the dashboard.');
+    try {
+      const d = await api('edit-data');
+      $('product').textContent = '– ' + d.productName;
+      if (d.status !== 'draft') return fatal('This post is already ' + d.status + ' and can no longer be edited.');
+      if (!d.editable) return fatal('This post has no saved background, so its text cannot be edited. Only posts generated after the edit feature was added can be.');
+
+      const sel = $('layoutIndex');
+      for (let i = 0; i < d.layoutCount; i++) {
+        const o = document.createElement('option');
+        o.value = i; o.textContent = (i + 1) + '. ' + (LAYOUT_NAMES[i] || 'Layout ' + (i + 1));
+        sel.appendChild(o);
+      }
+      TEXT_FIELDS.forEach(k => $(k).value = d.fields[k] || '');
+      sel.value = d.fields.layoutIndex;
+      $('img').src = d.imageUrl;
+      $('btnBg').style.display = d.canNewBackground ? '' : 'none';
+      $('app').style.display = 'flex';
+      if (d.backgroundBusy) pollBackground();
+    } catch (e) { fatal(e.message); }
+  }
+
+  $('btnPreview').onclick = refreshPreview;
+  $('btnSave').onclick = save;
+  $('btnApprove').onclick = approve;
+  $('btnBg').onclick = newBackground;
+  $('layoutIndex').onchange = refreshPreview;
+  init();
+</script>
+</body>
+</html>

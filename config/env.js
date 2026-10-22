@@ -71,6 +71,21 @@ module.exports = {
     user: process.env.EMAIL_USER,
     appPassword: process.env.EMAIL_APP_PASSWORD
   },
+    // Stable Diffusion server on the Mac mini (see services/providers/localSDProvider.js).
+  // Leave LOCAL_SD_URL unset to skip it and use only Unsplash/Pexels.
+  localSD: {
+    url: process.env.LOCAL_SD_URL,
+    apiKey: process.env.LOCAL_SD_KEY,
+    // The defaults keep people out of the picture, because generated hands
+    // come out distorted. Set either to empty for brands that need people.
+    promptSuffix: process.env.LOCAL_SD_PROMPT_SUFFIX ?? ', professional photography, sharp focus, no people',
+    negativePrompt: process.env.LOCAL_SD_NEGATIVE_PROMPT ?? 'people, person, human, hands, fingers, face, text, letters, watermark, logo',
+        // Removes person words (athlete, lifting, hands...) from the description
+    // before it goes to the image model. Set LOCAL_SD_STRIP_PEOPLE=false
+    // for brands that need people in the photo.
+    stripPeople: process.env.LOCAL_SD_STRIP_PEOPLE !== 'false',
+    timeoutMs: 600000
+  },
   // TEMPORARY (login disabled — see middleware/authMiddleware.js):
   // since there's no real logged-in user with their own email on file,
   // approval emails go here instead. Defaults to your sending Gmail
