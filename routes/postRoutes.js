@@ -1,29 +1,21 @@
 const express = require('express');
 const router = express.Router();
 const postController = require('../controllers/postController');
+const editPostController = require('../controllers/editPostController');
 const { requireAuth } = require('../middleware/authMiddleware');
 
-// PUBLIC routes — clicked directly from an email inbox, no login
-// possible there. Security comes from the signed token itself (see
-// scheduler/scheduler.js for how these links are generated), not
-// from a login session.
-router.get('/email-approve', postController.approvePostViaEmail);
-router.get('/email-reject', postController.rejectPostViaEmail);
+// Token-based routes used by edit.html (no login). Keep these above /:id routes.
+router.get('/edit-data', editPostController.getEditData);
+router.post('/edit-preview', editPostController.preview);
+router.post('/edit-save', editPostController.save);
+router.post('/edit-approve', editPostController.approve);
+router.get('/edit-background-status', editPostController.backgroundStatus);
+router.post('/edit-new-background', editPostController.newBackground);
 
-// Edit page API (public/edit.html). Also token-protected: the token in the
-// query string (?token=...) is the signed "edit" link from the email.
-router.get('/edit-data', postController.getEditData);
-router.post('/edit-preview', postController.renderEditPreview);
-router.post('/edit-save', postController.saveEdit);
-router.post('/edit-approve', postController.approveViaEditPage);
-router.post('/edit-new-background', postController.startNewBackground);
-router.get('/edit-background-status', postController.getBackgroundStatus);
-
-router.use(requireAuth);
-
-router.get('/', postController.listPosts);
-router.get('/:id/edit-link', postController.getEditLink);
-router.post('/:id/approve', postController.approvePost);
-router.post('/:id/reject', postController.rejectPost);
+// Dashboard routes (login required)
+router.get('/', requireAuth, postController.listPosts);
+router.post('/:id/approve', requireAuth, postController.approvePost);
+router.post('/:id/reject', requireAuth, postController.rejectPost);
+router.post('/:id/edit-link', requireAuth, editPostController.createEditLink);
 
 module.exports = router;

@@ -1,3 +1,5 @@
 node_modules/
 .env
-db/app.dbgit rm --cached .env
+db/app.db
+storage/
+

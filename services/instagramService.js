@@ -1,24 +1,42 @@
 const axios = require('axios');
 const config = require('../config/env');
+const { ensurePublicImageUrl } = require('./imageService');
 
-/**
- * TEMPORARY: back to the Make.com webhook approach for now (direct
- * Instagram OAuth posting — see controllers/instagramAuthController.js
- * — is built and working, just not wired in currently). Sends the
- * approved post to a Make.com webhook, which holds the actual
- * Instagram connection and handles publishing on our behalf.
- */
 async function publishToInstagram({ imageUrl, caption }) {
-  if (!config.makeWebhookUrl) {
-    throw new Error('MAKE_WEBHOOK_URL is not set in .env — add your Make.com webhook URL first.');
+  const webhookUrl =
+    (config.make && config.make.webhookUrl) ||
+    process.env.MAKE_WEBHOOK_URL;
+
+  if (!webhookUrl) {
+    throw new Error('Make.com webhook URL is not configured');
   }
 
-  const response = await axios.post(config.makeWebhookUrl, {
-    imageUrl,
-    caption
+  const publicImageUrl = await ensurePublicImageUrl(imageUrl);
+
+  const payload = {
+    imageUrl: publicImageUrl,
+    image_url: publicImageUrl,
+    caption: caption || ''
+  };
+
+  console.log('[instagram] Make imageUrl:', publicImageUrl);
+
+  const response = await axios.post(webhookUrl, payload, {
+    headers: { 'Content-Type': 'application/json' },
+    timeout: 90000,
+    validateStatus: () => true
   });
 
-  return response.data;
+  if (response.status < 200 || response.status >= 300) {
+    throw new Error('Make webhook HTTP ' + response.status + ': ' + JSON.stringify(response.data));
+  }
+
+  const data = response.data;
+  if (data && (data.error || data.status === 'error')) {
+    throw new Error(data.error || data.message || 'Make returned an error');
+  }
+
+  return { ok: true, publicImageUrl, makeResponse: data };
 }
 
 module.exports = { publishToInstagram };

@@ -1,0 +1,10 @@
+const { createCanvas, registerFont } = require('canvas');
+const path = require('path');
+registerFont(path.join(__dirname, 'fonts/Poppins-Regular.ttf'), { family: 'Poppins', weight: 'normal', style: 'normal' });
+registerFont(path.join(__dirname, 'fonts/Poppins-Bold.ttf'), { family: 'Poppins', weight: 'bold', style: 'normal' });
+const c = createCanvas(400, 120);
+const ctx = c.getContext('2d');
+ctx.font = 'bold 40px Poppins';
+ctx.fillText('Hello Poppins', 10, 70);
+require('fs').writeFileSync('fonttest.png', c.toBuffer('image/png'));
+console.log('done: open fonttest.png');

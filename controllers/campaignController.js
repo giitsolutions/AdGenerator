@@ -6,7 +6,27 @@ const imageService = require('../services/imageService');
 
 async function createCampaign(req, res, next) {
   try {
-    const campaignId = await campaignModel.createCampaign({ ...req.body, userId: req.userId });
+    const body = req.body || {};
+    const productName = body.productName || body.product_name;
+    if (!productName) {
+      return res.status(400).json({ error: 'Product/Service name is required' });
+    }
+
+    const campaignId = await campaignModel.createCampaign({
+      userId: req.userId,
+      productName,
+      audience: body.audience || '',
+      tone: body.tone || '',
+      offerDetails: body.offerDetails || body.offer_details || '',
+      website: body.website || '',
+      logoUrl: body.logoUrl || body.logo_url || '',
+      contactEmail: body.contactEmail || body.contact_email || '',
+      whatsappNumber: body.whatsappNumber || body.whatsapp_number || '',
+      intervalCron: body.intervalCron || body.interval_cron,
+      autoApprove: body.autoApprove || body.auto_approve,
+      defaultImageUrl: body.defaultImageUrl || body.default_image_url
+    });
+
     res.json({ campaignId });
   } catch (err) {
     next(err);
@@ -34,12 +54,14 @@ async function generateForCampaign(req, res, next) {
       offerDetails: campaign.offer_details
     });
 
-    // Same layout rotation as the daily posts: it only changes once a post
-    // has actually been published.
+    // Button text must never be empty: the layouts call .toUpperCase() on it.
+    const ctaLabel = generated.ctaButtonLabel || generated.cta || 'Learn more';
+
+    // Layout changes only after a post is published.
     const postedCount = await postModel.countPostedPosts(campaign.id);
     const layoutIndex = postedCount % imageService.LAYOUT_COUNT;
 
-    // The background is saved so the text can be edited later (Edit button).
+    // Name of the saved background, used by the Edit page.
     const backgroundFile = `bg-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`;
 
     const imageUrl = await imageService.generateAndHostAdImage({
@@ -50,13 +72,17 @@ async function generateForCampaign(req, res, next) {
       tagline: generated.tagline,
       features: generated.features,
       offerText: generated.offerText,
-      ctaButtonLabel: generated.ctaButtonLabel,
+      ctaButtonLabel: ctaLabel,
       cta: generated.cta,
       photoKeywords: generated.photoKeywords,
       logoUrl: campaign.logo_url,
       layoutIndex,
       backgroundFile
     });
+
+    // The file exists only when the canvas pipeline ran.
+    // A full Nano Banana image has no background, so it can't be edited.
+    const savedBackground = imageService.hasBackground(backgroundFile) ? backgroundFile : null;
 
     const postId = await postModel.createPost({
       userId: req.userId,
@@ -69,33 +95,38 @@ async function generateForCampaign(req, res, next) {
       headlineAccent: generated.headlineAccent,
       subheadline: generated.subheadline,
       offerText: generated.offerText,
-      ctaLabel: generated.ctaButtonLabel,
-      photoKeywords: generated.photoKeywords,
-      backgroundFile: imageService.hasBackground(backgroundFile) ? backgroundFile : null,
+      ctaLabel,
+      tagline: generated.tagline,
+      backgroundFile: savedBackground,
       layoutIndex
     });
 
-    res.json({ postId, ...generated, imageUrl });
+    res.json({ postId, ...generated, ctaButtonLabel: ctaLabel, imageUrl });
   } catch (err) {
     next(err);
   }
 }
 
 /**
- * Loads a batch of daily themes (e.g. 20, one per line) into a
- * campaign's queue. The daily scheduler consumes one per day, in
- * the order submitted, so this covers that many days unattended.
+ * Loads a batch of daily themes into a campaign's queue.
+ * Accepts a string (one theme per line) or an array of strings.
  */
 async function setThemes(req, res, next) {
   try {
     const campaign = await campaignModel.getCampaignById(req.params.id, req.userId);
     if (!campaign) return res.status(404).json({ error: 'Campaign not found' });
 
-    const { themes } = req.body; // expects a single string, one theme per line
-    const themeLines = (themes || '')
-      .split('\n')
-      .map(line => line.trim())
-      .filter(line => line.length > 0);
+    const raw = req.body.themes;
+    let themeLines = [];
+
+    if (Array.isArray(raw)) {
+      themeLines = raw.map((line) => String(line).trim()).filter((line) => line.length > 0);
+    } else {
+      themeLines = String(raw || '')
+        .split('\n')
+        .map((line) => line.trim())
+        .filter((line) => line.length > 0);
+    }
 
     if (themeLines.length === 0) {
       return res.status(400).json({ error: 'Provide at least one theme, one per line' });
@@ -118,4 +149,58 @@ async function getThemes(req, res, next) {
   }
 }
 
-module.exports = { createCampaign, listCampaigns, generateForCampaign, setThemes, getThemes };
+async function updateCampaign(req, res, next) {
+  try {
+    const id = req.params.id;
+    const body = req.body || {};
+
+    const productName = body.productName || body.product_name;
+    if (!productName) {
+      return res.status(400).json({ error: 'Product/Service name is required' });
+    }
+
+    const changes = await campaignModel.updateCampaign(id, req.userId, {
+      productName,
+      audience: body.audience || '',
+      tone: body.tone || '',
+      offerDetails: body.offerDetails || body.offer_details || '',
+      website: body.website || '',
+      logoUrl: body.logoUrl || body.logo_url || '',
+      contactEmail: body.contactEmail || body.contact_email || '',
+      whatsappNumber: body.whatsappNumber || body.whatsapp_number || ''
+    });
+
+    if (!changes) {
+      return res.status(404).json({ error: 'Campaign not found' });
+    }
+
+    res.json({ message: 'Campaign updated' });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function deleteCampaign(req, res, next) {
+  try {
+    const id = req.params.id;
+    const changes = await campaignModel.deleteCampaign(id, req.userId);
+
+    if (!changes) {
+      return res.status(404).json({ error: 'Campaign not found' });
+    }
+
+    res.json({ message: 'Campaign deleted' });
+  } catch (err) {
+    next(err);
+  }
+}
+
+module.exports = {
+  createCampaign,
+  listCampaigns,
+  generateForCampaign,
+  setThemes,
+  getThemes,
+  updateCampaign,
+  deleteCampaign
+};

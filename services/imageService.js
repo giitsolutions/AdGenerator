@@ -793,6 +793,52 @@ async function uploadImage(imageBuffer) {
   throw new Error(`All image hosts failed. Last error: ${lastErr.message}`);
 }
 
+/**
+ * Instagram / Make need a public https URL (not localhost / ngrok / relative).
+ * Re-hosts via ImgBB → Imgur → Catbox when needed.
+ */
+async function ensurePublicImageUrl(imageUrl) {
+  if (!imageUrl) throw new Error('No image URL to publish');
+
+  const url = String(imageUrl).trim();
+  const isHttp = /^https?:\/\//i.test(url);
+  const isLocalHost = /localhost|127\.0\.0\.1/i.test(url);
+  const isNgrok = /ngrok/i.test(url);
+  const isRelative =
+    url.startsWith('/') ||
+    url.startsWith('uploads/') ||
+    url.startsWith('public/');
+
+  // Already a normal public host
+  if (isHttp && !isLocalHost && !isNgrok) {
+    return url;
+  }
+
+  let buffer;
+
+  if (isRelative) {
+    const rel = url.replace(/^[\\/]+/, '').replace(/^public[\\/]/, '');
+    const filePath = path.join(__dirname, '../public', rel);
+    if (!fs.existsSync(filePath)) {
+      throw new Error('Local image not found: ' + filePath);
+    }
+    buffer = fs.readFileSync(filePath);
+  } else if (isHttp) {
+    const res = await axios.get(url, {
+      responseType: 'arraybuffer',
+      timeout: 60000,
+      headers: { 'ngrok-skip-browser-warning': 'true' }
+    });
+    buffer = Buffer.from(res.data);
+  } else {
+    throw new Error('Unsupported image URL for publish: ' + url);
+  }
+
+  const publicUrl = await uploadImage(buffer);
+  console.log('[imageService] Re-hosted for Instagram:', publicUrl);
+  return publicUrl;
+}
+
 async function generateAndHostAdImage({
   productName, headlineMain, headlineAccent, subheadline,
   tagline, features, offerText, ctaButtonLabel, cta, photoKeywords, logoUrl, layoutIndex, backgroundFile
@@ -860,5 +906,7 @@ module.exports = {
   renderAndHostFromBackground,
   createNewBackground,
   hasBackground,
+  ensurePublicImageUrl,
+  uploadImage,
   LAYOUT_COUNT: TEMPLATES.length
 };

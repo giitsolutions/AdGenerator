@@ -1,4 +1,4 @@
-# kwikpost — Modular Structure
+# AI Instagram Ad Generator — Modular Structure
 
 ## Architecture (layered, single-responsibility per module)
 
@@ -26,8 +26,7 @@ server.js       → wires everything together, ~20 lines
 
 ### 1. Install dependencies
 ```bash
-cd AdGenerator
-
+cd insta-ai-poster
 npm install
 ```
 
@@ -67,3 +66,9 @@ GET    /api/posts                  → list all posts/drafts
 POST   /api/posts/:id/approve      → approve + auto-post to Instagram
 POST   /api/posts/:id/reject       → reject a draft
 ```
+
+
+netstat -ano | findstr :5000
+
+taskkill /PID <that_number> /F
+npm start
