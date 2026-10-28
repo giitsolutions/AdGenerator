@@ -30,7 +30,11 @@ async function createPost({
 async function hasPendingThemedPost(campaignId) {
   const db = await getDb();
   const row = await db.get(
-    `SELECT id FROM posts WHERE campaign_id = ? AND theme_id IS NOT NULL AND status = 'draft' LIMIT 1`,
+    `SELECT id FROM posts
+     WHERE campaign_id = ?
+       AND theme_id IS NOT NULL
+       AND status IN ('draft', 'scheduled')
+     LIMIT 1`,
     [campaignId]
   );
   return !!row;
@@ -52,7 +56,14 @@ async function countPostedPosts(campaignId) {
 
 async function getAllPosts(userId) {
   const db = await getDb();
-  return db.all('SELECT * FROM posts WHERE user_id = ? ORDER BY created_at DESC', [userId]);
+  // Include scheduled drafts so the dashboard can show them
+  return db.all(
+    `SELECT * FROM posts
+     WHERE user_id = ?
+       AND (status IS NULL OR status IN ('draft', 'scheduled', 'approved', 'posted', 'failed'))
+     ORDER BY created_at DESC`,
+    [userId]
+  );
 }
 
 async function getPostById(id, userId) {
@@ -80,12 +91,66 @@ async function updatePostContent(id, f) {
 
 async function markAsPosted(id) {
   const db = await getDb();
-  await db.run(`UPDATE posts SET status = 'posted', posted_at = CURRENT_TIMESTAMP WHERE id = ?`, [id]);
+  await db.run(
+    `UPDATE posts
+     SET status = 'posted',
+         posted_at = CURRENT_TIMESTAMP,
+         scheduled_at = NULL
+     WHERE id = ?`,
+    [id]
+  );
 }
 
 async function markAsRejected(id) {
   const db = await getDb();
   await db.run(`UPDATE posts SET status = 'rejected' WHERE id = ?`, [id]);
+}
+
+async function markAsFailed(id, errorMessage) {
+  const db = await getDb();
+  await db.run(
+    `UPDATE posts SET status = 'failed', error_message = ? WHERE id = ?`,
+    [errorMessage || null, id]
+  );
+}
+
+/**
+ * Mark a draft as scheduled for auto-publish at scheduledAt (ISO string).
+ */
+async function markAsScheduled(id, scheduledAtIso) {
+  const db = await getDb();
+  await db.run(
+    `UPDATE posts
+     SET status = 'scheduled', scheduled_at = ?
+     WHERE id = ?`,
+    [scheduledAtIso, id]
+  );
+}
+
+/**
+ * Posts that are due for automatic publishing.
+ */
+async function getDueScheduledPosts() {
+  const db = await getDb();
+  const now = new Date().toISOString();
+  return db.all(
+    `SELECT * FROM posts
+     WHERE status = 'scheduled'
+       AND scheduled_at IS NOT NULL
+       AND scheduled_at <= ?
+     ORDER BY scheduled_at ASC`,
+    [now]
+  );
+}
+
+// Deletes one post owned by this user. Returns the number of rows removed.
+async function deletePost(id, userId) {
+  const db = await getDb();
+  const result = await db.run(
+    'DELETE FROM posts WHERE id = ? AND user_id = ?',
+    [id, userId]
+  );
+  return result.changes;
 }
 
 module.exports = {
@@ -95,6 +160,10 @@ module.exports = {
   updatePostContent,
   markAsPosted,
   markAsRejected,
+  markAsFailed,
+  markAsScheduled,
+  getDueScheduledPosts,
   hasPendingThemedPost,
-  countPostedPosts
+  countPostedPosts,
+  deletePost
 };

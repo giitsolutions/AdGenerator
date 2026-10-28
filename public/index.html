@@ -42,39 +42,42 @@
     .side .foot { margin: 0 0 0 auto !important; flex-direction: row !important; align-items: center; }
   }
 
-  .logo { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 16px; padding: 4px 8px 18px; }
-  .logo-mark {
-    width: 40px; height: 40px; border-radius: 11px; background: #000;
-    overflow: hidden; flex: none; box-shadow: 0 0 0 1px rgba(255,255,255,0.1);
-  }
+  .logo { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 18px; padding: 4px 8px 18px; background: linear-gradient(90deg, #fb923c, #4ade80 50%, #c084fc); -webkit-background-clip: text; background-clip: text; color: transparent; cursor: pointer; transition: transform .2s ease; }
+  a.logo:hover { transform: translateX(2px); }
+  a.logo:focus-visible { outline: 3px solid rgba(249,115,22,.7); outline-offset: 3px; border-radius: 10px; }
+  :root[data-theme="light"] .logo { background: none; color: var(--text); -webkit-text-fill-color: var(--text); }
+  .logo-mark { width: 40px; height: 40px; border-radius: 11px; background: #000; overflow: hidden; flex: none; position: relative; isolation: isolate; box-shadow: 0 0 0 1px rgba(255,255,255,0.1); }
   .logo-mark img { display: block; width: 100%; height: 100%; object-fit: cover; }
+  .logo-mark::before { content: ""; position: absolute; inset: -5px; border-radius: 16px; z-index: -1; background: conic-gradient(from 200deg, #f97316, #22c55e, #a855f7, #f97316); filter: blur(10px); opacity: .6; animation: glowPulse 4s ease-in-out infinite; }
+  @keyframes glowPulse { 0%,100% { transform: scale(1); opacity: .45; } 50% { transform: scale(1.12); opacity: .85; } }
 
   .nav { display: flex; flex-direction: column; gap: 4px; }
-  .nav a { display: block; padding: 10px 12px; border-radius: 10px; color: var(--soft); font-size: 14px; font-weight: 600; cursor: pointer; }
-  .nav a:hover { background: var(--panel2); color: var(--text); }
+  .nav a { display: block; padding: 10px 12px; border-radius: 10px; color: var(--soft); font-size: 14px; font-weight: 600; cursor: pointer; transition: background .15s, color .15s, padding-left .15s; }
+  .nav a:hover { background: var(--panel2); color: var(--text); padding-left: 16px; box-shadow: inset 3px 0 0 #f97316; }
   .foot { margin-top: auto; display: flex; flex-direction: column; gap: 10px; padding: 10px 8px 0; border-top: 1px solid var(--line); }
   .foot span { font-size: 12px; color: var(--soft); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 210px; }
-  .logout-btn { background: transparent; border: 1px solid var(--line); color: var(--text); padding: 8px 12px; font-size: 13px; }
+  .logout-btn { background: transparent; border: 1px solid var(--line); color: var(--text); padding: 8px 12px; font-size: 13px; box-shadow: none; }
   .logout-btn:hover { background: var(--panel2); }
-  .theme-btn { background: var(--panel2); border: 1px solid var(--line); color: var(--text); padding: 8px 12px; font-size: 13px; font-weight: 600; }
+  .theme-btn { background: var(--panel2); border: 1px solid var(--line); color: var(--text); padding: 8px 12px; font-size: 13px; font-weight: 600; box-shadow: none; }
 
   h1 { font-size: clamp(26px, 4vw, 34px); line-height: 1.15; margin: 0 0 6px; font-weight: 800; letter-spacing: -.02em; }
   .sub { color: var(--soft); margin: 0 0 26px; max-width: 60ch; }
   .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 22px; }
   @media (max-width: 760px) { .stats { grid-template-columns: repeat(2, 1fr); } }
-  .stat { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 16px 18px; }
+  .stat { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 16px 18px; transition: transform .2s, border-color .2s, box-shadow .2s; }
+  .stat:hover { transform: translateY(-3px); border-color: rgba(249,115,22,.5); box-shadow: 0 10px 28px rgba(168,85,247,.18); }
   .stat small { display: block; color: var(--soft); font-size: 12px; font-weight: 600; margin-bottom: 6px; }
   .stat b { font-size: 30px; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; background: var(--ig); -webkit-background-clip: text; background-clip: text; color: transparent; }
   .stat b.txt { font-size: 18px; }
 
-  section { background: var(--panel); border: 1px solid var(--line); border-radius: 18px; padding: 24px; margin-bottom: 18px; }
+  section { position: relative; background: var(--panel); border: 1px solid var(--line); border-radius: 18px; padding: 24px; margin-bottom: 18px; }
+  section::before { content: ""; position: absolute; top: 0; left: 24px; right: 24px; height: 2px; border-radius: 2px; background: linear-gradient(90deg, #f97316, #22c55e, #a855f7); opacity: .75; }
   section h2 { font-size: 19px; margin: 0 0 4px; display: flex; align-items: center; gap: 12px; font-weight: 700; }
   .num { flex: none; width: 30px; height: 30px; border-radius: 10px; background: var(--ig); color: #fff; font-size: 14px; font-weight: 800; display: inline-flex; align-items: center; justify-content: center; }
   .opt { font-size: 12px; font-weight: 600; color: var(--soft); background: var(--panel2); border-radius: 999px; padding: 2px 10px; }
   .lead { color: var(--soft); font-size: 14px; margin: 0 0 18px 42px; }
-  .two { display: grid; grid-template-columns: 1fr; gap: 18px; align-items: start; }
+  .two { display: grid; grid-template-columns: 1fr; gap: 18px; align-items: start; margin-bottom: 18px; }
   .two section { margin-bottom: 0; }
-  .two + section, .two { margin-bottom: 18px; }
   @media (max-width: 860px) { .two { grid-template-columns: 1fr; } .lead { margin-left: 0; } section { padding: 18px; } }
 
   label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 4px; color: var(--soft); }
@@ -86,12 +89,12 @@
   .grid2 .full { grid-column: 1 / -1; }
   @media (max-width: 560px) { .grid2 { grid-template-columns: 1fr; } }
 
-  button { background: var(--ig); color: #fff; border: none; padding: 11px 22px; border-radius: 10px; font: 700 14px var(--sans); cursor: pointer; transition: filter .15s, transform .1s; }
+  button { background: var(--ig); color: #fff; border: none; padding: 11px 22px; border-radius: 10px; font: 700 14px var(--sans); cursor: pointer; transition: filter .15s, transform .1s; box-shadow: 0 8px 22px rgba(168,85,247,.22); }
   button:hover { filter: brightness(1.12); }
   button:active { transform: translateY(1px); }
   button:disabled { opacity: .5; cursor: not-allowed; filter: none; }
-  .btn-danger { background: var(--bad); }
-  .btn-secondary { background: var(--panel2); color: var(--text); border: 1px solid var(--line); }
+  .btn-danger { background: var(--bad); box-shadow: none; }
+  .btn-secondary { background: var(--panel2); color: var(--text); border: 1px solid var(--line); box-shadow: none; }
   .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
 
   .settings-note { font-size: 13px; color: var(--soft); margin: 0 0 10px; }
@@ -118,12 +121,13 @@
   .ob-text { flex: 1; min-width: 0; }
   .ob-text b { display: block; font-size: 15px; }
   .ob-text span { font-size: 13px; color: var(--soft); }
-  .onboard .ob-step button { background: var(--ob-btn-bg); color: var(--ob-btn-fg); padding: 8px 16px; font-size: 13px; }
-  .onboard button.ob-link, .ob-link { background: none; color: var(--link); padding: 6px 0 0; font-size: 13px; font-weight: 500; text-decoration: underline; }
+  .onboard .ob-step button { background: var(--ob-btn-bg); color: var(--ob-btn-fg); padding: 8px 16px; font-size: 13px; box-shadow: none; }
+  .ob-link { background: none; color: var(--link); padding: 6px 0 0; font-size: 13px; font-weight: 500; text-decoration: underline; box-shadow: none; }
   .pulse { outline: 3px solid #fa7e1e; outline-offset: 5px; }
   @media (max-width: 560px) { .ob-step { flex-wrap: wrap; } .onboard { padding: 18px; } }
 
-  .post-card { border: 1px solid var(--line); border-radius: 14px; padding: 16px; margin-bottom: 14px; background: var(--panel2); }
+  .post-card { border: 1px solid var(--line); border-radius: 14px; padding: 16px; margin-bottom: 14px; background: var(--panel2); transition: transform .2s, border-color .2s; }
+  .post-card:hover { transform: translateY(-2px); border-color: rgba(168,85,247,.5); }
   .post-card img { display: block; width: 100%; max-height: 440px; object-fit: cover; border-radius: 10px; margin: 12px 0; }
   .post-card p { margin: 8px 0; white-space: pre-line; }
   .status { display: inline-block; font-size: 12px; font-weight: 700; padding: 3px 12px; border-radius: 999px; color: var(--status-fg); text-transform: capitalize; }
@@ -131,70 +135,25 @@
   .approved, .posted { background: var(--ok); }
   .rejected { background: var(--bad); }
   .failed { background: var(--warn); }
-  .actions { display: flex; gap: 10px; margin-top: 12px; }
+  .actions { display: flex; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
   .actions button { padding: 8px 18px; font-size: 13px; }
 
-  @media (prefers-reduced-motion: reduce) { * { transition: none !important; scroll-behavior: auto !important; } }
-
-  /* ---- Brand polish ---- */
-  .logo { background: linear-gradient(90deg, #fb923c, #4ade80 50%, #c084fc); -webkit-background-clip: text; background-clip: text; color: transparent; font-size: 18px; }
-  :root[data-theme="light"] .logo { background: none; color: var(--text); }
-  .logo-mark { position: relative; overflow: visible; isolation: isolate; }
-  .logo-mark img { border-radius: inherit; }
-  .logo-mark::before {
-    content: ""; position: absolute; inset: -5px; border-radius: 16px; z-index: -1;
-    background: conic-gradient(from 200deg, #f97316, #22c55e, #a855f7, #f97316);
-    filter: blur(10px); opacity: .6; animation: glowPulse 4s ease-in-out infinite;
-  }
-  @keyframes glowPulse { 0%,100% { transform: scale(1); opacity: .45; } 50% { transform: scale(1.12); opacity: .85; } }
-  section, .onboard { position: relative; }
-  section::before {
-    content: ""; position: absolute; top: 0; left: 24px; right: 24px; height: 2px; border-radius: 2px;
-    background: linear-gradient(90deg, #f97316, #22c55e, #a855f7); opacity: .75;
-  }
-  .stat { transition: transform .2s, border-color .2s, box-shadow .2s; }
-  .stat:hover { transform: translateY(-3px); border-color: rgba(249,115,22,.5); box-shadow: 0 10px 28px rgba(168,85,247,.18); }
-  .post-card { transition: transform .2s, border-color .2s; }
-  .post-card:hover { transform: translateY(-2px); border-color: rgba(168,85,247,.5); }
-  .nav a { transition: background .15s, color .15s, padding-left .15s; }
-  .nav a:hover { padding-left: 16px; box-shadow: inset 3px 0 0 #f97316; }
-  button:not(.logout-btn):not(.theme-btn):not(.btn-secondary):not(.btn-danger):not(.ob-link) { box-shadow: 0 8px 22px rgba(168,85,247,.22); }
-  @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; } }
-  /* ---- Logo link ---- */
-  a.logo { cursor: pointer; text-decoration: none; transition: transform .2s ease; }
-  a.logo:hover { transform: translateX(2px); }
-  a.logo:focus-visible { outline: 3px solid rgba(249,115,22,.7); outline-offset: 3px; border-radius: 10px; }
-
-  /* ---- Image edit + Claim popups (shared) ---- */
-  .img-edit-overlay {
-    display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.65);
-    z-index: 9999; align-items: center; justify-content: center; padding: 16px;
-  }
-  .img-edit-overlay.open { display: flex; }
-  .img-edit-card {
-    width: 100%; max-width: 440px; max-height: 90vh; overflow: auto;
-    background: var(--panel); border: 1px solid var(--line); border-radius: 16px;
-    padding: 20px; box-shadow: 0 20px 50px rgba(0,0,0,0.4);
-  }
-  .img-edit-card h3 { margin: 0 0 6px; font-size: 18px; }
-  .img-edit-card .lead { margin: 0 0 14px; font-size: 13px; color: var(--soft); }
-  .img-edit-card label { display: block; font-size: 12px; font-weight: 600; color: var(--soft); margin: 10px 0 4px; }
-  .img-edit-card input {
-    width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line);
-    background: var(--input); color: var(--text); font: inherit; box-sizing: border-box;
-  }
-  .img-edit-actions { display: flex; gap: 10px; margin-top: 16px; flex-wrap: wrap; }
-  .img-edit-actions button { flex: 1; min-width: 120px; }
-
-  /* ---- Claim now ---- */
   .claim-now-wrap { margin-top: 10px; }
   .claim-now-btn { padding: 10px 20px; font-size: 14px; }
   .claim-row { margin: 12px 0; word-break: break-all; }
   .claim-row a { color: var(--link); font-weight: 600; text-decoration: none; }
   .claim-row a:hover { text-decoration: underline; }
   .claim-empty { color: var(--soft); font-size: 14px; }
-  .claim-setup { margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--line); }
-  .claim-setup h3 { font-size: 15px; margin: 0 0 4px; }
+
+  .img-edit-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.65); z-index: 9999; align-items: center; justify-content: center; padding: 16px; }
+  .img-edit-overlay.open { display: flex; }
+  .img-edit-card { width: 100%; max-width: 440px; max-height: 90vh; overflow: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 20px; box-shadow: 0 20px 50px rgba(0,0,0,0.4); }
+  .img-edit-card h3 { margin: 0 0 6px; font-size: 18px; }
+  .img-edit-card .lead { margin: 0 0 14px; font-size: 13px; color: var(--soft); }
+  .img-edit-actions { display: flex; gap: 10px; margin-top: 16px; flex-wrap: wrap; }
+  .img-edit-actions button { flex: 1; min-width: 120px; }
+
+  @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition: none !important; animation: none !important; scroll-behavior: auto !important; } }
 </style>
 <script>try{document.documentElement.setAttribute('data-theme',localStorage.getItem('theme')||'dark')}catch(e){}</script>
 </head>
@@ -214,6 +173,8 @@
       <a onclick="goToSection('sec-generate')">Generate</a>
       <a onclick="goToSection('sec-themes')">Daily themes</a>
       <a onclick="goToSection('sec-review')">Review posts</a>
+      <a href="/schedule.html">Schedule</a>
+      <a href="upload.html">Upload photos</a>
     </nav>
     <div class="foot">
       <span id="userEmail">Logged in</span>
@@ -283,9 +244,11 @@
     <div class="two">
       <section id="sec-generate">
         <h2><span class="num">3</span>Generate a post</h2>
-        <p class="lead">Pick a campaign and AI builds the ad.</p>
+        <p class="lead">Pick a campaign and AI builds the ad using your next saved photo.</p>
         <label for="campaignSelect">Campaign</label>
         <select id="campaignSelect"></select>
+        <label for="genPhoto">Photo for this post</label>
+<select id="genPhoto"></select>
         <button onclick="generatePost(event)">Generate with AI</button>
       </section>
       <section id="sec-themes">
@@ -306,30 +269,6 @@
 
 </div>
 
-<div id="imgEditOverlay" class="img-edit-overlay" onclick="if(event.target===this)closeImageEditor()">
-  <div class="img-edit-card" role="dialog" aria-labelledby="imgEditTitle">
-    <h3 id="imgEditTitle">Edit image text</h3>
-    <p class="lead">Update the words on the ad. The photo stays the same.</p>
-    <input type="hidden" id="editPostId" />
-    <label for="editHeadlineMain">Headline (main)</label>
-    <input id="editHeadlineMain" placeholder="e.g. Train Harder" />
-    <label for="editHeadlineAccent">Headline (accent)</label>
-    <input id="editHeadlineAccent" placeholder="e.g. This Month" />
-    <label for="editSubheadline">Subheadline</label>
-    <input id="editSubheadline" placeholder="e.g. Open 5am–11pm" />
-    <label for="editOfferText">Offer badge</label>
-    <input id="editOfferText" placeholder="e.g. 50% OFF" />
-    <label for="editCtaLabel">Button label</label>
-    <input id="editCtaLabel" placeholder="e.g. Join now" />
-    <label for="editTagline">Tagline (optional)</label>
-    <input id="editTagline" placeholder="e.g. Your best self" />
-    <div class="img-edit-actions">
-      <button type="button" class="btn-secondary" onclick="closeImageEditor()">Cancel</button>
-      <button type="button" id="editImageSaveBtn" onclick="saveImageEdit(event)">Update image</button>
-    </div>
-  </div>
-</div>
-
 <div id="claimOverlay" class="img-edit-overlay" onclick="if(event.target===this)closeClaim()">
   <div class="img-edit-card" role="dialog" aria-labelledby="claimTitle">
     <h3 id="claimTitle">Contact us</h3>
@@ -340,209 +279,7 @@
     </div>
   </div>
 </div>
-
+<script src="schedule.js"></script>
 <script src="app.js"></script>
-<script>
-(function () {
-  let campaignsCache = [];
-
-  function getToken() {
-    return localStorage.getItem('authToken') || localStorage.getItem('token') || '';
-  }
-
-  async function api(path, options = {}) {
-    const res = await fetch(path, {
-      ...options,
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer ' + getToken(),
-        ...(options.headers || {})
-      }
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(data.error || 'Request failed (' + res.status + ')');
-    return data;
-  }
-
-  function digitsOnly(value) {
-    return String(value || '').replace(/\D/g, '');
-  }
-
-  async function loadCampaigns() {
-    try {
-      const data = await api('/api/campaigns');
-      campaignsCache = Array.isArray(data) ? data : [];
-    } catch (err) {
-      console.error('[claim] loadCampaigns:', err.message);
-    }
-    return campaignsCache;
-  }
-
-  /* ---------- Claim contact box (Generate section) ---------- */
-
-  function fillClaimFieldsFromSelected() {
-    const id = document.getElementById('campaignSelect').value;
-    const c = campaignsCache.find(x => String(x.id) === String(id));
-    document.getElementById('claimEmail').value = c ? (c.contact_email || '') : '';
-    document.getElementById('claimWhatsapp').value = c ? (c.whatsapp_number || '') : '';
-    document.getElementById('claimStatus').textContent = '';
-  }
-
-  async function saveClaimContact(event) {
-    if (event) event.preventDefault();
-    const statusEl = document.getElementById('claimStatus');
-    const id = document.getElementById('campaignSelect').value;
-
-    if (!id) {
-      statusEl.textContent = 'Create or pick a campaign first.';
-      return;
-    }
-
-    const email = document.getElementById('claimEmail').value.trim();
-    const whatsapp = document.getElementById('claimWhatsapp').value.trim();
-
-    try {
-      statusEl.textContent = 'Saving...';
-      await api('/api/campaigns/' + id, {
-        method: 'PATCH',
-        body: JSON.stringify({
-          contact_email: email || null,
-          whatsapp_number: whatsapp || null
-        })
-      });
-      await loadCampaigns();
-      fillClaimFieldsFromSelected();
-      statusEl.textContent = '✅ Contact details saved.';
-    } catch (err) {
-      statusEl.textContent = '❌ ' + err.message;
-    }
-  }
-
-  /* ---------- Claim now button on generated posts ---------- */
-
-  function injectClaimButtons() {
-    const list = document.getElementById('postsList');
-    if (!list) return;
-
-    list.querySelectorAll('.post-card').forEach(card => {
-      if (card.querySelector('.claim-now-wrap')) return;
-      const img = card.querySelector('img');
-      if (!img) return;
-
-      const wrap = document.createElement('div');
-      wrap.className = 'claim-now-wrap';
-
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'claim-now-btn';
-      btn.textContent = 'Claim now';
-      btn.addEventListener('click', () => openClaim(img.getAttribute('src')));
-
-      wrap.appendChild(btn);
-      img.insertAdjacentElement('afterend', wrap);
-    });
-  }
-
-  function showClaimPopup() {
-    document.getElementById('claimOverlay').classList.add('open');
-  }
-
-  function closeClaim() {
-    document.getElementById('claimOverlay').classList.remove('open');
-  }
-
-  function renderClaim(campaign) {
-    const content = document.getElementById('claimContent');
-    content.textContent = '';
-
-    const email = String((campaign && campaign.contact_email) || '').trim();
-    const phone = digitsOnly(campaign && campaign.whatsapp_number);
-    const product = (campaign && campaign.product_name) || 'your offer';
-
-    if (!email && !phone) {
-      const p = document.createElement('p');
-      p.className = 'claim-empty';
-      p.textContent = 'No contact details have been added for this campaign yet.';
-      content.appendChild(p);
-      return;
-    }
-
-    if (email) {
-      const row = document.createElement('div');
-      row.className = 'claim-row';
-      const a = document.createElement('a');
-      a.href = 'mailto:' + email;
-      a.textContent = '📧 ' + email;
-      row.appendChild(a);
-      content.appendChild(row);
-    }
-
-    if (phone) {
-      const row = document.createElement('div');
-      row.className = 'claim-row';
-      const a = document.createElement('a');
-      a.href = 'https://wa.me/' + phone + '?text=' + encodeURIComponent("Hi, I'm interested in " + product);
-      a.target = '_blank';
-      a.rel = 'noopener';
-      a.textContent = '💬 Chat on WhatsApp';
-      row.appendChild(a);
-      content.appendChild(row);
-    }
-  }
-
-  async function openClaim(imageSrc) {
-    const content = document.getElementById('claimContent');
-    content.textContent = 'Loading...';
-    showClaimPopup();
-
-    try {
-      const [posts, campaigns] = await Promise.all([
-        api('/api/posts'),
-        loadCampaigns()
-      ]);
-
-      const post = (Array.isArray(posts) ? posts : []).find(p => p.image_url && p.image_url === imageSrc);
-      const campaignId = post ? post.campaign_id : document.getElementById('campaignSelect').value;
-      const campaign = campaigns.find(c => String(c.id) === String(campaignId));
-
-      renderClaim(campaign);
-    } catch (err) {
-      content.textContent = '';
-      const p = document.createElement('p');
-      p.className = 'claim-empty';
-      p.textContent = 'Could not load contact details: ' + err.message;
-      content.appendChild(p);
-    }
-  }
-
-  /* ---------- Wiring ---------- */
-
-  window.saveClaimContact = saveClaimContact;
-  window.closeClaim = closeClaim;
-  window.openClaim = openClaim;
-
-  document.addEventListener('DOMContentLoaded', () => {
-    loadCampaigns().then(fillClaimFieldsFromSelected);
-
-    const select = document.getElementById('campaignSelect');
-    if (select) {
-      select.addEventListener('change', async () => {
-        await loadCampaigns();
-        fillClaimFieldsFromSelected();
-      });
-    }
-
-    const postsList = document.getElementById('postsList');
-    if (postsList) {
-      new MutationObserver(injectClaimButtons).observe(postsList, { childList: true, subtree: true });
-      injectClaimButtons();
-    }
-
-    document.addEventListener('keydown', e => {
-      if (e.key === 'Escape') closeClaim();
-    });
-  });
-})();
-</script>
 </body>
 </html>

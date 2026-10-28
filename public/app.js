@@ -1,6 +1,7 @@
 /* KwikPost - frontend logic
    Campaigns, posts, onboarding, theme, Edit text (opens edit.html),
-   Claim now contact popup */
+   Claim now contact popup
+   + Schedule / auto-publish buttons */
 
 const CAMPAIGNS_API = '/api/campaigns';
 const POSTS_API     = '/api/posts';
@@ -69,7 +70,6 @@ async function withBusy(btn, fn) {
 }
 function btnOf(evt) { return evt && (evt.currentTarget || evt.target) || null; }
 
-// Reads an input by id. Returns '' if the element is not on the page.
 function fieldValue(id) {
   const el = $(id);
   return el ? el.value.trim() : '';
@@ -268,7 +268,6 @@ function updateCampaign(evt) {
     const v = campaignFormValues();
     if (!v.productName) throw new Error('Product/Service name is required');
 
-    // Backend route is PATCH /api/campaigns/:id
     await api(CAMPAIGNS_API + '/' + encodeURIComponent(editingCampaignId), {
       method: 'PATCH',
       body: JSON.stringify(campaignPayload(v))
@@ -363,7 +362,6 @@ async function openClaim(imageSrc) {
   }
 }
 
-// Adds a Claim now button under each post image.
 function injectClaimButtons() {
   document.querySelectorAll('#postsList .post-card').forEach(function (card) {
     if (card.querySelector('.claim-now-wrap')) return;
@@ -389,10 +387,68 @@ function generatePost(evt) {
   return withBusy(btnOf(evt), async function () {
     const campaign_id = $('campaignSelect').value;
     if (!campaign_id) throw new Error('Create/select a campaign first');
-    await api(CAMPAIGNS_API + '/' + encodeURIComponent(campaign_id) + '/generate', { method: 'POST' });
+
+    const photoId = $('genPhoto') ? $('genPhoto').value : '';
+    await api(CAMPAIGNS_API + '/' + encodeURIComponent(campaign_id) + '/generate', {
+      method: 'POST',
+      body: JSON.stringify({ libraryImageId: photoId || null })
+    });
     await loadPosts();
   });
 }
+
+// ===== PHOTO LIBRARY UPLOAD =====
+const LIBRARY_API = '/api/library';
+
+function readFileAsDataUrl(file) {
+  return new Promise(function (resolve, reject) {
+    const reader = new FileReader();
+    reader.onload = function () { resolve(reader.result); };
+    reader.onerror = function () { reject(new Error('Could not read the file')); };
+    reader.readAsDataURL(file);
+  });
+}
+
+async function loadLibraryList() {
+  const box = $('libList');
+  if (!box) return;
+  try {
+    const rows = await api(LIBRARY_API);
+    const list = Array.isArray(rows) ? rows : [];
+    box.textContent = list.length
+      ? 'Saved photos (' + list.length + '): ' + list.map(function (r) { return r.title; }).join(', ')
+      : 'No saved photos yet.';
+  } catch (err) {
+    box.textContent = 'Could not load saved photos.';
+  }
+}
+
+function uploadLibraryImage(evt) {
+  return withBusy(btnOf(evt), async function () {
+    const input = $('libFile');
+    const status = $('libStatus');
+    const file = input && input.files[0];
+    if (!file) throw new Error('Choose an image first');
+    if (!/^image\/(jpeg|png)$/.test(file.type)) throw new Error('Only JPG or PNG images');
+    if (file.size > 8 * 1024 * 1024) throw new Error('Image must be under 8 MB');
+
+    if (status) status.textContent = 'Uploading...';
+    const imageData = await readFileAsDataUrl(file);
+    const title = fieldValue('libTitle') || file.name;
+
+    await api(LIBRARY_API, {
+      method: 'POST',
+      body: JSON.stringify({ title: title, imageData: imageData })
+    });
+
+    input.value = '';
+    if ($('libTitle')) $('libTitle').value = '';
+    if (status) status.textContent = 'Saved to the database.';
+    await loadLibraryList();
+  });
+}
+
+loadLibraryList();
 
 // ===== DAILY THEMES =====
 function saveThemes(evt) {
@@ -412,7 +468,7 @@ function saveThemes(evt) {
   });
 }
 
-// ===== POSTS =====
+// ===== POSTS (with Schedule / Cancel / Retry) =====
 async function loadPosts() {
   const box = $('postsList');
   try {
@@ -444,22 +500,53 @@ async function loadPosts() {
         ? '<img src="' + esc(p.image_url) + bust + '" alt="Ad graphic" />'
         : '';
       const tags = safeHashtags(p.hashtags).map(function (h) { return esc(h); }).join(' ');
-      const isDraft = !p.status || p.status === 'draft';
       const id = esc(JSON.stringify(p.id));
-      const actions = isDraft
-        ? '<div class="actions">' +
-            '<button type="button" onclick="openImageEditor(' + id + ')">Edit text</button>' +
-            '<button type="button" onclick="postAction(' + id + ',\'approve\',event)">Approve</button>' +
-            '<button type="button" class="btn-danger" onclick="postAction(' + id + ',\'reject\',event)">Reject</button>' +
-          '</div>'
+      const st = (p.status || 'draft').toLowerCase();
+      const isDraft = !p.status || st === 'draft';
+      const isScheduled = st === 'scheduled' || st === 'publishing';
+      const isFailed = st === 'failed';
+
+      let schedulePart = '';
+      if (isDraft || isFailed) {
+        schedulePart =
+          '<button type="button" class="schedule-btn" onclick="schedulePost(' + id + ')">Schedule</button>' +
+          '<button type="button" class="unschedule-btn" onclick="unschedulePost(' + id + ')" style="display:none">Cancel schedule</button>' +
+          '<button type="button" class="retry-btn" onclick="retryScheduledPost(' + id + ')"' +
+            (isFailed ? '' : ' style="display:none"') + '>Retry</button>' +
+          '<span class="sched-label"></span>';
+      } else if (isScheduled) {
+        const whenLabel = (typeof formatScheduled === 'function' && p.scheduled_at)
+          ? formatScheduled(p.scheduled_at)
+          : (p.scheduled_at || '');
+        schedulePart =
+          '<button type="button" class="unschedule-btn" onclick="unschedulePost(' + id + ')">Cancel schedule</button>' +
+          '<span class="sched-label">Scheduled · ' + esc(whenLabel) + '</span>';
+      }
+
+      const draftActions = isDraft
+        ? '<button type="button" onclick="openImageEditor(' + id + ')">Edit text</button>' +
+          '<button type="button" onclick="postAction(' + id + ',\'approve\',event)">Approve</button>' +
+          '<button type="button" class="btn-danger" onclick="postAction(' + id + ',\'reject\',event)">Reject</button>'
         : '';
-      return '<div class="post-card"><span class="status ' + status + '">' + status + '</span>' + img +
+
+      const actions = (draftActions || schedulePart)
+        ? '<div class="actions">' + draftActions + schedulePart + '</div>'
+        : '';
+
+      return '<div class="post-card" data-post-id="' + esc(p.id) + '">' +
+             '<span class="status ' + status + '">' + status + '</span>' +
+             img +
              '<p>' + esc(p.caption || p.content || '') + '</p>' +
              (tags ? '<p class="settings-note">' + tags + '</p>' : '') +
-             actions + '</div>';
+             actions +
+             '</div>';
     }).join('');
 
     injectClaimButtons();
+
+    if (typeof updateScheduleBadges === 'function') {
+      updateScheduleBadges(posts);
+    }
   } catch (err) {
     if (box) box.textContent = 'Could not load posts: ' + err.message;
   }
@@ -475,7 +562,7 @@ function postAction(id, action, evt) {
   });
 }
 
-// ===== EDIT TEXT (opens edit.html in a new tab) =====
+// ===== EDIT TEXT =====
 function openImageEditor(postId) {
   const post = postsCache.find(function (p) {
     return String(p.id) === String(postId);
@@ -489,7 +576,6 @@ function openImageEditor(postId) {
     return;
   }
 
-  // Open the tab first so the browser doesn't block it.
   const win = window.open('', '_blank');
   api(POSTS_API + '/' + encodeURIComponent(post.id) + '/edit-link', { method: 'POST' })
     .then(function (d) {
@@ -502,8 +588,6 @@ function openImageEditor(postId) {
     });
 }
 
-// Refresh the post list when the user returns to the dashboard tab
-// (for example after saving or approving in edit.html).
 document.addEventListener('visibilitychange', function () {
   if (document.visibilityState === 'visible') loadPosts();
 });
@@ -604,7 +688,7 @@ function toggleTheme() {
 }
 applyTheme(currentTheme());
 
-// ===== PAGES (optional hash routes) =====
+// ===== PAGES =====
 var pendingScroll = null;
 
 function currentPage() {
@@ -637,7 +721,6 @@ function goHome() {
   else window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
-// Escape closes the Claim popup
 document.addEventListener('DOMContentLoaded', function () {
   document.addEventListener('keydown', function (e) {
     if (e.key === 'Escape') closeClaim();
@@ -645,6 +728,25 @@ document.addEventListener('DOMContentLoaded', function () {
   const sel = $('campaignSelect');
   if (sel) sel.addEventListener('change', function () { loadThemes(); });
 });
+
+async function loadPhotoPicker() {
+  const sel = $('genPhoto');
+  if (!sel) return;
+  const current = sel.value;
+  try {
+    const rows = await api('/api/library');
+    const list = Array.isArray(rows) ? rows : [];
+    sel.innerHTML = '<option value="">Auto (next in rotation)</option>' +
+      list.map(function (r) {
+        return '<option value="' + esc(r.id) + '">' + esc(r.title) + '</option>';
+      }).join('');
+    if (current) sel.value = current;
+  } catch (err) {
+    sel.innerHTML = '<option value="">Auto (next in rotation)</option>';
+  }
+}
+
+loadPhotoPicker();
 
 // ===== INIT =====
 showPage(currentPage());

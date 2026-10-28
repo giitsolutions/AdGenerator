@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>KwikPost — Schedule</title>
+<style>
+  body { margin: 0; background: #0b0a10; color: #f5f2fb; font-family: system-ui, sans-serif; }
+  .top {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 20px; border-bottom: 1px solid #2a2634;
+  }
+  .top a { color: #c4b5fd; text-decoration: none; }
+  .top h1 { margin: 0; font-size: 18px; }
+  .wrap { max-width: 980px; margin: 24px auto; padding: 0 16px; }
+  .card {
+    background: #0f0e15; border: 1px solid #2a2634; border-radius: 16px; padding: 18px;
+  }
+  .nav-row {
+    display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;
+  }
+  button, .btn {
+    background: #7c3aed; color: #fff; border: 0; border-radius: 8px;
+    padding: 8px 14px; cursor: pointer; font-size: 14px;
+  }
+  button.secondary, .btn.secondary {
+    background: #1c1826; border: 1px solid #2a2634; color: #f5f2fb;
+  }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+  .settings-note { color: #a39bbd; font-size: 13px; }
+  .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; margin-top: 12px; }
+  .cal-h { text-align: center; font-size: 12px; color: #a39bbd; padding: 4px; }
+  .cal-day {
+    background: #17151f; border-radius: 8px; min-height: 78px;
+    padding: 6px; font-size: 12px; color: #a39bbd; cursor: pointer;
+    border: 1px solid transparent;
+  }
+  .cal-day:hover { border-color: #7c3aed; }
+  .cal-day.selected { outline: 2px solid #a855f7; }
+  .cal-day.today { outline: 2px solid #f97316; }
+  .cal-day.selected.today { outline: 2px solid #a855f7; box-shadow: 0 0 0 2px #f97316; }
+  .cal-num { font-weight: 700; color: #f5f2fb; margin-bottom: 4px; }
+  .cal-pill {
+    display: block; width: 100%; background: #a855f7; color: #fff;
+    border: 0; border-radius: 5px; padding: 2px 5px; margin-top: 3px;
+    font-size: 11px; text-align: left; cursor: pointer;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  /* Modal */
+  .overlay {
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,.65);
+    align-items: center; justify-content: center; z-index: 50;
+  }
+  .overlay.open { display: flex; }
+  .modal {
+    background: #12101a; border: 1px solid #2a2634; border-radius: 14px;
+    padding: 20px; width: min(420px, 92vw);
+  }
+  .modal h3 { margin: 0 0 8px; }
+  .modal label { display: block; margin: 12px 0 4px; font-size: 13px; color: #a39bbd; }
+  .modal select, .modal input {
+    width: 100%; box-sizing: border-box; padding: 10px; border-radius: 8px;
+    border: 1px solid #2a2634; background: #17151f; color: #f5f2fb;
+  }
+  .modal .row { display: flex; gap: 8px; margin-top: 16px; justify-content: flex-end; }
+  .quick { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .quick button { font-size: 12px; padding: 6px 10px; }
+</style>
+</head>
+<body>
+  <div class="top">
+    <a href="/index.html">← Back to dashboard</a>
+    <h1>📅 Schedule a post</h1>
+    <span class="settings-note">Click a date → pick draft → schedule</span>
+  </div>
+
+  <div class="wrap">
+    <div class="card">
+      <div class="nav-row">
+        <button type="button" class="secondary" onclick="calPrevMonth()">‹ Prev</button>
+        <h2 id="calTitle" style="margin:0;font-size:18px;">Month</h2>
+        <button type="button" class="secondary" onclick="calNextMonth()">Next ›</button>
+      </div>
+      <p class="settings-note">Click any day to schedule a draft for that date. Purple pills = already scheduled (click to cancel).</p>
+      <div id="calGrid" class="cal-grid"></div>
+    </div>
+  </div>
+
+  <!-- Schedule modal -->
+  <div id="schedOverlay" class="overlay" onclick="if(event.target===this)closeSchedModal()">
+    <div class="modal" role="dialog">
+      <h3>Schedule for <span id="modalDateLabel">—</span></h3>
+      <p class="settings-note" id="modalHint">Choose a draft and a time.</p>
+
+      <label for="modalPost">Draft post</label>
+      <select id="modalPost"></select>
+
+      <label for="modalTime">Time</label>
+      <input type="time" id="modalTime" value="09:00" />
+
+      <div class="quick">
+        <button type="button" class="secondary" onclick="setModalTime('09:00')">9:00 AM</button>
+        <button type="button" class="secondary" onclick="setModalTime('12:00')">12:00 PM</button>
+        <button type="button" class="secondary" onclick="setModalTime('19:30')">7:30 PM</button>
+        <button type="button" class="secondary" onclick="setModalTime('20:15')">8:15 PM</button>
+      </div>
+
+      <div class="row">
+        <button type="button" class="secondary" onclick="closeSchedModal()">Cancel</button>
+        <button type="button" id="modalSaveBtn" onclick="confirmSchedule()">Schedule post</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+const POSTS_API = '/api/posts';
+
+function getToken() {
+  return localStorage.getItem('authToken') || localStorage.getItem('token') || '';
+}
+if (!getToken()) window.location.href = '/login.html';
+
+function authHeaders(extra) {
+  const h = Object.assign({ 'ngrok-skip-browser-warning': 'true' }, extra || {});
+  const t = getToken();
+  if (t) h['Authorization'] = 'Bearer ' + t;
+  return h;
+}
+
+function esc(v) {
+  return String(v == null ? '' : v)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+let postsCache = [];
+let calYear = new Date().getFullYear();
+let calMonth = new Date().getMonth();
+let selectedY = null, selectedM = null, selectedD = null;
+
+async function api(url, options) {
+  options = options || {};
+  const headers = authHeaders(options.headers);
+  if (options.body && !headers['Content-Type']) headers['Content-Type'] = 'application/json';
+  const res = await fetch(url, Object.assign({}, options, { headers: headers }));
+  if (res.status === 401) { window.location.href = '/login.html'; throw new Error('Session expired'); }
+  let data = null;
+  try { data = await res.json(); } catch (e) {}
+  if (!res.ok || (data && data.error)) {
+    throw new Error((data && data.error) || 'Request failed (' + res.status + ')');
+  }
+  return data;
+}
+
+async function loadPosts() {
+  const data = await api(POSTS_API);
+  postsCache = Array.isArray(data) ? data : ((data && data.posts) || []);
+  renderCalendar();
+}
+
+function calPrevMonth() {
+  calMonth--;
+  if (calMonth < 0) { calMonth = 11; calYear--; }
+  renderCalendar();
+}
+function calNextMonth() {
+  calMonth++;
+  if (calMonth > 11) { calMonth = 0; calYear++; }
+  renderCalendar();
+}
+
+function renderCalendar() {
+  const title = document.getElementById('calTitle');
+  const grid = document.getElementById('calGrid');
+  if (!grid) return;
+
+  const monthNames = ['January','February','March','April','May','June',
+    'July','August','September','October','November','December'];
+  if (title) title.textContent = monthNames[calMonth] + ' ' + calYear;
+
+  const first = new Date(calYear, calMonth, 1);
+  const startPad = first.getDay();
+  const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
+  const today = new Date();
+  const isThisMonth = today.getFullYear() === calYear && today.getMonth() === calMonth;
+  const todayDate = today.getDate();
+
+  const byDay = {};
+  postsCache.forEach(function (p) {
+    const st = (p.status || '').toLowerCase();
+    if (st !== 'scheduled' && st !== 'publishing' && st !== 'posted') return;
+    if (!p.scheduled_at) return;
+    const d = new Date(p.scheduled_at);
+    if (Number.isNaN(d.getTime())) return;
+    if (d.getFullYear() !== calYear || d.getMonth() !== calMonth) return;
+    const key = d.getDate();
+    if (!byDay[key]) byDay[key] = [];
+    byDay[key].push(p);
+  });
+
+  const headers = ['S','M','T','W','T','F','S']
+    .map(function (h) { return '<div class="cal-h">' + h + '</div>'; }).join('');
+
+  let cells = '';
+  for (let i = 0; i < startPad; i++) {
+    cells += '<div class="cal-day" style="opacity:0.3;cursor:default"></div>';
+  }
+  for (let n = 1; n <= daysInMonth; n++) {
+    const isToday = isThisMonth && n === todayDate;
+    const isSelected = selectedY === calYear && selectedM === calMonth && selectedD === n;
+    const posts = byDay[n] || [];
+    const pills = posts.map(function (p) {
+      const label = esc((p.caption || p.content || ('Post ' + p.id)).slice(0, 22));
+      const id = JSON.stringify(p.id);
+      const canCancel = (p.status || '').toLowerCase() === 'scheduled';
+      if (canCancel) {
+        return '<button type="button" class="cal-pill" onclick="event.stopPropagation();cancelScheduled(' + id + ')">' + label + '</button>';
+      }
+      return '<span class="cal-pill" style="opacity:0.85;cursor:default">' + label + '</span>';
+    }).join('');
+
+    cells += '<div class="cal-day' +
+      (isToday ? ' today' : '') +
+      (isSelected ? ' selected' : '') +
+      '" onclick="onDayClick(' + calYear + ',' + calMonth + ',' + n + ')">' +
+      '<div class="cal-num">' + n + '</div>' + pills + '</div>';
+  }
+  grid.innerHTML = headers + cells;
+}
+
+function onDayClick(y, m, d) {
+  // block past dates (except today)
+  const picked = new Date(y, m, d, 23, 59, 59);
+  if (picked.getTime() < Date.now() - 60000) {
+    alert('Please choose today or a future date');
+    return;
+  }
+  selectedY = y; selectedM = m; selectedD = d;
+  renderCalendar();
+  openSchedModal();
+}
+
+function setModalTime(t) {
+  document.getElementById('modalTime').value = t;
+}
+
+function openSchedModal() {
+  const drafts = postsCache.filter(function (p) {
+    const st = (p.status || 'draft').toLowerCase();
+    return !p.status || st === 'draft' || st === 'failed';
+  });
+
+  const sel = document.getElementById('modalPost');
+  if (!drafts.length) {
+    sel.innerHTML = '<option value="">No drafts — generate one on the dashboard first</option>';
+    document.getElementById('modalSaveBtn').disabled = true;
+  } else {
+    sel.innerHTML = drafts.map(function (p) {
+      const label = (p.caption || p.content || ('Post #' + p.id)).slice(0, 70);
+      return '<option value="' + esc(p.id) + '">' + esc(label) + '</option>';
+    }).join('');
+    document.getElementById('modalSaveBtn').disabled = false;
+  }
+
+  const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  document.getElementById('modalDateLabel').textContent =
+    monthNames[selectedM] + ' ' + selectedD + ', ' + selectedY;
+
+  // default time: if today and morning already passed → 19:30 else 09:00
+  const now = new Date();
+  const isToday = now.getFullYear() === selectedY && now.getMonth() === selectedM && now.getDate() === selectedD;
+  document.getElementById('modalTime').value = (isToday && now.getHours() >= 9) ? '19:30' : '09:00';
+
+  document.getElementById('schedOverlay').classList.add('open');
+}
+
+function closeSchedModal() {
+  document.getElementById('schedOverlay').classList.remove('open');
+}
+
+async function confirmSchedule() {
+  const postId = document.getElementById('modalPost').value;
+  const time = document.getElementById('modalTime').value; // HH:MM
+  if (!postId) { alert('Select a draft'); return; }
+  if (!time) { alert('Pick a time'); return; }
+
+  const parts = time.split(':');
+  const when = new Date(selectedY, selectedM, selectedD, parseInt(parts[0], 10), parseInt(parts[1], 10), 0, 0);
+  if (when.getTime() < Date.now() - 60000) {
+    alert('That time is in the past — pick a later time');
+    return;
+  }
+
+  const btn = document.getElementById('modalSaveBtn');
+  btn.disabled = true;
+  try {
+    await api(POSTS_API + '/' + encodeURIComponent(postId) + '/schedule', {
+      method: 'POST',
+      body: JSON.stringify({ scheduledAt: when.toISOString() })
+    });
+    closeSchedModal();
+    alert('Scheduled for ' + when.toLocaleString());
+    await loadPosts();
+  } catch (err) {
+    alert('Error: ' + err.message);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function cancelScheduled(id) {
+  if (!confirm('Cancel this scheduled post?')) return;
+  try {
+    await api(POSTS_API + '/' + encodeURIComponent(id) + '/unschedule', { method: 'POST' });
+    await loadPosts();
+  } catch (err) {
+    alert('Error: ' + err.message);
+  }
+}
+
+loadPosts();
+</script>
+</body>
+</html>

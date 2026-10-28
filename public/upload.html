@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>KwikPost – Upload photos</title>
+<style>
+  :root {
+    --bg: #030304; --panel: #0e0d13; --panel2: #16141d; --line: #28242f;
+    --text: #f3f0fa; --soft: #a79fc4; --input: #09080d;
+    --ok: #2fcf94; --bad: #ef5b5b;
+    --ig: linear-gradient(135deg, #f97316 0%, #a855f7 100%);
+    --sans: "Segoe UI", system-ui, -apple-system, Roboto, Arial, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh; color: var(--text); font-family: var(--sans);
+    background:
+      radial-gradient(600px 460px at 12% 8%, rgba(249,115,22,0.20), transparent 70%),
+      radial-gradient(560px 440px at 92% 12%, rgba(34,197,94,0.16), transparent 70%),
+      radial-gradient(640px 500px at 80% 100%, rgba(168,85,247,0.20), transparent 70%),
+      var(--bg);
+    background-attachment: fixed;
+    padding: 32px 16px;
+  }
+
+  .wrap { width: 100%; max-width: 760px; margin: 0 auto; }
+  .back { display: inline-block; color: var(--soft); font-size: 14px; font-weight: 600; text-decoration: none; margin-bottom: 18px; }
+  .back:hover { color: var(--text); }
+
+  .card {
+    position: relative; background: var(--panel); border: 1px solid var(--line);
+    border-radius: 20px; padding: 28px; box-shadow: 0 20px 50px rgba(0,0,0,.4); margin-bottom: 22px;
+  }
+  .card::before {
+    content: ""; position: absolute; top: 0; left: 28px; right: 28px; height: 2px; border-radius: 2px;
+    background: linear-gradient(90deg, #f97316, #22c55e, #a855f7);
+  }
+
+  h1 { font-size: 26px; font-weight: 800; letter-spacing: -.02em; margin: 0 0 6px;
+    background: linear-gradient(90deg, #fb923c, #4ade80 50%, #c084fc);
+    -webkit-background-clip: text; background-clip: text; color: transparent; }
+  h2 { font-size: 18px; font-weight: 700; margin: 0 0 4px; }
+  .sub { color: var(--soft); font-size: 14px; margin: 0 0 22px; }
+
+  .drop {
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
+    border: 2px dashed #3a3450; border-radius: 16px; background: var(--panel2);
+    padding: 32px 18px; text-align: center; cursor: pointer; min-height: 200px;
+    transition: border-color .2s, transform .2s, background .2s;
+  }
+  .drop:hover, .drop.drag { border-color: #f97316; background: rgba(249,115,22,.08); transform: translateY(-2px); }
+  .drop .icon { font-size: 40px; }
+  .drop b { font-size: 16px; }
+  .drop span { color: var(--soft); font-size: 13px; }
+  .drop input { display: none; }
+
+  .preview { display: none; margin-top: 16px; border-radius: 14px; overflow: hidden; border: 1px solid var(--line); }
+  .preview.on { display: block; }
+  .preview img { display: block; width: 100%; max-height: 320px; object-fit: contain; background: #000; }
+  .preview .meta { display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: var(--panel2); font-size: 13px; color: var(--soft); gap: 10px; }
+  .preview .meta b { color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  label.lbl { display: block; font-size: 13px; font-weight: 600; color: var(--soft); margin: 18px 0 6px; }
+  input[type=text] {
+    width: 100%; padding: 12px 14px; border-radius: 10px; border: 1px solid var(--line);
+    background: var(--input); color: var(--text); font: inherit; font-size: 14px;
+  }
+  input[type=text]:focus { outline: none; border-color: #f97316; box-shadow: 0 0 0 3px rgba(249,115,22,.28); }
+
+  button { font-family: var(--sans); cursor: pointer; border: none; border-radius: 10px; font-weight: 700; transition: filter .15s, transform .1s; }
+  button:hover { filter: brightness(1.1); }
+  button:active { transform: translateY(1px); }
+  button:disabled { opacity: .5; cursor: not-allowed; filter: none; }
+  .primary { width: 100%; margin-top: 22px; padding: 14px; font-size: 15px; background: var(--ig); color: #fff; box-shadow: 0 8px 22px rgba(168,85,247,.25); }
+  .small { padding: 6px 12px; font-size: 12px; background: transparent; color: var(--text); border: 1px solid var(--line); }
+  .danger { background: rgba(239,91,91,.12); color: #ffb0b0; border: 1px solid rgba(239,91,91,.5); }
+  .danger:hover { background: rgba(239,91,91,.25); }
+
+  .progress { display: none; height: 6px; background: var(--panel2); border-radius: 999px; overflow: hidden; margin-top: 14px; }
+  .progress.on { display: block; }
+  .progress div { height: 100%; width: 40%; background: linear-gradient(90deg, #f97316, #22c55e, #a855f7); border-radius: 999px; animation: slide 1.2s ease-in-out infinite; }
+  @keyframes slide { 0% { transform: translateX(-100%); } 100% { transform: translateX(260%); } }
+
+  #msg { display: none; margin-top: 16px; padding: 12px 14px; border-radius: 10px; font-size: 14px; }
+  #msg.ok { display: block; background: rgba(47,207,148,.12); border: 1px solid rgba(47,207,148,.5); color: #9ff0cf; }
+  #msg.err { display: block; background: rgba(239,91,91,.12); border: 1px solid rgba(239,91,91,.5); color: #ffb0b0; }
+
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 14px; margin-top: 18px; }
+  .item { background: var(--panel2); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; display: flex; flex-direction: column; }
+  .item img { width: 100%; height: 120px; object-fit: contain; background: #000; }
+  .item .info { padding: 10px; font-size: 12px; color: var(--soft); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .item .info b { color: var(--text); }
+  .item .act { padding: 0 10px 10px; }
+  .item .act button { width: 100%; }
+  .empty { color: var(--soft); font-size: 14px; margin-top: 16px; }
+  .count { font-size: 12px; color: var(--soft); font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="back" href="index.html">← Back to dashboard</a>
+
+  <div class="card">
+    <h1>Upload photos</h1>
+    <p class="sub">Add a photo to your library. It's saved in the database and joins the post rotation automatically.</p>
+
+    <label for="file" class="drop" id="drop">
+      <div class="icon">🖼️</div>
+      <b>Drop a photo here, or click to choose</b>
+      <span>JPG or PNG · max 8 MB</span>
+      <input id="file" type="file" accept="image/jpeg,image/png" />
+    </label>
+
+    <div class="preview" id="preview">
+      <img id="previewImg" alt="Selected photo preview" />
+      <div class="meta">
+        <b id="fileName"></b>
+        <button class="small" type="button" onclick="clearFile()">Remove</button>
+      </div>
+    </div>
+
+    <label class="lbl" for="title">Name (optional)</label>
+    <input id="title" type="text" placeholder="e.g. Treadmill photo" />
+
+    <button id="btn" class="primary" type="button" onclick="upload()" disabled>Upload photo</button>
+    <div class="progress" id="progress"><div></div></div>
+    <div id="msg"></div>
+  </div>
+
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;">
+      <div>
+        <h2>Saved photos</h2>
+        <div class="sub" style="margin:0;">Delete a photo to remove it from the rotation.</div>
+      </div>
+      <span class="count" id="count"></span>
+    </div>
+    <div class="grid" id="grid"></div>
+    <div class="empty" id="empty" style="display:none;">No saved photos yet.</div>
+  </div>
+</div>
+
+<script>
+  const token = localStorage.getItem('authToken') || localStorage.getItem('token') || '';
+  if (!token) location.href = '/login.html';
+
+  const $ = id => document.getElementById(id);
+  const drop = $('drop');
+  const API = '/api/library';
+
+  function headers(extra) {
+    return Object.assign({
+      'Authorization': 'Bearer ' + token,
+      'ngrok-skip-browser-warning': 'true'
+    }, extra || {});
+  }
+
+  function show(text, kind) {
+    const m = $('msg');
+    m.style.display = '';
+    m.textContent = text;
+    m.className = kind;
+  }
+
+  function esc(v) {
+    return String(v == null ? '' : v).replace(/[&<>"']/g, c =>
+      ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  }
+
+  /* ---------- Choosing a file ---------- */
+
+  function setFile(file) {
+    if (!file) return;
+    if (!/^image\/(jpeg|png)$/.test(file.type)) return show('Only JPG or PNG images', 'err');
+    if (file.size > 8 * 1024 * 1024) return show('Image must be under 8 MB', 'err');
+
+    $('previewImg').src = URL.createObjectURL(file);
+    $('fileName').textContent = file.name;
+    $('preview').classList.add('on');
+    $('btn').disabled = false;
+    $('msg').className = '';
+    $('msg').style.display = 'none';
+  }
+
+  function clearFile() {
+    $('file').value = '';
+    $('preview').classList.remove('on');
+    $('btn').disabled = true;
+  }
+
+  $('file').addEventListener('change', e => setFile(e.target.files[0]));
+
+  ['dragenter', 'dragover'].forEach(evt =>
+    drop.addEventListener(evt, e => { e.preventDefault(); drop.classList.add('drag'); }));
+  ['dragleave', 'drop'].forEach(evt =>
+    drop.addEventListener(evt, e => { e.preventDefault(); drop.classList.remove('drag'); }));
+  drop.addEventListener('drop', e => {
+    const file = e.dataTransfer.files[0];
+    if (!file) return;
+    const dt = new DataTransfer();
+    dt.items.add(file);
+    $('file').files = dt.files;
+    setFile(file);
+  });
+
+  /* ---------- Upload ---------- */
+
+  function readFile(file) {
+    return new Promise((resolve, reject) => {
+      const r = new FileReader();
+      r.onload = () => resolve(r.result);
+      r.onerror = () => reject(new Error('Could not read the file'));
+      r.readAsDataURL(file);
+    });
+  }
+
+  async function upload() {
+    const file = $('file').files[0];
+    if (!file) return show('Choose an image first', 'err');
+
+    $('btn').disabled = true;
+    $('btn').textContent = 'Uploading...';
+    $('progress').classList.add('on');
+
+    try {
+      const imageData = await readFile(file);
+      const title = $('title').value.trim() || file.name;
+      const res = await fetch(API, {
+        method: 'POST',
+        headers: headers({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ title, imageData })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Upload failed');
+
+      show('✅ "' + title + '" saved. It will be used in the next posts.', 'ok');
+      $('title').value = '';
+      clearFile();
+      await loadPhotos();
+    } catch (err) {
+      show('❌ ' + err.message, 'err');
+    } finally {
+      $('progress').classList.remove('on');
+      $('btn').textContent = 'Upload photo';
+      $('btn').disabled = !$('file').files[0];
+    }
+  }
+
+  /* ---------- Saved photos list ---------- */
+
+  async function loadPhotos() {
+  try {
+    const res = await fetch(API, { headers: headers() });
+    const rows = await res.json();
+    if (!res.ok) throw new Error(rows.error || 'Could not load photos');
+
+    $('count').textContent = rows.length ? rows.length + ' saved' : '';
+    $('empty').style.display = rows.length ? 'none' : '';
+
+    $('grid').innerHTML = rows.map(r => `
+      <div class="item" data-id="${Number(r.id)}">
+        <img alt="" />
+        <div class="info"><b>${esc(r.title)}</b></div>
+        <div class="act">
+          <button class="small danger" type="button" onclick="deletePhoto(${Number(r.id)}, this)">Delete</button>
+        </div>
+      </div>`).join('');
+
+    rows.forEach(loadThumb);
+  } catch (err) {
+    $('grid').innerHTML = '';
+    show('❌ ' + err.message, 'err');
+  }
+}
+
+// Loads one photo's bytes with the login token and shows it as a thumbnail.
+async function loadThumb(row) {
+  const img = document.querySelector('.item[data-id="' + Number(row.id) + '"] img');
+  if (!img) return;
+  try {
+    const res = await fetch(API + '/' + Number(row.id) + '/image', { headers: headers() });
+    if (!res.ok) throw new Error('Image not found');
+    img.src = URL.createObjectURL(await res.blob());
+  } catch (err) {
+    img.style.display = 'none';
+  }
+}
+
+  async function deletePhoto(id, btn) {
+    if (!confirm('Delete this photo? It will be removed from the database and the rotation.')) return;
+    btn.disabled = true;
+    btn.textContent = 'Deleting...';
+    try {
+      const res = await fetch(API + '/' + encodeURIComponent(id), {
+        method: 'DELETE',
+        headers: headers()
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Delete failed');
+      show('🗑️ Photo deleted.', 'ok');
+      await loadPhotos();
+    } catch (err) {
+      show('❌ ' + err.message, 'err');
+      btn.disabled = false;
+      btn.textContent = 'Delete';
+    }
+  }
+
+  loadPhotos();
+</script>
+</body>
+</html>

@@ -3,6 +3,7 @@ const postModel = require('../models/postModel');
 const themeModel = require('../models/themeModel');
 const aiService = require('../services/aiService');
 const imageService = require('../services/imageService');
+const libraryPhotoService = require('../services/libraryPhotoService');
 
 async function createCampaign(req, res, next) {
   try {
@@ -61,8 +62,12 @@ async function generateForCampaign(req, res, next) {
     const postedCount = await postModel.countPostedPosts(campaign.id);
     const layoutIndex = postedCount % imageService.LAYOUT_COUNT;
 
+    // Next saved photo from the library (null if none are saved).
+    const chosenId = req.body && req.body.libraryImageId ? Number(req.body.libraryImageId) : null;
+const libraryPhoto = await libraryPhotoService.pickLibraryPhoto(req.userId, chosenId);
+
     // Name of the saved background, used by the Edit page.
-    const backgroundFile = `bg-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`;
+    const backgroundFile = libraryPhotoService.newBackgroundFile();
 
     const imageUrl = await imageService.generateAndHostAdImage({
       productName: campaign.product_name,
@@ -77,10 +82,11 @@ async function generateForCampaign(req, res, next) {
       photoKeywords: generated.photoKeywords,
       logoUrl: campaign.logo_url,
       layoutIndex,
-      backgroundFile
+      backgroundFile,
+      photoBuffer: libraryPhoto ? libraryPhoto.buffer : undefined
     });
 
-    // The file exists only when the canvas pipeline ran.
+    // The file exists when the canvas pipeline ran (always true for library photos).
     // A full Nano Banana image has no background, so it can't be edited.
     const savedBackground = imageService.hasBackground(backgroundFile) ? backgroundFile : null;
 

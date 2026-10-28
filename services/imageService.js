@@ -261,6 +261,8 @@ function drawPill(ctx, m, x, y, align = 'center') {
   ctx.restore();
 }
 
+// Brand name text only. The logo is drawn separately in the top-right corner
+// (drawCornerLogo), so there is no circle / badge here any more.
 function drawBrand(ctx, name, logo, x, y, align = 'left') {
   const label = String(name || '').toUpperCase();
   ctx.save();
@@ -268,17 +270,8 @@ function drawBrand(ctx, name, logo, x, y, align = 'left') {
   ctx.fillStyle = '#ffffff';
   ctx.shadowColor = 'rgba(0,0,0,0.4)';
   ctx.shadowBlur = 6;
-  if (align === 'center') {
-    let ty = y;
-    if (logo) { drawLogoCircle(ctx, logo, x, y - 34, 44); ty = y + 22; }
-    ctx.textAlign = 'center';
-    ctx.fillText(label, x, ty);
-  } else {
-    let tx = x;
-    if (logo) { drawLogoCircle(ctx, logo, x + 22, y - 8, 44); tx = x + 58; }
-    ctx.textAlign = 'left';
-    ctx.fillText(label, tx, y);
-  }
+  ctx.textAlign = align === 'center' ? 'center' : 'left';
+  ctx.fillText(label, x, y);
   ctx.restore();
 }
 
@@ -328,20 +321,31 @@ function drawImageCover(ctx, img, boxX, boxY, boxW, boxH) {
   ctx.drawImage(img, dx, dy, w, h);
 }
 
-function drawLogoCircle(ctx, logo, cx, cy, logoSize) {
+// Big brand logo in the top-right corner (all layouts). Layouts may set
+// d.logoY / d.logoRight to move it clear of their own bars and frames.
+const LOGO_MAX_W = 260;   // widest the corner logo can be
+const LOGO_MAX_H = 90;    // tallest the corner logo can be
+
+// Draws the brand logo in the top-right corner with no frame, circle or
+// background. The logo keeps its proportions and is never cropped.
+function drawCornerLogo(ctx, size, logo, d) {
+  if (!logo) return;
+  const right = d.logoRight || size - 56;
+  const y = d.logoY || 56;
+
+  const maxW = LOGO_MAX_W;
+  const maxH = LOGO_MAX_H;
+  const scale = Math.min(maxW / logo.width, maxH / logo.height);
+  const w = logo.width * scale;
+  const h = logo.height * scale;
+
   ctx.save();
-  ctx.shadowColor = 'rgba(0,0,0,0.3)';
-  ctx.shadowBlur = 6;
-  ctx.beginPath();
-  ctx.arc(cx, cy, logoSize / 2 + 2, 0, Math.PI * 2);
-  ctx.fillStyle = 'rgba(255,255,255,0.9)';
-  ctx.fill();
-  ctx.shadowBlur = 0;
-  ctx.beginPath();
-  ctx.arc(cx, cy, logoSize / 2, 0, Math.PI * 2);
-  ctx.closePath();
-  ctx.clip();
-  drawImageCover(ctx, logo, cx - logoSize / 2, cy - logoSize / 2, logoSize, logoSize);
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+  // Soft light glow so a coloured logo stays readable on dark photos
+  ctx.shadowColor = 'rgba(255,255,255,0.85)';
+  ctx.shadowBlur = 8;
+  ctx.drawImage(logo, right - w, y, w, h);
   ctx.restore();
 }
 
@@ -370,7 +374,7 @@ async function generateImageWithHuggingFace(prompt) {
   return null;
 }
 
- async function fetchProductPhoto(photoKeywords) {
+async function fetchProductPhoto(photoKeywords) {
   const { fetchLocalSDPhoto } = require('./providers/localSDProvider');
 
   // First choice: generate a fresh image on the spot.
@@ -386,7 +390,125 @@ async function generateImageWithHuggingFace(prompt) {
     || (await fetchPexelsPhoto(photoKeywords, { allowReuse: true }));
 }
 
+// ---------------------------------------------------------------------
+// Logo loading + background removal
+// ---------------------------------------------------------------------
 const logoCache = new Map();
+
+const BG_TOLERANCE = 60;   // how close to the corner colour counts as background (raise to remove more)
+const WHITE_MIN = 235;     // near-white pixels connected to the background are removed too
+const ENCLOSED_TOLERANCE = 40; // background colour trapped inside letters (O, H, D...) is removed too
+
+// Removes the logo's own background, so only the real logo is drawn on the
+// post. Logos that already have transparency are left untouched. The result
+// is cropped to the visible logo.
+function removeLogoBackground(img) {
+  const W = img.width, H = img.height;
+  const canvas = createCanvas(W, H);
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(img, 0, 0);
+  const id = ctx.getImageData(0, 0, W, H);
+  const data = id.data;
+  const px = (x, y) => (y * W + x) * 4;
+
+  // Already transparent at the corners -> nothing to remove
+  const corners = [px(0, 0), px(W - 1, 0), px(0, H - 1), px(W - 1, H - 1)];
+  if (corners.some(i => data[i + 3] < 250)) return img;
+
+  const seeds = corners.map(i => [data[i], data[i + 1], data[i + 2]]);
+  const distTo = (i, s) =>
+    Math.abs(data[i] - s[0]) + Math.abs(data[i + 1] - s[1]) + Math.abs(data[i + 2] - s[2]);
+  const minSeedDist = i => Math.min(...seeds.map(s => distTo(i, s)));
+
+  const isBg = i => {
+    if (data[i] >= WHITE_MIN && data[i + 1] >= WHITE_MIN && data[i + 2] >= WHITE_MIN) return true;
+    return minSeedDist(i) <= BG_TOLERANCE;
+  };
+
+  // 1) Flood-fill the background inwards from the edges
+  const seen = new Uint8Array(W * H);
+  const stack = [];
+  const push = (x, y) => {
+    if (x < 0 || y < 0 || x >= W || y >= H) return;
+    const k = y * W + x;
+    if (seen[k] || !isBg(k * 4)) return;
+    seen[k] = 1;
+    stack.push(k);
+  };
+  for (let x = 0; x < W; x++) { push(x, 0); push(x, H - 1); }
+  for (let y = 0; y < H; y++) { push(0, y); push(W - 1, y); }
+  while (stack.length) {
+    const k = stack.pop();
+    const x = k % W, y = (k - x) / W;
+    data[k * 4 + 3] = 0;
+    push(x + 1, y); push(x - 1, y); push(x, y + 1); push(x, y - 1);
+  }
+
+  // 2) Background trapped inside letters (counters of O, H, D, A...)
+  for (let k = 0; k < W * H; k++) {
+    const i = k * 4;
+    if (data[i + 3] !== 0 && minSeedDist(i) <= ENCLOSED_TOLERANCE) data[i + 3] = 0;
+  }
+
+  // 2b) Coloured logos: drop washed-out leftovers (faded blobs from a
+  //     gradient / shadow in the old background). Only the logo's own strong
+  //     colour is kept. Grey / black / white logos skip this step.
+  const satAt = i => Math.max(data[i], data[i + 1], data[i + 2]) - Math.min(data[i], data[i + 1], data[i + 2]);
+  const sats = [];
+  for (let i = 0; i < data.length; i += 4) if (data[i + 3] !== 0) sats.push(satAt(i));
+  if (sats.length > 50) {
+    sats.sort((a, b) => a - b);
+    const inkSat = sats[Math.floor(sats.length * 0.9)];
+    if (inkSat >= 90) {
+      const lo = inkSat * 0.55, hi = inkSat * 0.8;
+      for (let i = 0; i < data.length; i += 4) {
+        if (data[i + 3] === 0) continue;
+        const sv = satAt(i);
+        if (sv < lo) data[i + 3] = 0;
+        else if (sv < hi) data[i + 3] = Math.round(255 * (sv - lo) / (hi - lo));
+      }
+    }
+  }
+
+  // 3) Soften the edge: pixels touching removed background get partial
+  //    transparency, so there is no light halo around the letters
+  const isCleared = (x, y) =>
+    x >= 0 && y >= 0 && x < W && y < H && data[(y * W + x) * 4 + 3] === 0;
+  const feather = [];
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      const i = px(x, y);
+      if (data[i + 3] === 0) continue;
+      if (isCleared(x + 1, y) || isCleared(x - 1, y) || isCleared(x, y + 1) || isCleared(x, y - 1)) {
+        const t = Math.min(1, Math.max(0.25, minSeedDist(i) / 200));
+        feather.push([i, Math.round(255 * t)]);
+      }
+    }
+  }
+  feather.forEach(([i, a]) => { data[i + 3] = a; });
+
+  // Crop to what is left, so the logo fills its box
+  let minX = W, minY = H, maxX = -1, maxY = -1;
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      if (data[px(x, y) + 3] > 0) {
+        if (x < minX) minX = x;
+        if (x > maxX) maxX = x;
+        if (y < minY) minY = y;
+        if (y > maxY) maxY = y;
+      }
+    }
+  }
+  if (maxX < 0) return img; // everything was removed -> keep the original
+
+  ctx.putImageData(id, 0, 0);
+  const pad = 2;
+  minX = Math.max(0, minX - pad); minY = Math.max(0, minY - pad);
+  maxX = Math.min(W - 1, maxX + pad); maxY = Math.min(H - 1, maxY + pad);
+  const out = createCanvas(maxX - minX + 1, maxY - minY + 1);
+  out.getContext('2d').drawImage(canvas, minX, minY, out.width, out.height, 0, 0, out.width, out.height);
+  return out;
+}
 
 async function fetchLogo(logoUrl) {
   if (!logoUrl) return null;
@@ -406,8 +528,14 @@ async function fetchLogo(logoUrl) {
       img = await loadImage(raw);
     } catch (e) {
       const sharp = require('sharp');
-      const png = await sharp(raw).resize({ width: 400, height: 400, fit: 'inside' }).png().toBuffer();
+      const png = await sharp(raw).resize({ width: 1200, height: 1200, fit: 'inside' }).png().toBuffer();
       img = await loadImage(png);
+    }
+    // Keep only the logo itself, without its background
+    try {
+      img = removeLogoBackground(img);
+    } catch (e) {
+      console.warn('[imageService] Logo background removal failed, using the original logo:', e.message);
     }
     logoCache.set(logoUrl, img);
     return img;
@@ -462,7 +590,7 @@ function renderWhiteBarStripe(ctx, size, accent, d) {
   ensureContrast(ctx, 0, top - 20, size, blockH + 40);
 
   drawBrand(ctx, d.productName, d.logo, 66, 96);
-  drawCtaPill(ctx, d.ctaButtonLabel.toUpperCase(), size - 66 - (d.hasLogo ? LOGO_SIZE + 24 : 0), 64, accent, '#ffffff', 'right');
+  drawCtaPill(ctx, d.ctaButtonLabel.toUpperCase(), size - 66 - (d.hasLogo ? LOGO_MAX_W + 24 : 0), 64, accent, '#ffffff', 'right');
 
   ctx.fillStyle = accentText;
   ctx.fillRect(66, top, 10, blockH);
@@ -572,7 +700,7 @@ function renderGlassCard(ctx, size, accent, d) {
   const cardTop = barTop - 24 - cardH;
 
   drawBrand(ctx, d.productName, d.logo, 66, 96);
-  drawCtaPill(ctx, d.ctaButtonLabel.toUpperCase(), size - 66 - (d.hasLogo ? LOGO_SIZE + 24 : 0), 64, '#ffffff', accent, 'right');
+  drawCtaPill(ctx, d.ctaButtonLabel.toUpperCase(), size - 66 - (d.hasLogo ? LOGO_MAX_W + 24 : 0), 64, '#ffffff', accent, 'right');
 
   ctx.fillStyle = 'rgba(0,0,0,0.5)';
   roundedRectPath(ctx, 66, cardTop, size - 132, cardH, 28);
@@ -641,7 +769,7 @@ function renderStackedTwoTone(ctx, size, accent, d) {
   ensureContrast(ctx, 0, top - 20, size, blockH + 40);
 
   drawBrand(ctx, d.productName, d.logo, 66, 96);
-  drawCtaPill(ctx, d.ctaButtonLabel.toUpperCase(), size - 66 - (d.hasLogo ? LOGO_SIZE + 24 : 0), 64, DARK, '#ffffff', 'right');
+  drawCtaPill(ctx, d.ctaButtonLabel.toUpperCase(), size - 66 - (d.hasLogo ? LOGO_MAX_W + 24 : 0), 64, DARK, '#ffffff', 'right');
 
   ctx.fillStyle = accentText;
   ctx.fillRect(66, top, 10, blockH);
@@ -654,17 +782,6 @@ function renderStackedTwoTone(ctx, size, accent, d) {
     drawBarLines(ctx, bar, size / 2, barTop, DARK, 'center');
   }
   drawFrame(ctx, size, '#ffffff');
-}
-
-// Big brand logo in the top-right corner (all layouts). Layouts may set
-// d.logoY / d.logoRight to move it clear of their own bars and frames.
-const LOGO_SIZE = 150;
-
-function drawCornerLogo(ctx, size, logo, d) {
-  if (!logo) return;
-  const right = d.logoRight || size - 56;
-  const y = d.logoY || 56;
-  drawLogoCircle(ctx, logo, right - LOGO_SIZE / 2, y + LOGO_SIZE / 2, LOGO_SIZE);
 }
 
 const TEMPLATES = [
@@ -839,22 +956,36 @@ async function ensurePublicImageUrl(imageUrl) {
   return publicUrl;
 }
 
+/**
+ * Generates a post image and returns its public URL.
+ *
+ * photoBuffer: optional saved photo (from image_library). When given, it is used
+ * as the background and the AI background step is skipped.
+ * backgroundFile: name under storage/backgrounds, so the text can be edited later.
+ */
 async function generateAndHostAdImage({
   productName, headlineMain, headlineAccent, subheadline,
-  tagline, features, offerText, ctaButtonLabel, cta, photoKeywords, logoUrl, layoutIndex, backgroundFile
+  tagline, features, offerText, ctaButtonLabel, cta, photoKeywords, logoUrl, layoutIndex, backgroundFile,
+  photoBuffer
 }) {
-  const nanoBananaBuffer = await generateFullAdWithNanoBanana({
-    productName, headlineMain, headlineAccent, subheadline,
-    tagline, features, offerText, ctaButtonLabel, photoKeywords
-  });
+  // A saved library photo replaces the AI-generated full ad.
+  const nanoBananaBuffer = photoBuffer
+    ? null
+    : await generateFullAdWithNanoBanana({
+        productName, headlineMain, headlineAccent, subheadline,
+        tagline, features, offerText, ctaButtonLabel, photoKeywords
+      });
   if (nanoBananaBuffer) {
     return uploadImage(nanoBananaBuffer);
   }
 
   const [photo, logo] = await Promise.all([
-    photoKeywords ? fetchProductPhoto(photoKeywords) : null,
+    photoBuffer
+      ? loadImage(photoBuffer)
+      : (photoKeywords ? fetchProductPhoto(photoKeywords) : null),
     fetchLogo(logoUrl)
   ]);
+
   // Keep the background so the text can be edited later without a new image.
   if (photo && backgroundFile) {
     try {
@@ -863,12 +994,12 @@ async function generateAndHostAdImage({
       console.warn('[imageService] Could not save the background for editing:', err.message);
     }
   }
+
   const buffer = await generateAdImage({
     productName, headlineMain, headlineAccent, subheadline,
     tagline, features, offerText, ctaButtonLabel, cta, photo, logo, layoutIndex
   });
-  const publicUrl = await uploadImage(buffer);
-  return publicUrl;
+  return uploadImage(buffer);
 }
 
 // Re-draws a draft on its saved background with (possibly edited) text.

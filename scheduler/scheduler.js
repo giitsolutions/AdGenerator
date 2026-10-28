@@ -9,14 +9,73 @@ const imageService = require('../services/imageService');
 const themedPostService = require('../services/themedPostService');
 
 /**
+ * Publish posts the user scheduled for a specific date/time.
+ * Runs every minute via startScheduledPostRunner().
+ */
+async function processDueScheduledPosts() {
+  let due = [];
+  try {
+    due = await postModel.getDueScheduledPosts();
+  } catch (err) {
+    console.error('[scheduler] getDueScheduledPosts failed:', err.message);
+    return;
+  }
+
+  if (!due.length) return;
+
+  console.log(`[scheduler] ${due.length} scheduled post(s) due`);
+
+  for (const post of due) {
+    try {
+      const campaign = await campaignModel.getCampaignById(post.campaign_id, post.user_id);
+
+      const linkLine = campaign && campaign.website ? campaign.website : '🔗 Link in bio';
+      let hashtags = '';
+      try {
+        const h = typeof post.hashtags === 'string' ? JSON.parse(post.hashtags) : post.hashtags;
+        hashtags = Array.isArray(h) ? h.join(' ') : '';
+      } catch (_) {}
+
+      const fullCaption = `${post.caption || ''}\n\n${post.cta || ''}\n\n${linkLine}\n\n${hashtags}`.trim();
+
+      await instagramService.publishToInstagram({
+        imageUrl: post.image_url,
+        caption: fullCaption
+      });
+
+      await postModel.markAsPosted(post.id);
+      console.log(`[scheduler] Scheduled post ${post.id} published for user ${post.user_id}`);
+    } catch (err) {
+      console.error(`[scheduler] Scheduled post ${post.id} failed:`, err.message);
+      try {
+        if (typeof postModel.markAsFailed === 'function') {
+          await postModel.markAsFailed(post.id, err.message);
+        }
+      } catch (_) {}
+    }
+  }
+}
+
+function startScheduledPostRunner() {
+  // Every minute
+  cron.schedule('* * * * *', () => {
+    processDueScheduledPosts().catch(err =>
+      console.error('[scheduler] scheduled runner error:', err.message)
+    );
+  });
+
+  // Once shortly after boot
+  setTimeout(() => {
+    processDueScheduledPosts().catch(() => {});
+  }, 8000);
+
+  console.log('[scheduler] Scheduled post runner started (every 1 min)');
+}
+
+/**
  * DAILY job: for every campaign that has a pre-loaded theme queue,
  * pick the next unused theme (in order), generate a post built
- * around it, and email the owner an Approve/Reject link — no need
- * to open the dashboard at all for day-to-day approvals. Loading 20
- * themes once covers 20 days of this running unattended. If the
- * emailed post gets rejected, a fresh one is regenerated for the
- * SAME theme (see controllers/postController.js) rather than moving
- * on — so a theme only gets "used up" once you actually approve one.
+ * around it, and email the owner an Approve/Reject link.
  */
 async function runDailyThemedJob() {
   console.log(`[scheduler] Daily themed job running at ${new Date().toISOString()}`);
@@ -25,7 +84,7 @@ async function runDailyThemedJob() {
   for (const campaign of campaigns) {
     try {
       const nextTheme = await themeModel.getNextUnusedTheme(campaign.id);
-      if (!nextTheme) continue; // no themes queued for this campaign — skip it
+      if (!nextTheme) continue;
 
       const { postId, generated, imageUrl } = await themedPostService.generateThemedPost({
         campaign,
@@ -34,15 +93,18 @@ async function runDailyThemedJob() {
 
       await themeModel.markThemeUsed(nextTheme.id);
 
-      // TEMPORARY (login disabled): sends to config.notificationEmail
-      // instead of a real per-user email, since there's no logged-in
-      // account with its own email on file right now.
       const sent = await themedPostService.emailForApproval({
-        campaign, userEmail: config.notificationEmail, postId, generated, imageUrl
+        campaign,
+        userEmail: config.notificationEmail,
+        postId,
+        generated,
+        imageUrl
       });
-      console.log(sent
-        ? `[scheduler] Approval email sent for campaign ${campaign.id} (theme: "${nextTheme.theme_text}")`
-        : `[scheduler] Draft created for campaign ${campaign.id}, but EMAIL_USER/EMAIL_APP_PASSWORD not set — check dashboard instead`);
+      console.log(
+        sent
+          ? `[scheduler] Approval email sent for campaign ${campaign.id} (theme: "${nextTheme.theme_text}")`
+          : `[scheduler] Draft created for campaign ${campaign.id}, but EMAIL_USER/EMAIL_APP_PASSWORD not set — check dashboard instead`
+      );
     } catch (err) {
       console.error(`[scheduler] Themed job failed for campaign ${campaign.id}:`, err.message);
     }
@@ -54,16 +116,10 @@ function startIntervalScheduler() {
 
   cron.schedule(cronExpression, async () => {
     console.log(`[scheduler] Running at ${new Date().toISOString()}`);
-    // Runs across ALL users' campaigns, since this is a background
-    // job with no single logged-in user — each campaign still only
-    // ever posts to ITS OWN owner's Instagram account.
     const campaigns = await campaignModel.getAllCampaignsAcrossAllUsers();
 
     for (const campaign of campaigns) {
       try {
-        // Campaigns with a theme queue are handled exclusively by the
-        // daily themed job below — skip them here to avoid generating
-        // two posts for the same campaign on the same day.
         const remainingThemes = await themeModel.getRemainingCount(campaign.id);
         if (remainingThemes > 0) continue;
 
@@ -104,7 +160,9 @@ function startIntervalScheduler() {
           await postModel.markAsPosted(postId);
           console.log(`[scheduler] Auto-posted for campaign ${campaign.id} (user ${campaign.user_id})`);
         } else {
-          console.log(`[scheduler] Draft created for campaign ${campaign.id} (user ${campaign.user_id}), awaiting approval`);
+          console.log(
+            `[scheduler] Draft created for campaign ${campaign.id} (user ${campaign.user_id}), awaiting approval`
+          );
         }
       } catch (err) {
         console.error(`[scheduler] Failed for campaign ${campaign.id}:`, err.message);
@@ -120,4 +178,9 @@ function startThemeScheduler() {
   console.log(`[scheduler] Daily themed job scheduled: ${config.scheduler.themeCronExpression}`);
 }
 
-module.exports = { startIntervalScheduler, startThemeScheduler };
+module.exports = {
+  startIntervalScheduler,
+  startThemeScheduler,
+  startScheduledPostRunner,
+  processDueScheduledPosts
+};
