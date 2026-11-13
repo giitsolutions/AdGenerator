@@ -3,7 +3,7 @@ const jwt = require('jsonwebtoken');
 const config = require('../config/env');
 const userModel = require('../models/userModel');
 
-const GRAPH_BASE = 'https://graph.facebook.com/v19.0';
+const GRAPH_BASE = `https://graph.facebook.com/${config.facebook.graphApiVersion}`;
 
 // Step 1: User clicks "Connect Instagram"
 async function startConnect(req, res) {
@@ -53,7 +53,7 @@ async function startConnect(req, res) {
     ].join(',');
 
     // 6. Build Facebook OAuth URL
-    const authUrl = `https://www.facebook.com/v19.0/dialog/oauth?` +
+    const authUrl = `https://www.facebook.com/${config.facebook.graphApiVersion}/dialog/oauth?` +
       `client_id=${config.facebook.appId}` +
       `&redirect_uri=${encodeURIComponent(config.facebook.redirectUri)}` +
       `&scope=${encodeURIComponent(scopes)}` +

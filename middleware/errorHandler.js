@@ -6,7 +6,10 @@ function errorHandler(err, req, res, next) {
   } else {
     console.error('[error]', err.message);
   }
-  res.status(500).json({ error: err.message || 'Something went wrong' });
+  const status = Number.isInteger(err.status) && err.status >= 400 && err.status < 600
+    ? err.status
+    : 500;
+  res.status(status).json({ error: err.message || 'Something went wrong' });
 }
 
 module.exports = errorHandler;

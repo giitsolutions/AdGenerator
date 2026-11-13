@@ -1,11 +1,19 @@
 const jwt = require('jsonwebtoken');
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
+const crypto = require('crypto');
 const config = require('../config/env');
 const postModel = require('../models/postModel');
 const campaignModel = require('../models/campaignModel');
 const imageService = require('../services/imageService');
-const postController = require('./postController');
+const { renderReelOverlay } = require('../services/reelOverlay');
+const { resolveCampaignLogo } = require('../services/reelLogo');
+const { getVideoDimensions, overlayLogoOnVideo } = require('../services/reelRender');
 
 const LAYOUT_COUNT = imageService.LAYOUT_COUNT;
+const REEL_DIR = path.join(__dirname, '..', 'public', 'uploads', 'reels');
+const REEL_SOURCE_DIR = path.join(__dirname, '..', 'storage', 'reel-sources');
 
 function httpError(status, message) {
   const err = new Error(message);
@@ -87,18 +95,86 @@ async function renderFromFields(post, campaign, fields) {
   });
 }
 
+function getReelFile(url) {
+  const prefix = '/uploads/reels/';
+  if (typeof url !== 'string' || !url.startsWith(prefix)) {
+    throw httpError(400, 'This Reel does not have a supported video file.');
+  }
+  const file = path.join(REEL_DIR, path.basename(url));
+  if (!fs.existsSync(file)) throw httpError(404, 'The Reel video file could not be found.');
+  return file;
+}
+
+async function renderReelFromFields(post, campaign, fields, isPreview) {
+  if (!post.video_source_url) {
+    throw httpError(400, 'This Reel was created before text editing was available. Create a new Reel to edit its video text.');
+  }
+
+  const sourceReference = path.basename(post.video_source_url);
+  if (sourceReference !== post.video_source_url) {
+    throw httpError(400, 'This Reel has an invalid source video reference.');
+  }
+  const sourcePath = path.join(REEL_SOURCE_DIR, sourceReference);
+  if (!fs.existsSync(sourcePath)) throw httpError(404, 'The Reel source video could not be found.');
+  const sourceBase = path.basename(sourcePath, '.mp4');
+  const outputFilename = `${isPreview ? 'preview' : 'edited'}-${sourceBase}-${crypto.randomBytes(5).toString('hex')}.mp4`;
+  const outputPath = path.join(REEL_DIR, outputFilename);
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'kwikreel-edit-'));
+
+  try {
+    const logoPath = await resolveCampaignLogo(campaign || {}, tempDir);
+    const { width, height } = await getVideoDimensions(sourcePath);
+    const overlayPath = path.join(tempDir, 'overlay.png');
+    fs.writeFileSync(overlayPath, await renderReelOverlay({
+      width,
+      height,
+      logoPath,
+      brand: campaign && campaign.product_name,
+      headlineMain: fields.headlineMain || '',
+      headlineAccent: fields.headlineAccent || '',
+      subheadline: fields.subheadline || '',
+      offer: fields.offerText || '',
+      cta: fields.ctaButtonLabel || '',
+      layoutIndex: clampLayout(fields.layoutIndex)
+    }));
+    await overlayLogoOnVideo({ videoPath: sourcePath, overlayPath, outPath: outputPath });
+  } catch (error) {
+    fs.rmSync(outputPath, { force: true });
+    throw error;
+  } finally {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
+
+  if (isPreview) {
+    const cleanup = setTimeout(() => {
+      fs.rm(outputPath, { force: true }, error => {
+        if (error) console.error('[reels] Could not clean up preview video:', error.message);
+      });
+    }, 10 * 60 * 1000);
+    cleanup.unref();
+  }
+
+  return `/uploads/reels/${outputFilename}`;
+}
+
 // GET /api/posts/edit-data?token=...
 async function getEditData(req, res, next) {
   try {
     const { post, campaign } = await loadFromToken(req);
+    const isReel = post.media_type === 'reel' || !!post.video_url;
     res.json({
       productName: campaign ? campaign.product_name : '',
-      status: post.status || 'draft',
-      editable: imageService.hasBackground(post.background_file),
+      status: post.status || 'generated',
+      mediaType: isReel ? 'reel' : 'image',
+      editable: isReel
+        ? !!post.video_source_url && path.basename(post.video_source_url) === post.video_source_url &&
+          fs.existsSync(path.join(REEL_SOURCE_DIR, post.video_source_url))
+        : imageService.hasBackground(post.background_file),
       layoutCount: LAYOUT_COUNT,
       canNewBackground: false,
       backgroundBusy: false,
       imageUrl: post.image_url,
+      videoUrl: post.video_url,
       fields: {
         headlineMain: post.headline_main || '',
         headlineAccent: post.headline_accent || '',
@@ -121,7 +197,12 @@ async function getEditData(req, res, next) {
 async function preview(req, res, next) {
   try {
     const { post, campaign } = await loadFromToken(req);
-    const image = await renderFromFields(post, campaign, (req.body && req.body.fields) || {});
+    const fields = (req.body && req.body.fields) || {};
+    if (post.media_type === 'reel' || post.video_url) {
+      const videoUrl = await renderReelFromFields(post, campaign, fields, true);
+      return res.json({ videoUrl });
+    }
+    const image = await renderFromFields(post, campaign, fields);
     res.json({ image });
   } catch (err) {
     next(err);
@@ -132,14 +213,36 @@ async function preview(req, res, next) {
 async function save(req, res, next) {
   try {
     const { post, campaign } = await loadFromToken(req);
-    if (post.status && post.status !== 'draft') {
-      throw httpError(400, 'Only draft posts can be edited.');
+    if (post.status !== 'generated') {
+      throw httpError(409, `Only generated posts can be edited (current status: ${post.status}).`);
     }
 
     const f = (req.body && req.body.fields) || {};
+    if (post.media_type === 'reel' || post.video_url) {
+      const videoUrl = await renderReelFromFields(post, campaign, f, false);
+      try {
+        await postModel.updateReelContent(post.id, post.user_id, {
+          ...f,
+          layoutIndex: clampLayout(f.layoutIndex),
+          hashtags: parseHashtags(f.hashtags),
+          videoUrl
+        });
+      } catch (error) {
+        fs.rmSync(getReelFile(videoUrl), { force: true });
+        throw error;
+      }
+      if (post.video_url && post.video_url !== videoUrl) {
+        try {
+          fs.rmSync(getReelFile(post.video_url), { force: true });
+        } catch (error) {
+          console.error('[reels] Could not clean up the replaced video:', error.message);
+        }
+      }
+      return res.json({ videoUrl, status: 'ready_to_post' });
+    }
     const imageUrl = await renderFromFields(post, campaign, f);
 
-    await postModel.updatePostContent(post.id, {
+    await postModel.updatePostContent(post.id, post.user_id, {
       caption: f.caption || '',
       hashtags: parseHashtags(f.hashtags),
       cta: f.cta || '',
@@ -151,26 +254,21 @@ async function save(req, res, next) {
       layoutIndex: clampLayout(f.layoutIndex),
       imageUrl
     });
-
-    res.json({ imageUrl });
+    res.json({ imageUrl, status: 'ready_to_post' });
   } catch (err) {
     next(err);
   }
 }
 
 // POST /api/posts/edit-approve?token=...
-// The page saves first, so this only publishes the saved post.
+// The page saves first, advancing it to ready_to_post; approval does not publish immediately.
 async function approve(req, res, next) {
   try {
     const { payload, post } = await loadFromToken(req);
-    if (post.status && post.status !== 'draft') {
-      throw httpError(400, 'This post is already ' + post.status + '.');
+    if (post.status !== 'ready_to_post') {
+      await postModel.markReadyToPost(post.id, payload.userId);
     }
-    if (typeof postController.performApproval !== 'function') {
-      throw httpError(501, 'Publishing from this page is not connected yet. Approve the post from the dashboard instead.');
-    }
-    await postController.performApproval(post.id, payload.userId);
-    res.json({ message: 'Post approved and published to Instagram!' });
+    res.json({ message: 'Post approved and ready to schedule.', status: 'ready_to_post' });
   } catch (err) {
     next(err);
   }

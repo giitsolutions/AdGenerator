@@ -29,7 +29,7 @@ async function processOne(post) {
   }
   if (!shouldRetryNow(post)) return;
 
-  const claimed = await scheduleStore.markPublishing(post.id);
+  const claimed = await scheduleStore.markPublishing(post.id, post.scheduled_at);
   if (!claimed) return;
 
   try {
@@ -41,11 +41,10 @@ async function processOne(post) {
     console.error('[schedulerService] publish failed for', post.id, msg);
 
     const attempts = (post.schedule_attempts || 0) + 1;
+    await scheduleStore.recordAttempt(post.id, msg);
     if (attempts >= MAX_ATTEMPTS) {
-      await scheduleStore.markFailed(post.id, msg);
-      console.log('[schedulerService] post', post.id, 'marked failed after', attempts, 'attempts');
+      console.log('[schedulerService] post', post.id, 'remains scheduled after', attempts, 'attempts; manual retry is available');
     } else {
-      await scheduleStore.recordAttempt(post.id, msg);
       console.log('[schedulerService] will retry post', post.id, '(attempt', attempts, ')');
     }
   }
@@ -78,9 +77,15 @@ async function tick() {
 
 function startAutoPoster() {
   if (intervalId) return;
-  scheduleStore.ensureColumns().catch(() => {});
-  setTimeout(() => tick().catch(() => {}), 4000);
-  intervalId = setInterval(() => tick().catch(() => {}), TICK_MS);
+  scheduleStore.ensureColumns().catch(error =>
+    console.error('[schedulerService] could not prepare scheduler columns:', error.message)
+  );
+  setTimeout(() => tick().catch(error =>
+    console.error('[schedulerService] startup tick failed:', error.message)
+  ), 4000);
+  intervalId = setInterval(() => tick().catch(error =>
+    console.error('[schedulerService] scheduled tick failed:', error.message)
+  ), TICK_MS);
   console.log('[schedulerService] Auto-poster started (every 30s)');
 }
 

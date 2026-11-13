@@ -20,7 +20,7 @@ const FILLER_AFTER_STRIP = /\b(a|an|the|of|by|while|during|with|and|on|in|at)\b(
 const FILLER_AT_START = /^(a|an|the|of|by|while|during|with|and|on|in|at)\b\s*/i;
 
 // Used only to decide whether a stripped fitness description still names a setting.
-const FITNESS = /\b(gym|dumbbells?|barbells?|treadmills?|weights?|workout|fitness|exercise|kettlebells?|cross trainer|elliptical)\b/i;
+const FITNESS = /\b(gym|dumbbells?|barbells?|treadmills?|weights?|workout|fitness|exercise|kettlebells?)\b/i;
 const SETTING = /\b(gym|studio|room|floor|rack|space|fitness|window|garage)\b/i;
 
 /**

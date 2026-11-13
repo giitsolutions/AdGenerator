@@ -1,16 +1,32 @@
 /**
  * schedule.js
- * Schedule popup + helper functions for the KwikPost dashboard.
+ * Schedule popup + helper functions for the KwikPost dashboard
+ * (index.html) and the Schedule page (schedule.html).
  *
  * Include BEFORE app.js:
  *   <script src="schedule.js"></script>
  *   <script src="app.js"></script>
  *
- * On each post card (draft / failed) add:
- *   <button onclick="schedulePost(POST_ID)">Schedule</button>
- *   <button onclick="unschedulePost(POST_ID)" style="display:none" class="unschedule-btn">Cancel schedule</button>
- *   <button onclick="retryScheduledPost(POST_ID)" style="display:none" class="retry-btn">Retry</button>
+ * EASIEST way to add the buttons: in the function in app.js that builds each
+ * post card, add this inside the card's HTML (and give the card element the
+ * attribute data-post-id="${p.id}"):
+ *
+ *   ${scheduleButtonsHtml(p)}
+ *
+ * It prints the right buttons for the post's status:
+ *   generated      -> no scheduling action until approved
+ *   ready_to_post  -> Schedule
+ *   scheduled  -> "Scheduled · 5 Nov, 9:00 am", Cancel schedule, Reschedule
+ *   failed     -> the error, Retry, Schedule
+ *   publishing -> "Publishing…"
+ *   posted     -> nothing
+ *
+ * Or write the buttons yourself:
+ *   <button class="schedule-btn" onclick="schedulePost(POST_ID)">Schedule</button>
+ *   <button class="unschedule-btn" onclick="unschedulePost(POST_ID)" style="display:none">Cancel schedule</button>
+ *   <button class="retry-btn" onclick="retryScheduledPost(POST_ID)" style="display:none">Retry</button>
  *   <span class="sched-label"></span>
+ * and call updateScheduleBadges(posts) after the cards are drawn.
  */
 
 (function () {
@@ -28,9 +44,11 @@
     if (token) h['Authorization'] = 'Bearer ' + token;
     return h;
   }
+  window.kwikAuthHeaders = authHeaders; // also used by schedule.html
 
   async function api(path, opts = {}) {
     const res = await fetch(path, {
+      credentials: 'same-origin',
       ...opts,
       headers: { ...authHeaders(), ...(opts.headers || {}) }
     });
@@ -39,15 +57,32 @@
     return data;
   }
 
-  function afterChange() {
-    if (typeof window.loadPosts === 'function') {
-      window.loadPosts();
+  // What to refresh after a change: the Schedule page, the dashboard, or a reload.
+  async function afterChange() {
+    if (typeof window.onScheduleChanged === 'function') {
+      await window.onScheduleChanged();
+    } else if (typeof window.loadPosts === 'function') {
+      await window.loadPosts();
     } else if (typeof window.refreshPosts === 'function') {
-      window.refreshPosts();
+      await window.refreshPosts();
     } else {
       // last resort
-      setTimeout(() => location.reload(), 600);
+      await new Promise((resolve) => setTimeout(() => {
+        location.reload();
+        resolve();
+      }, 600));
     }
+    if (typeof window.refreshScheduleCalendar === 'function') {
+      await window.refreshScheduleCalendar();
+    }
+  }
+
+  function esc(text) {
+    return String(text == null ? '' : text)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
   }
 
   // ── public helpers used by the popup and cards ───────────────────────────
@@ -122,13 +157,16 @@
 
     popupEl = document.createElement('div');
     popupEl.id = 'kwik-schedule-popup';
+    popupEl.setAttribute('role', 'dialog');
+    popupEl.setAttribute('aria-label', 'Schedule post');
     popupEl.innerHTML = `
       <div class="kwik-sched-backdrop"></div>
       <div class="kwik-sched-card">
         <h3>Schedule post</h3>
-        <p class="kwik-sched-sub">Pick a date & time. The post will auto-publish to Instagram then.</p>
+        <p class="kwik-sched-sub">Pick a date &amp; time. The post will auto-publish to Instagram then.</p>
+        <p class="kwik-sched-feedback" role="status" aria-live="polite"></p>
 
-        <label>Date & time</label>
+        <label for="kwik-sched-input">Date &amp; time</label>
         <input type="datetime-local" id="kwik-sched-input" />
 
         <div class="kwik-sched-picks">
@@ -153,14 +191,17 @@
       .kwik-sched-card { position:relative; background:#1a1824; color:#f5f2fb; border:1px solid #2a2634; border-radius:16px; padding:22px; width:min(360px,92vw); box-shadow:0 20px 50px rgba(0,0,0,.4); }
       .kwik-sched-card h3 { margin:0 0 6px; font-size:18px; }
       .kwik-sched-sub { margin:0 0 14px; color:#a39bbd; font-size:13px; }
+      .kwik-sched-feedback { min-height:18px; margin:0 0 8px; color:#a39bbd; font-size:13px; }
+      .kwik-sched-feedback.error { color:#fca5a5; }
       .kwik-sched-card label { display:block; font-size:12px; color:#a39bbd; margin-bottom:4px; }
-      #kwik-sched-input { width:100%; box-sizing:border-box; background:#0f0e15; color:#f5f2fb; border:1px solid #2a2634; border-radius:10px; padding:10px 12px; font-size:14px; margin-bottom:12px; }
+      #kwik-sched-input { width:100%; box-sizing:border-box; background:#0f0e15; color:#f5f2fb; border:1px solid #2a2634; border-radius:10px; padding:10px 12px; font-size:14px; margin-bottom:12px; color-scheme:dark; }
       .kwik-sched-picks { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:16px; }
       .kwik-sched-picks button { background:#17151f; color:#a39bbd; border:1px solid #2a2634; border-radius:99px; padding:6px 12px; font-size:12px; cursor:pointer; }
       .kwik-sched-picks button:hover { border-color:#f97316; color:#fdba74; }
       .kwik-sched-actions { display:flex; gap:8px; justify-content:flex-end; }
       .kwik-sched-cancel { background:transparent; color:#a39bbd; border:1px solid #2a2634; border-radius:10px; padding:8px 14px; cursor:pointer; }
       .kwik-sched-confirm { background:linear-gradient(120deg,#f97316,#a855f7); color:#fff; border:0; border-radius:10px; padding:8px 16px; font-weight:700; cursor:pointer; }
+      .kwik-sched-confirm:disabled { opacity:.6; cursor:default; }
     `;
     document.head.appendChild(style);
     document.body.appendChild(popupEl);
@@ -168,6 +209,9 @@
     // events
     popupEl.querySelector('.kwik-sched-backdrop').onclick = closePopup;
     popupEl.querySelector('.kwik-sched-cancel').onclick = closePopup;
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && popupEl.classList.contains('open')) closePopup();
+    });
 
     popupEl.querySelectorAll('[data-pick]').forEach((btn) => {
       btn.onclick = () => {
@@ -186,30 +230,38 @@
 
     popupEl.querySelector('.kwik-sched-confirm').onclick = async () => {
       const input = document.getElementById('kwik-sched-input');
+      const btn = popupEl.querySelector('.kwik-sched-confirm');
+      const feedback = popupEl.querySelector('.kwik-sched-feedback');
       if (!input.value) {
-        alert('Pick a date and time');
+        feedback.textContent = 'Pick a date and time.';
+        feedback.classList.add('error');
         return;
       }
+      // new Date("YYYY-MM-DDTHH:mm") is read in the person's own time zone
       const when = new Date(input.value);
       if (Number.isNaN(when.getTime()) || when.getTime() < Date.now() - 60000) {
-        alert('Please choose a future date and time');
+        feedback.textContent = 'Please choose a future date and time.';
+        feedback.classList.add('error');
         return;
       }
+      const postId = currentPostId; // closePopup() clears it
       try {
-        const btn = popupEl.querySelector('.kwik-sched-confirm');
         btn.disabled = true;
         btn.textContent = 'Scheduling…';
-        await api('/api/posts/' + currentPostId + '/schedule', {
+        feedback.classList.remove('error');
+        feedback.textContent = 'Scheduling…';
+        await api('/api/posts/' + postId + '/schedule', {
           method: 'POST',
           body: JSON.stringify({ scheduledAt: when.toISOString() })
         });
         toast('Scheduled for ' + when.toLocaleString());
+        feedback.textContent = 'Scheduled. Refreshing status counts…';
         closePopup();
-        afterChange();
+        await afterChange();
       } catch (e) {
-        alert(e.message);
+        feedback.textContent = 'Could not schedule: ' + e.message;
+        feedback.classList.add('error');
       } finally {
-        const btn = popupEl.querySelector('.kwik-sched-confirm');
         btn.disabled = false;
         btn.textContent = 'Schedule';
       }
@@ -222,6 +274,9 @@
     currentPostId = postId;
     const el = ensurePopup();
     const input = document.getElementById('kwik-sched-input');
+    const feedback = el.querySelector('.kwik-sched-feedback');
+    feedback.textContent = '';
+    feedback.classList.remove('error');
     // default: tomorrow 9:00 AM
     let def = atLocal(9, 0, 1);
     if (def.getTime() < Date.now()) def = atLocal(9, 0, 2);
@@ -252,9 +307,47 @@
     }, 2800);
   }
 
+  // The reason a post failed. The database column is error_message;
+  // last_schedule_error is accepted for older data.
+  function errorOf(p) {
+    return p.last_error || p.error_message || p.last_schedule_error || '';
+  }
+
+  // ── buttons for a post card ──────────────────────────────────────────────
+  // Returns HTML for the schedule buttons of one post (see the top of this file).
+  window.scheduleButtonsHtml = function (p) {
+    const id = Number(p && p.id);
+    if (!Number.isFinite(id)) return '';
+    const status = p.status || 'generated';
+    const cls = 'btn-secondary';
+
+    if (status === 'posted') return '';
+    if (status === 'publishing') return '<span class="sched-label">Publishing…</span>';
+
+    if (status === 'scheduled') {
+      return (
+        `<span class="sched-label">Scheduled · ${esc(window.formatScheduled(p.scheduled_at))}</span>` +
+        `<button type="button" class="unschedule-btn ${cls}" onclick="unschedulePost(${id})">Cancel schedule</button>`
+      );
+    }
+
+    if (status === 'failed') {
+      const err = errorOf(p);
+      return (
+        `<span class="sched-label">${err ? 'Failed: ' + esc(err) : 'Failed'}</span>` +
+        `<button type="button" class="retry-btn ${cls}" onclick="retryScheduledPost(${id})">Retry</button>` +
+        `<button type="button" class="schedule-btn ${cls}" onclick="schedulePost(${id})">Schedule</button>`
+      );
+    }
+
+    if (status === 'ready_to_post') return `<button type="button" class="schedule-btn ${cls}" onclick="schedulePost(${id})">Schedule</button>`;
+    return '';
+  };
+
   // ── helper to update card badges after loadPosts ─────────────────────────
-  // Call this from your render function if you want automatic labels:
+  // For hand-written buttons: call this from your render function
   //   updateScheduleBadges(postsArray);
+  // Each card needs data-post-id="<id>" and the classes shown at the top.
   window.updateScheduleBadges = function (posts) {
     if (!Array.isArray(posts)) return;
     posts.forEach((p) => {
@@ -269,18 +362,34 @@
       if (p.status === 'scheduled' && p.scheduled_at) {
         if (label) label.textContent = 'Scheduled · ' + formatScheduled(p.scheduled_at);
         if (unBtn) unBtn.style.display = '';
+        if (retryBtn) retryBtn.style.display = p.last_error ? '' : 'none';
+        if (schedBtn) schedBtn.style.display = 'none';
+      } else if (p.status === 'publishing') {
+        if (label) label.textContent = 'Publishing…';
+        if (unBtn) unBtn.style.display = 'none';
         if (retryBtn) retryBtn.style.display = 'none';
         if (schedBtn) schedBtn.style.display = 'none';
       } else if (p.status === 'failed') {
-        if (label) label.textContent = p.last_schedule_error ? 'Failed: ' + p.last_schedule_error : 'Failed';
+        const err = errorOf(p);
+        if (label) label.textContent = err ? 'Failed: ' + err : 'Failed';
         if (unBtn) unBtn.style.display = 'none';
         if (retryBtn) retryBtn.style.display = '';
-        if (schedBtn) schedBtn.style.display = '';
+        if (schedBtn) { schedBtn.style.display = ''; schedBtn.textContent = 'Schedule'; }
+      } else if (p.status === 'posted') {
+        if (label) label.textContent = '';
+        if (unBtn) unBtn.style.display = 'none';
+        if (retryBtn) retryBtn.style.display = 'none';
+        if (schedBtn) schedBtn.style.display = 'none';
+      } else if (p.status === 'ready_to_post') {
+        if (label) label.textContent = '';
+        if (unBtn) unBtn.style.display = 'none';
+        if (retryBtn) retryBtn.style.display = 'none';
+        if (schedBtn) { schedBtn.style.display = ''; schedBtn.textContent = 'Schedule'; }
       } else {
         if (label) label.textContent = '';
         if (unBtn) unBtn.style.display = 'none';
         if (retryBtn) retryBtn.style.display = 'none';
-        if (schedBtn) schedBtn.style.display = '';
+        if (schedBtn) schedBtn.style.display = 'none';
       }
     });
   };

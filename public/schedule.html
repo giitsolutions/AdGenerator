@@ -12,6 +12,8 @@
   }
   .top a { color: #c4b5fd; text-decoration: none; }
   .top h1 { margin: 0; font-size: 18px; }
+  .page-nav { display:flex; flex-wrap:wrap; gap:8px; }
+  .page-nav a { padding:7px 11px; border:1px solid #2a2634; border-radius:9px; background:#17151f; }
   .wrap { max-width: 980px; margin: 24px auto; padding: 0 16px; }
   .card {
     background: #0f0e15; border: 1px solid #2a2634; border-radius: 16px; padding: 18px;
@@ -69,9 +71,11 @@
 </head>
 <body>
   <div class="top">
-    <a href="/index.html">← Back to dashboard</a>
-    <h1>📅 Schedule a post</h1>
-    <span class="settings-note">Click a date → pick draft → schedule</span>
+    <h1 id="scheduleTitle">📅 Schedule content</h1>
+    <nav class="page-nav" aria-label="Content pages">
+      <a href="/index.html">🖼️ Posts / Images</a>
+      <a href="/reels.html">🎬 Reels / Videos</a>
+    </nav>
   </div>
 
   <div class="wrap">
@@ -81,7 +85,7 @@
         <h2 id="calTitle" style="margin:0;font-size:18px;">Month</h2>
         <button type="button" class="secondary" onclick="calNextMonth()">Next ›</button>
       </div>
-      <p class="settings-note">Click any day to schedule a draft for that date. Purple pills = already scheduled (click to cancel).</p>
+      <p class="settings-note">Click any day to schedule ready content for that date. Purple pills = already scheduled (click to cancel).</p>
       <div id="calGrid" class="cal-grid"></div>
     </div>
   </div>
@@ -90,9 +94,9 @@
   <div id="schedOverlay" class="overlay" onclick="if(event.target===this)closeSchedModal()">
     <div class="modal" role="dialog">
       <h3>Schedule for <span id="modalDateLabel">—</span></h3>
-      <p class="settings-note" id="modalHint">Choose a draft and a time.</p>
+      <p class="settings-note" id="modalHint">Choose ready content and a time.</p>
 
-      <label for="modalPost">Draft post</label>
+      <label for="modalPost">Ready content</label>
       <select id="modalPost"></select>
 
       <label for="modalTime">Time</label>
@@ -114,6 +118,10 @@
 
 <script>
 const POSTS_API = '/api/posts';
+const requestedContentType = new URLSearchParams(window.location.search).get('content_type');
+const CONTENT_TYPE = requestedContentType === 'image' || requestedContentType === 'reel' ? requestedContentType : '';
+if (CONTENT_TYPE === 'image') document.getElementById('scheduleTitle').textContent = '📅 Schedule image posts';
+if (CONTENT_TYPE === 'reel') document.getElementById('scheduleTitle').textContent = '📅 Schedule reels / videos';
 
 function getToken() {
   return localStorage.getItem('authToken') || localStorage.getItem('token') || '';
@@ -153,7 +161,8 @@ async function api(url, options) {
 }
 
 async function loadPosts() {
-  const data = await api(POSTS_API);
+  const suffix = CONTENT_TYPE ? '?content_type=' + encodeURIComponent(CONTENT_TYPE) : '';
+  const data = await api(POSTS_API + suffix);
   postsCache = Array.isArray(data) ? data : ((data && data.posts) || []);
   renderCalendar();
 }
@@ -188,7 +197,7 @@ function renderCalendar() {
   const byDay = {};
   postsCache.forEach(function (p) {
     const st = (p.status || '').toLowerCase();
-    if (st !== 'scheduled' && st !== 'publishing' && st !== 'posted') return;
+    if (st !== 'scheduled' && st !== 'posted') return;
     if (!p.scheduled_at) return;
     const d = new Date(p.scheduled_at);
     if (Number.isNaN(d.getTime())) return;
@@ -210,7 +219,7 @@ function renderCalendar() {
     const isSelected = selectedY === calYear && selectedM === calMonth && selectedD === n;
     const posts = byDay[n] || [];
     const pills = posts.map(function (p) {
-      const label = esc((p.caption || p.content || ('Post ' + p.id)).slice(0, 22));
+      const label = esc((p.content_type === 'reel' ? 'Reel: ' : 'Image: ') + (p.caption || p.content || ('Post ' + p.id)).slice(0, 22));
       const id = JSON.stringify(p.id);
       const canCancel = (p.status || '').toLowerCase() === 'scheduled';
       if (canCancel) {
@@ -245,18 +254,18 @@ function setModalTime(t) {
 }
 
 function openSchedModal() {
-  const drafts = postsCache.filter(function (p) {
-    const st = (p.status || 'draft').toLowerCase();
-    return !p.status || st === 'draft' || st === 'failed';
+  const readyItems = postsCache.filter(function (p) {
+    const st = (p.status || 'generated').toLowerCase();
+    return st === 'ready_to_post';
   });
 
   const sel = document.getElementById('modalPost');
-  if (!drafts.length) {
-    sel.innerHTML = '<option value="">No drafts — generate one on the dashboard first</option>';
+  if (!readyItems.length) {
+    sel.innerHTML = '<option value="">No ready content — approve a generated item first</option>';
     document.getElementById('modalSaveBtn').disabled = true;
   } else {
-    sel.innerHTML = drafts.map(function (p) {
-      const label = (p.caption || p.content || ('Post #' + p.id)).slice(0, 70);
+    sel.innerHTML = readyItems.map(function (p) {
+      const label = (p.content_type === 'reel' ? 'Reel: ' : 'Image: ') + (p.caption || p.content || ('Post #' + p.id)).slice(0, 70);
       return '<option value="' + esc(p.id) + '">' + esc(label) + '</option>';
     }).join('');
     document.getElementById('modalSaveBtn').disabled = false;
@@ -281,7 +290,7 @@ function closeSchedModal() {
 async function confirmSchedule() {
   const postId = document.getElementById('modalPost').value;
   const time = document.getElementById('modalTime').value; // HH:MM
-  if (!postId) { alert('Select a draft'); return; }
+  if (!postId) { alert('Select ready content'); return; }
   if (!time) { alert('Pick a time'); return; }
 
   const parts = time.split(':');

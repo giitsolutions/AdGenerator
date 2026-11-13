@@ -30,7 +30,6 @@ const PROMPTS = [
   'close-up of a jump rope coiled on a wooden floor, blurred background',
   'close-up of a treadmill control display, blurred background',
   'close-up of a bench with a folded towel and water bottle, blurred background',
-  'close-up of an elliptical machine in a bright room, blurred background',
   'close-up of a set of ankle weights on a mat, blurred background',
   'close-up of a gym towel and water bottle on a bench, blurred background',
   'close-up of a rowing machine in a bright room, blurred background'

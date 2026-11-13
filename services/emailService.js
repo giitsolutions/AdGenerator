@@ -1,63 +1,107 @@
 const nodemailer = require('nodemailer');
-const config = require('../config/env');
+const env = require('../config/env');
 
 let transporter = null;
-
 function getTransporter() {
-  if (transporter) return transporter;
-  if (!config.email.user || !config.email.appPassword) return null;
-
-  transporter = nodemailer.createTransport({
-    service: 'gmail',
-    auth: {
-      user: config.email.user,
-      pass: config.email.appPassword
-    }
-  });
+  if (!transporter) {
+    transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: { user: env.email.user, pass: env.email.appPassword },
+      connectionTimeout: 15000,
+      greetingTimeout: 15000,
+      socketTimeout: 30000,
+    });
+  }
   return transporter;
 }
 
-/**
- * Sends an approval-request email for a freshly generated post,
- * including the image, caption, and one-click Approve/Edit/Reject links.
- * Those links are signed tokens (see routes/postRoutes.js) that work
- * without the user needing to log in first — clicking them directly
- * approves or rejects the post from the inbox, or opens the edit page.
- */
-async function sendApprovalEmail({ toEmail, productName, caption, hashtags, imageUrl, approveUrl, rejectUrl, editUrl }) {
-  const t = getTransporter();
-  if (!t) {
-    console.warn('[emailService] EMAIL_USER / EMAIL_APP_PASSWORD not set — skipping approval email.');
-    return false;
+function missingCredentials() {
+  return !env.email.user || !env.email.appPassword;
+}
+
+async function verifyEmailSetup() {
+  if (missingCredentials()) {
+    return { ok: false, error: 'EMAIL_USER or EMAIL_APP_PASSWORD is missing in .env' };
   }
+  try {
+    await getTransporter().verify();
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e.message };
+  }
+}
 
-  const editButton = editUrl
-    ? `<a href="${editUrl}" style="background:#405de6; color:#fff; padding:12px 24px; border-radius:6px; text-decoration:none; margin-right:12px; display:inline-block; margin-top:8px;">✏️ Edit</a>`
-    : '';
+const esc = (s) =>
+  String(s ?? '').replace(/[&<>"']/g, (c) =>
+    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])
+  );
 
-  const html = `
-    <div style="font-family: Arial, sans-serif; max-width: 480px; margin: 0 auto;">
-      <h2>New post ready for ${productName}</h2>
-      <img src="${imageUrl}" alt="Generated ad" style="width:100%; border-radius:8px; margin-bottom:16px;" />
-      <p><strong>Caption:</strong> ${caption}</p>
-      <p><strong>Hashtags:</strong> ${hashtags.join(' ')}</p>
-      <div style="margin-top: 24px;">
-        <a href="${approveUrl}" style="background:#2ecc71; color:#fff; padding:12px 24px; border-radius:6px; text-decoration:none; margin-right:12px; display:inline-block; margin-top:8px;">✅ Approve & Post</a>
-        ${editButton}
-        <a href="${rejectUrl}" style="background:#e74c3c; color:#fff; padding:12px 24px; border-radius:6px; text-decoration:none; display:inline-block; margin-top:8px;">❌ Reject</a>
-      </div>
-      <p style="color:#888; font-size:12px; margin-top:24px;">These links work without logging in — click to approve, edit the text, or reject today's post.</p>
-    </div>
-  `;
+const button = (href, label, color) =>
+  `<td style="padding:6px"><a href="${esc(href)}" style="display:inline-block;background:${color};color:#fff;text-decoration:none;
+   font-weight:bold;font-family:Arial,sans-serif;font-size:15px;padding:13px 22px;border-radius:8px">${label}</a></td>`;
 
-  await t.sendMail({
-    from: `"AI Ad Generator" <${config.email.user}>`,
-    to: toEmail,
-    subject: `📣 New post ready for approval — ${productName}`,
-    html
-  });
+function buildHtml({ campaignName, themeLabel, caption, imgSrc, links }) {
+  return `<div style="max-width:560px;margin:auto;font-family:Arial,sans-serif;color:#222">
+  <h2 style="margin:0 0 4px">New post ready for ${esc(campaignName)}</h2>
+  ${themeLabel ? `<p style="margin:0 0 12px;color:#666">Theme: <b>${esc(themeLabel)}</b></p>` : ''}
+  ${imgSrc ? `<img src="${esc(imgSrc)}" alt="Post image" style="width:100%;border-radius:10px;display:block;margin:12px 0">` : ''}
+  <div style="white-space:pre-wrap;line-height:1.5;background:#f6f6f8;padding:14px;border-radius:10px">${esc(caption)}</div>
+  <table role="presentation" style="margin:18px auto"><tr>
+    ${button(links.approve, 'Approve &amp; Post', '#16a34a')}
+    ${button(links.edit, 'Edit', '#2563eb')}
+    ${button(links.reject, 'Reject', '#dc2626')}
+  </tr></table>
+  <p style="font-size:12px;color:#888;text-align:center">These links work without logging in and expire in 7 days.</p></div>`;
+}
 
+function isUsableEmail(to) {
+  const s = String(to || '').trim();
+  if (!/^\S+@\S+\.\S+$/.test(s)) return false;
+  // Gmail cannot deliver to fake local addresses
+  if (/@(localhost|local|example\.com)$/i.test(s)) return false;
   return true;
 }
 
-module.exports = { sendApprovalEmail };
+async function sendApprovalEmail({ to, campaignName, themeLabel, caption, imageUrl, imagePath, links }) {
+  if (missingCredentials()) {
+    throw new Error('Cannot send approval email: EMAIL_USER or EMAIL_APP_PASSWORD is missing in .env');
+  }
+  if (!isUsableEmail(to)) {
+    throw new Error(
+      `Cannot send approval email: invalid recipient "${to}". Need a real user email on the users table.`
+    );
+  }
+  if (!links || !links.approve || !links.edit || !links.reject) {
+    throw new Error('Cannot send approval email: action links are missing');
+  }
+
+  const useCid = Boolean(imagePath);
+  const publicUrl =
+    imageUrl &&
+    /^https?:\/\//i.test(imageUrl) &&
+    !/^https?:\/\/(localhost|127\.0\.0\.1)/i.test(imageUrl)
+      ? imageUrl
+      : null;
+
+  console.log('[emailService] sendApprovalEmail TO:', to, '| campaign:', campaignName);
+
+  const info = await getTransporter().sendMail({
+    from: `KwikPost <${env.email.user}>`,
+    to, // always the argument — never env.notificationEmail here
+    subject: `New post ready: ${campaignName}${themeLabel ? ' — ' + themeLabel : ''}`,
+    text: `${caption}\n\nApprove & Post: ${links.approve}\nEdit: ${links.edit}\nReject: ${links.reject}`,
+    html: buildHtml({
+      campaignName,
+      themeLabel,
+      caption,
+      imgSrc: useCid ? 'cid:postimage' : publicUrl,
+      links,
+    }),
+    attachments: useCid ? [{ filename: 'post.png', path: imagePath, cid: 'postimage' }] : [],
+  });
+
+  console.log(`Approval email sent to ${to} (${info.messageId || 'ok'})`);
+  return info;
+}
+
+module.exports = { sendApprovalEmail, verifyEmailSetup, isUsableEmail };

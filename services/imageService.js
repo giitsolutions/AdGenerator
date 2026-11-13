@@ -1039,5 +1039,7 @@ module.exports = {
   hasBackground,
   ensurePublicImageUrl,
   uploadImage,
+  pickColor,
+  removeLogoBackground,
   LAYOUT_COUNT: TEMPLATES.length
 };

@@ -12,7 +12,7 @@ controllers/    → request/response handling — calls models + services, never
 routes/         → just maps URLs to controller functions, no logic
 middleware/     → cross-cutting concerns (error handling)
 scheduler/      → cron job — reuses the SAME models/services as the API, no duplicated logic
-public/         → frontend dashboard (HTML/JS)
+public/         → Posts / Images (index.html), Reels / Videos (reels.html), and shared support pages
 server.js       → wires everything together, ~20 lines
 ```
 
@@ -21,6 +21,21 @@ server.js       → wires everything together, ~20 lines
 - **No duplicated logic**: the manual "Generate" button and the automatic scheduler both call the exact same `aiService.generateAdContent()` and `postModel.createPost()` — the pipeline is written once, used twice.
 - **Testable in isolation**: `utils/promptBuilder.js` and the services are pure/isolated functions you could unit test without spinning up the whole server.
 - **Easy to extend**: adding image-generation later just means adding `services/imageService.js` and calling it from the controller — no restructuring needed.
+
+## Two content workspaces
+
+- **Posts / Images:** open `/index.html`. Generate image ads and ad copy using a saved photo, and review all image posts together in the original single-list layout. Cards retain status-appropriate edit, approval, schedule, unschedule, retry, and view-only actions. Use the separate **Image calendar** link in the navigation from Reels / Videos or open `/schedule.html?content_type=image` to view and reschedule image posts. Upload photos to the shared library from `/upload.html`. Connect Instagram, edit campaign details and logos, and configure daily themes here too.
+- **Reels / Videos:** open `/reels.html`. Select a campaign, generate stock treadmill footage, make a slideshow from your photo library, or upload your own MP4. Manage videos in the same four workflow sections (edit, approve, schedule, return to Generated, retry failed publishing, or unschedule). Its monthly Schedule calendar is filtered to reels and supports rescheduling in the same way.
+- Both pages share the selected campaign in browser storage. Reel generation and upload use the selected campaign's logo and campaign details. Use **Campaigns & branding** in the Reels navigation to edit campaign branding.
+- **Upload images** opens `/upload.html` to add or remove photos in the shared image library. **Image calendar** and **Video calendar** open the same calendar filtered to their respective content type.
+- The list APIs are type-filtered: `GET /api/posts?content_type=image` and `GET /api/posts?content_type=reel`. Existing unfiltered `GET /api/posts` remains available to older callers.
+- The persisted workflow is `generated → ready_to_post → scheduled → posted`. Editing/saving or approving Generated content moves it to Ready to Post. Ready items can be scheduled or moved back to Generated; Scheduled items can be unscheduled or rescheduled. Publish failures remain Scheduled, keep the error visible, and can be retried. Posted items are view-only.
+
+## Content workflow migration
+
+The idempotent workflow migration runs during server startup and adds any missing workflow columns to `posts`, including `content_type`, `posted_at`, `last_error`, `scheduled_at`, and scheduler lock/retry fields. It does not delete posts. Legacy statuses map as follows: `draft → generated`, `approved → ready_to_post`, `scheduled → scheduled`, `published → posted`, and `rejected → generated`. Legacy `failed` or `publishing` rows with a schedule remain Scheduled; otherwise they become Ready to Post. Existing scheduler/publish errors are copied into `last_error` when available. Legacy content is classified as a Reel when `media_type = 'reel'` or a `video_url` exists; other records are Images. For old Posted rows without `posted_at`, the migration uses `created_at` as the best available date. Calendar queries also fall back to `created_at` for older Posted rows.
+
+Dates entered in the UI use the browser's local timezone and are sent as ISO timestamps; timestamps are stored/compared as UTC. The calendar formats them in the user's local timezone. The scheduler checks every 30 seconds, claims due items with a time-limited lock, and automatically retries a failed publish after 5 and 10 minutes (three attempts total). Items more than six hours overdue remain Scheduled with an error; manual Retry queues them again for about one minute later. Rescheduling updates the existing scheduled timestamp rather than creating another publish job; active publish locks prevent a concurrent move.
 
 ## Setup Steps
 
@@ -45,7 +60,7 @@ npm install
 ```bash
 cp .env.example .env
 ```
-Fill in `GEMINI_API_KEY`, `IMGBB_API_KEY`, and `MAKE_WEBHOOK_URL` in `.env`.
+Fill in `GEMINI_API_KEY`, `IMGBB_API_KEY`, and `MAKE_WEBHOOK_URL` in `.env` for image posts. Reel-specific setup is described below.
 
 ### 4. Run the server
 ```bash
@@ -54,23 +69,47 @@ npm start
 Visit **http://localhost:5000**
 
 ### 5. Try the flow
-1. Save a campaign → 2. Generate with AI (this also auto-generates and hosts an ad image) → 3. Review the draft (image + caption + hashtags shown together) → 4. Approve & Post — no manual image needed, it's already attached.
+1. Create a campaign and add its logo under **Campaigns & branding**.
+2. Open **Posts / Images** to generate an image ad and copy, upload library photos, and manage image posts.
+3. Open **Reels / Videos** to generate a stock video or slideshow, upload an MP4, and manage video posts.
+4. Approve generated content, then schedule it from its page or the matching calendar. Publishing happens at the scheduled time.
 
-## API Routes (now organized by resource)
-```
-POST   /api/campaigns              → create a campaign
-GET    /api/campaigns              → list campaigns
-POST   /api/campaigns/:id/generate → generate a new draft for a campaign
+## Reel generation details
 
-GET    /api/posts                  → list all posts/drafts
-POST   /api/posts/:id/approve      → approve + auto-post to Instagram
-POST   /api/posts/:id/reject       → reject a draft
+Open **Reels / Videos** at `/reels.html`. Choose to generate 1–5 videos in one operation; they are generated sequentially so each result is saved and displayed as it completes, and any failures are reported alongside successful results. Generate a 15-, 20-, 25-, or 30-second Reel from Pexels stock footage searched for treadmill videos in any source orientation; footage is cropped to the vertical Reel format. Walking, jogging, running, incline, interval, other treadmill workouts, and equipment demonstrations are accepted in any setting; Gemini checks preview frames to ensure the video is focused on a treadmill, rejecting clips where one only appears incidentally or unrelated exercise footage. Or explicitly choose a slideshow of saved photos. Automatic mode attempts stock footage; it does not silently switch to a slideshow. A selected stock clip is saved to persistent used-video history and is never reused; if no new matching clip is available, generation reports an error instead of repeating one. The Gemini check requires `GEMINI_API_KEY`; stock search requires `PEXELS_API_KEY`. Missing keys, provider/network errors, no unused matching clip, an empty slideshow library, and video-rendering errors can prevent generation. The generator applies the selected campaign's branding and uses AI for the caption and offer text; it does not synthesize video footage. You can also upload your own MP4 (100 MB and 90 seconds maximum by default), which is branded before being saved as generated content. Upload failures include an invalid/unreadable MP4, size/duration limits, a missing campaign, or video-rendering/AI errors. The video list supports editing the generated overlay and copy, approval, scheduling, retry after a failed publish, and unscheduling.
+
+To generate from stock footage, set `PEXELS_API_KEY`. To publish Reels, configure the Facebook app values in `.env.example`, set `APP_BASE_URL` to the application's publicly reachable HTTPS address (Instagram must be able to download the video), then connect a professional Instagram account from the dashboard. Existing image posts continue to publish through the Make.com webhook.
+
+## Existing API routes
 ```
+POST   /api/campaigns                    create a campaign
+GET    /api/campaigns                    list campaigns and branding
+PUT    /api/campaigns/:id                update campaign details/branding
+POST   /api/campaigns/:id/generate       generate an image post
+GET    /api/posts?content_type=image     list image posts
+GET    /api/posts?content_type=reel      list videos
+GET    /api/posts/schedule-overview      scheduled item counts/overview
+GET    /api/posts/schedule-calendar      scheduled and posted items for a date range (requires content_type=image|reel, from, to)
+POST   /api/posts/upload-image           upload a JPG/PNG as a generated image post
+POST   /api/posts/:id/edit-link          create a tokenized edit link for a generated item
+POST   /api/posts/:id/approve            move generated content to ready_to_post
+POST   /api/posts/:id/back-to-generated  move ready content back to generated
+POST   /api/posts/:id/schedule           schedule ready content
+PATCH  /api/posts/:id/schedule           change the date/time of scheduled content
+POST   /api/posts/:id/unschedule         return scheduled content to ready_to_post
+POST   /api/posts/:id/retry              retry a scheduled item after an error
+POST   /api/posts/:id/reject             reject/delete generated content
+POST   /api/posts/reel-generate          generate a video
+POST   /api/posts/reel-upload            upload a video
+GET    /api/library                      list saved photos for slideshow generation
+```
+
+`GET /api/posts` also accepts an optional `status` filter (`generated`, `ready_to_post`, `scheduled`, or `posted`). The calendar endpoint returns only Scheduled and Posted records in the half-open `[from, to)` range.
 
 
 netstat -ano | findstr :5000
 
-taskkill /PID <that_number> /F
+taskkill /PID 16568 /F
 npm start
 
 

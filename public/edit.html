@@ -13,6 +13,7 @@
     .preview { flex: 1 1 380px; max-width: 520px; position: sticky; top: 16px; }
     .form { flex: 1 1 420px; }
     .preview img { width: 100%; border-radius: 8px; display: block; background: #ddd; aspect-ratio: 1 / 1; object-fit: cover; }
+    .preview video { width: 100%; border-radius: 8px; display: block; background: #111; aspect-ratio: 9 / 16; max-height: 72vh; object-fit: contain; }
     .busy { position: relative; }
     .busy::after { content: attr(data-msg); position: absolute; inset: 0; background: rgba(255,255,255,.85); display: flex; align-items: center; justify-content: center; text-align: center; padding: 20px; font-weight: bold; border-radius: 8px; }
     label { display: block; font-size: 13px; font-weight: bold; margin: 14px 0 4px; color: #444; }
@@ -34,6 +35,19 @@
     #msg.err { display: block; background: #fdeaea; color: #a12626; }
     #msg.info { display: block; background: #eaf1ff; color: #1d4ea8; }
     #fatal { display: none; max-width: 600px; margin: 60px auto; text-align: center; font-size: 17px; }
+    @media (max-width: 700px) {
+      header { padding: 12px 16px; }
+      .wrap { display: flex; flex-direction: column; gap: 14px; margin: 14px auto 28px; padding: 0 12px; }
+      .card { width: 100%; padding: 16px; }
+      .preview { position: static; max-width: none; }
+      .preview img { max-height: 58vh; }
+      .preview video { max-height: 58vh; }
+      .form { flex-basis: auto; }
+      .row { flex-direction: column; gap: 0; }
+      .buttons { display: grid; grid-template-columns: 1fr; gap: 8px; }
+      .buttons button { width: 100%; min-height: 44px; }
+      input[type=text], textarea, select { font-size: 16px; }
+    }
   </style>
 </head>
 <body>
@@ -43,12 +57,15 @@
 
   <div class="wrap" id="app" style="display:none">
     <div class="card preview">
-      <div id="imgBox"><img id="img" alt="Post preview"></div>
+      <div id="imgBox">
+        <img id="img" alt="Post preview">
+        <video id="video" controls playsinline preload="metadata" style="display:none"></video>
+      </div>
       <div class="hint" id="imgHint">This is the image as it will be posted.</div>
     </div>
 
     <div class="card form">
-      <h3 style="border:0; margin-top:0; padding-top:0">Text on the image</h3>
+      <h3 id="overlayHeading" style="border:0; margin-top:0; padding-top:0">Text on the image</h3>
 
       <div class="row">
         <div>
@@ -73,7 +90,7 @@
       <label for="layoutIndex">Layout</label>
       <select id="layoutIndex"></select>
 
-      <h3>Caption (not on the image)</h3>
+      <h3 id="captionHeading">Caption (not on the image)</h3>
       <label for="caption">Caption</label>
       <textarea id="caption" rows="5"></textarea>
 
@@ -105,6 +122,8 @@
 ];
   let pollTimer = null;
   let busy = false;
+  let isReel = false;
+  let previewRequest = 0;
 
   function say(text, kind) { const m = $('msg'); m.textContent = text; m.className = kind || ''; }
   function fatal(text) { $('app').style.display = 'none'; $('fatal').style.display = 'block'; $('fatal').textContent = text; }
@@ -135,22 +154,41 @@
   }
 
   async function refreshPreview() {
+    const requestId = ++previewRequest;
     setBusy(true, 'Redrawing…');
     try {
       const d = await api('edit-preview', 'POST', { fields: values() });
-      $('img').src = d.image;
-      $('imgHint').textContent = 'Preview – not saved yet.';
-      say('');
-    } catch (e) { say(e.message, 'err'); }
-    setBusy(false);
+      if (requestId !== previewRequest) return;
+      if (isReel) {
+        $('video').src = d.videoUrl + '?t=' + Date.now();
+        $('video').load();
+        $('video').style.display = 'block';
+        $('img').style.display = 'none';
+        $('imgHint').textContent = 'Video preview – not saved yet.';
+      } else {
+        $('img').src = d.image;
+        $('imgHint').textContent = 'Preview – not saved yet.';
+      }
+      say(isReel ? 'Layout preview updated. Save changes to keep it.' : '');
+    } catch (e) {
+      if (requestId === previewRequest) say(e.message, 'err');
+    } finally {
+      if (requestId === previewRequest) setBusy(false);
+    }
   }
 
   async function save() {
     setBusy(true, 'Saving…');
     try {
       const d = await api('edit-save', 'POST', { fields: values() });
-      $('img').src = d.imageUrl;
-      $('imgHint').textContent = 'Saved. This is the image that will be posted.';
+      if (isReel) {
+        $('video').src = d.videoUrl + '?t=' + Date.now();
+        $('video').load();
+        $('imgHint').textContent = 'Saved. This is the Reel that will be posted.';
+      } else {
+        $('img').src = d.imageUrl;
+        $('imgHint').textContent = 'Saved. This is the image that will be posted.';
+      }
       say('Saved.', 'ok');
       setBusy(false);
       return true;
@@ -203,10 +241,26 @@
     try {
       const d = await api('edit-data');
       $('product').textContent = '– ' + d.productName;
-      if (d.status !== 'draft') return fatal('This post is already ' + d.status + ' and can no longer be edited.');
-      if (!d.editable) return fatal('This post has no saved background, so its text cannot be edited. Only posts generated after the edit feature was added can be.');
+      if (d.status !== 'generated') return fatal('This post is already ' + d.status.replace(/_/g, ' ') + ' and can no longer be edited.');
+      isReel = d.mediaType === 'reel';
+      if (!d.editable) {
+        return fatal(isReel
+          ? 'This Reel was created before editable video text was available. Create a new Reel to use the text editor.'
+          : 'This post has no saved background, so its text cannot be edited. Only posts generated after the edit feature was added can be.');
+      }
 
       const sel = $('layoutIndex');
+      if (isReel) {
+        $('overlayHeading').textContent = 'Text on the Reel';
+        $('captionHeading').textContent = 'Caption (not on the video)';
+        $('btnBg').style.display = 'none';
+        $('video').src = d.videoUrl;
+        $('video').style.display = 'block';
+        $('img').style.display = 'none';
+        $('imgHint').textContent = 'Preview your Reel and refresh to check its layout and text.';
+      } else {
+        $('img').src = d.imageUrl;
+      }
       for (let i = 0; i < d.layoutCount; i++) {
         const o = document.createElement('option');
         o.value = i; o.textContent = (i + 1) + '. ' + (LAYOUT_NAMES[i] || 'Layout ' + (i + 1));
@@ -214,8 +268,7 @@
       }
       TEXT_FIELDS.forEach(k => $(k).value = d.fields[k] || '');
       sel.value = d.fields.layoutIndex;
-      $('img').src = d.imageUrl;
-      $('btnBg').style.display = d.canNewBackground ? '' : 'none';
+      if (!isReel) $('btnBg').style.display = d.canNewBackground ? '' : 'none';
       $('app').style.display = 'flex';
       if (d.backgroundBusy) pollBackground();
     } catch (e) { fatal(e.message); }
@@ -225,7 +278,10 @@
   $('btnSave').onclick = save;
   $('btnApprove').onclick = approve;
   $('btnBg').onclick = newBackground;
-  $('layoutIndex').onchange = refreshPreview;
+  $('layoutIndex').onchange = function () {
+    if (isReel) say('Updating Reel layout preview…', 'info');
+    refreshPreview();
+  };
   init();
 </script>
 </body>

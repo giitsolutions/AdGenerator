@@ -6,6 +6,8 @@
 const CAMPAIGNS_API = '/api/campaigns';
 const POSTS_API     = '/api/posts';
 const ME_API        = '/api/auth/me';
+const CONTENT_TYPE  = 'image';
+const SELECTED_CAMPAIGN_KEY = 'kwik-selected-campaign';
 
 // ===== AUTH =====
 function getToken() {
@@ -177,7 +179,7 @@ async function loadCampaigns() {
     onboard.campaigns = list.length;
     updateOnboarding();
 
-    const current = sel.value;
+    const current = sel.value || localStorage.getItem(SELECTED_CAMPAIGN_KEY);
     sel.innerHTML = list.length
       ? list.map(function (c) {
           return '<option value="' + esc(c.id) + '">' +
@@ -187,6 +189,7 @@ async function loadCampaigns() {
     if (current && list.some(function (c) { return String(c.id) === String(current); })) {
       sel.value = current;
     }
+    if (sel.value) localStorage.setItem(SELECTED_CAMPAIGN_KEY, sel.value);
 
     if (listBox) {
       if (!list.length) {
@@ -347,7 +350,7 @@ async function openClaim(imageSrc) {
   overlay.classList.add('open');
 
   try {
-    const [posts] = await Promise.all([api(POSTS_API), loadCampaigns()]);
+    const [posts] = await Promise.all([api(POSTS_API + '?content_type=image'), loadCampaigns()]);
     const list = Array.isArray(posts) ? posts : ((posts && posts.posts) || []);
     const post = list.find(function (p) { return p.image_url && p.image_url === imageSrc; });
     const campaignId = post ? post.campaign_id : ($('campaignSelect') && $('campaignSelect').value);
@@ -365,6 +368,7 @@ async function openClaim(imageSrc) {
 function injectClaimButtons() {
   document.querySelectorAll('#postsList .post-card').forEach(function (card) {
     if (card.querySelector('.claim-now-wrap')) return;
+    if (card.querySelector('.status.posted')) return;
     const img = card.querySelector('img');
     if (!img) return;
 
@@ -472,7 +476,7 @@ function saveThemes(evt) {
 async function loadPosts() {
   const box = $('postsList');
   try {
-    const data = await api(POSTS_API);
+    const data = await api(POSTS_API + '?content_type=' + CONTENT_TYPE);
     const posts = Array.isArray(data) ? data : ((data && data.posts) || []);
     postsCache = posts;
 
@@ -480,67 +484,15 @@ async function loadPosts() {
 
     onboard.posts = posts.length;
     onboard.approvedCount = posts.filter(function (p) {
-      return p.status === 'approved' || p.status === 'posted';
+      return p.status === 'ready_to_post' || p.status === 'scheduled' || p.status === 'posted';
     }).length;
     onboard.approved = onboard.approvedCount > 0;
     updateOnboarding();
 
     if (!box) return;
-    if (!posts.length) {
-      box.textContent = 'No posts yet. Generate your first one in step 3 above.';
-      return;
-    }
-
-    box.innerHTML = posts.map(function (p) {
-      const status = esc(p.status || 'draft');
-      const bust = p.image_url
-        ? (p.image_url.indexOf('?') >= 0 ? '&' : '?') + 't=' + Date.now()
-        : '';
-      const img = p.image_url
-        ? '<img src="' + esc(p.image_url) + bust + '" alt="Ad graphic" />'
-        : '';
-      const tags = safeHashtags(p.hashtags).map(function (h) { return esc(h); }).join(' ');
-      const id = esc(JSON.stringify(p.id));
-      const st = (p.status || 'draft').toLowerCase();
-      const isDraft = !p.status || st === 'draft';
-      const isScheduled = st === 'scheduled' || st === 'publishing';
-      const isFailed = st === 'failed';
-
-      let schedulePart = '';
-      if (isDraft || isFailed) {
-        schedulePart =
-          '<button type="button" class="schedule-btn" onclick="schedulePost(' + id + ')">Schedule</button>' +
-          '<button type="button" class="unschedule-btn" onclick="unschedulePost(' + id + ')" style="display:none">Cancel schedule</button>' +
-          '<button type="button" class="retry-btn" onclick="retryScheduledPost(' + id + ')"' +
-            (isFailed ? '' : ' style="display:none"') + '>Retry</button>' +
-          '<span class="sched-label"></span>';
-      } else if (isScheduled) {
-        const whenLabel = (typeof formatScheduled === 'function' && p.scheduled_at)
-          ? formatScheduled(p.scheduled_at)
-          : (p.scheduled_at || '');
-        schedulePart =
-          '<button type="button" class="unschedule-btn" onclick="unschedulePost(' + id + ')">Cancel schedule</button>' +
-          '<span class="sched-label">Scheduled · ' + esc(whenLabel) + '</span>';
-      }
-
-      const draftActions = isDraft
-        ? '<button type="button" onclick="openImageEditor(' + id + ')">Edit text</button>' +
-          '<button type="button" onclick="postAction(' + id + ',\'approve\',event)">Approve</button>' +
-          '<button type="button" class="btn-danger" onclick="postAction(' + id + ',\'reject\',event)">Reject</button>'
-        : '';
-
-      const actions = (draftActions || schedulePart)
-        ? '<div class="actions">' + draftActions + schedulePart + '</div>'
-        : '';
-
-      return '<div class="post-card" data-post-id="' + esc(p.id) + '">' +
-             '<span class="status ' + status + '">' + status + '</span>' +
-             img +
-             '<p>' + esc(p.caption || p.content || '') + '</p>' +
-             (tags ? '<p class="settings-note">' + tags + '</p>' : '') +
-             actions +
-             '</div>';
-    }).join('');
+    box.innerHTML = posts.length
+      ? posts.map(renderImagePostCard).join('')
+      : '<p class="post-list-state">No posts yet. Generate your first one in step 3 above.</p>';
 
     injectClaimButtons();
 
@@ -548,7 +500,84 @@ async function loadPosts() {
       updateScheduleBadges(posts);
     }
   } catch (err) {
-    if (box) box.textContent = 'Could not load posts: ' + err.message;
+    if (box) box.innerHTML = '<p class="post-list-state error">Could not load posts: ' + esc(err.message) + '</p>';
+  }
+}
+
+function workflowDate(value) {
+  if (!value) return 'Date unavailable';
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? 'Date unavailable' : date.toLocaleString();
+}
+
+function renderImagePostCard(post) {
+  const campaign = campaignsCache.find(function (item) { return String(item.id) === String(post.campaign_id); });
+  const campaignName = campaign ? (campaign.product_name || campaign.productName || campaign.name) : 'Campaign';
+  const title = post.headline_main || (post.caption || post.content || ('Image post #' + post.id)).split('\n')[0];
+  const dateLabel = post.status === 'posted'
+    ? 'Posted ' + workflowDate(post.posted_at || post.created_at)
+    : (post.status === 'scheduled'
+      ? 'Scheduled ' + workflowDate(post.scheduled_at)
+      : 'Created ' + workflowDate(post.created_at));
+  const id = esc(JSON.stringify(post.id));
+  const statusLabel = esc(post.status.replace(/_/g, ' '));
+  const image = post.image_url
+    ? '<img src="' + esc(post.image_url) + (post.image_url.indexOf('?') >= 0 ? '&' : '?') + 't=' + Date.now() + '" alt="Image ad preview" />'
+    : '<div class="post-list-state">Image preview unavailable</div>';
+  let actions = '';
+  if (post.status === 'generated') {
+    actions = '<button type="button" onclick="openImageEditor(' + id + ', this)">Edit</button>' +
+      '<button type="button" onclick="runImageAction(' + id + ', this, \'approve\')">Approve</button>' +
+      '<button type="button" class="btn-danger" onclick="runImageAction(' + id + ', this, \'reject\')">Reject</button>';
+  } else if (post.status === 'ready_to_post') {
+    actions = '<button type="button" onclick="schedulePost(' + id + ')">Schedule</button>' +
+      '<button type="button" class="btn-secondary" onclick="runImageAction(' + id + ', this, \'back-to-generated\')">Back to Generated</button>';
+  } else if (post.status === 'scheduled') {
+    actions = '<button type="button" class="unschedule-btn" onclick="runImageAction(' + id + ', this, \'unschedule\')">Unschedule</button>' +
+      (post.last_error
+        ? '<button type="button" class="retry-btn" onclick="runImageAction(' + id + ', this, \'retry\')">Retry</button>'
+        : '');
+  }
+  const error = post.last_error
+    ? '<p class="action-feedback error">Last publish error: ' + esc(post.last_error) + '</p>'
+    : '';
+  return '<article class="post-card" data-post-id="' + esc(post.id) + '">' +
+    '<span class="status ' + esc(post.status) + '">' + statusLabel + '</span>' +
+    image +
+    '<p class="post-title">' + esc(title) + '</p>' +
+    '<p class="post-meta">' + esc(campaignName) + ' · ' + esc(dateLabel) + '</p>' +
+    '<p>' + esc(post.caption || post.content || '') + '</p>' +
+    error +
+    (actions ? '<div class="actions">' + actions + '</div>' : '') +
+    '<p class="action-feedback" aria-live="polite"></p>' +
+    '</article>';
+}
+
+async function runImageAction(postId, button, action) {
+  const card = button.closest('.post-card');
+  const feedback = card && card.querySelector('.action-feedback');
+  if (action === 'reject' && !confirm('Reject and delete this post? This cannot be undone.')) return;
+  const originalLabel = button.textContent;
+  button.disabled = true;
+  button.textContent = action === 'back-to-generated' ? 'Moving…' : 'Working…';
+  if (feedback) {
+    feedback.classList.remove('error');
+    feedback.textContent = 'Working…';
+  }
+  try {
+    const result = await api(POSTS_API + '/' + encodeURIComponent(postId) + '/' + action, {
+      method: 'POST',
+      body: '{}'
+    });
+    if (action === 'reject' && result.deleted && card) card.remove();
+    await loadPosts();
+  } catch (err) {
+    if (feedback) {
+      feedback.classList.add('error');
+      feedback.textContent = 'Could not ' + action.replace(/-/g, ' ') + ': ' + err.message;
+    }
+    button.disabled = false;
+    button.textContent = originalLabel;
   }
 }
 
@@ -563,7 +592,7 @@ function postAction(id, action, evt) {
 }
 
 // ===== EDIT TEXT =====
-function openImageEditor(postId) {
+function openImageEditor(postId, button) {
   const post = postsCache.find(function (p) {
     return String(p.id) === String(postId);
   });
@@ -571,20 +600,43 @@ function openImageEditor(postId) {
     alert('Post not found');
     return;
   }
-  if (post.status && post.status !== 'draft') {
-    alert('Only draft posts can be edited');
+  if (post.status && post.status !== 'generated') {
+    alert('Only generated image posts can be edited');
     return;
   }
 
+  const card = button && button.closest('.post-card');
+  const feedback = card && card.querySelector('.action-feedback');
+  const originalLabel = button && button.textContent;
+  if (button) {
+    button.disabled = true;
+    button.textContent = 'Opening…';
+  }
+  if (feedback) {
+    feedback.classList.remove('error');
+    feedback.textContent = 'Opening editor…';
+  }
   const win = window.open('', '_blank');
   api(POSTS_API + '/' + encodeURIComponent(post.id) + '/edit-link', { method: 'POST' })
     .then(function (d) {
       if (win) win.location.href = d.url;
       else window.open(d.url, '_blank');
+      if (feedback) feedback.textContent = 'Edit the image and save; it will move to Ready to Post.';
     })
     .catch(function (err) {
       if (win) win.close();
-      alert('Error: ' + err.message);
+      if (feedback) {
+        feedback.classList.add('error');
+        feedback.textContent = 'Could not open editor: ' + err.message;
+      } else {
+        alert('Error: ' + err.message);
+      }
+    })
+    .finally(function () {
+      if (button) {
+        button.disabled = false;
+        button.textContent = originalLabel;
+      }
     });
 }
 
@@ -647,7 +699,7 @@ function updateOnboarding() {
     { title: 'Connect your Instagram', desc: 'Use a Business or Creator account linked to a Facebook Page.', done: onboard.connected, target: 'sec-connect', btn: 'Connect' },
     { title: 'Create your first campaign', desc: 'Tell us about your product, audience and tone.', done: onboard.campaigns > 0, target: 'sec-campaign', btn: 'Start' },
     { title: 'Generate your first post', desc: 'Pick a campaign and let AI write the ad.', done: onboard.posts > 0, target: 'sec-generate', btn: 'Generate' },
-    { title: 'Approve a post', desc: 'Review it, then approve to publish to Instagram.', done: onboard.approved, target: 'sec-review', btn: 'Review' }
+    { title: 'Approve a post', desc: 'Review it, approve it, then schedule publishing.', done: onboard.approved, target: 'sec-review', btn: 'Review' }
   ];
   const doneCount = steps.filter(function (s) { return s.done; }).length;
   const allDone = doneCount === steps.length;
@@ -726,7 +778,12 @@ document.addEventListener('DOMContentLoaded', function () {
     if (e.key === 'Escape') closeClaim();
   });
   const sel = $('campaignSelect');
-  if (sel) sel.addEventListener('change', function () { loadThemes(); });
+  if (sel) sel.addEventListener('change', function () {
+    localStorage.setItem(SELECTED_CAMPAIGN_KEY, sel.value);
+    loadThemes();
+  });
+  const section = new URLSearchParams(window.location.search).get('section');
+  if (section) setTimeout(function () { goToSection(section); }, 100);
 });
 
 async function loadPhotoPicker() {

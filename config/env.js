@@ -19,16 +19,20 @@ module.exports = {
   gemini: {
     apiKey: process.env.GEMINI_API_KEY
   },
-  // TEMPORARY: back to Make.com for posting (see services/instagramService.js).
+  // Make.com is still used for image posts; Reels publish through Instagram Graph API.
   makeWebhookUrl: process.env.MAKE_WEBHOOK_URL,
-  // ONE Facebook Developer app — NOT currently used (direct Instagram
-  // OAuth is built in controllers/instagramAuthController.js but
-  // unwired for now, in favor of the Make.com webhook above). Kept
-  // here so switching back later doesn't require re-adding this.
+  // Facebook app credentials power Instagram OAuth and direct Reel publishing.
   facebook: {
     appId: process.env.FACEBOOK_APP_ID,
     appSecret: process.env.FACEBOOK_APP_SECRET,
-    redirectUri: process.env.FACEBOOK_REDIRECT_URI
+    redirectUri: process.env.FACEBOOK_REDIRECT_URI,
+    graphApiVersion: process.env.FACEBOOK_GRAPH_API_VERSION || 'v23.0'
+  },
+  reels: {
+    maxFileSizeBytes: Math.max(1, Number(process.env.REEL_MAX_MB) || 100) * 1024 * 1024,
+    maxDurationSeconds: Math.max(1, Number(process.env.REEL_MAX_SECONDS) || 90),
+    pollIntervalMs: Math.max(1000, Number(process.env.REEL_POLL_INTERVAL_MS) || 5000),
+    pollTimeoutMs: Math.max(10000, Number(process.env.REEL_POLL_TIMEOUT_MS) || 10 * 60 * 1000)
   },
   // imgbb free image hosting — used to publish our generated image
   // to a public URL that Instagram's API can fetch.
@@ -55,14 +59,14 @@ module.exports = {
     model: process.env.HUGGINGFACE_MODEL || 'stabilityai/stable-diffusion-xl-base-1.0'
   },
   scheduler: {
-    // Set SCHEDULER_ENABLED=false in .env to pause all automatic post
-    // generation while testing — useful so campaigns you're just
-    // experimenting with don't quietly rack up unwanted drafts.
-    enabled: process.env.SCHEDULER_ENABLED !== 'false',
+    // Set SCHEDULER_ENABLED=false in .env to pause the old interval
+    // scheduler below while testing.
+    enabled: process.env.SCHEDULER_ENABLED !== 'true',
     cronExpression: process.env.POST_INTERVAL_CRON || '0 */6 * * *',
-    // Separate daily job specifically for the theme queue — one theme
-    // used per day, independent of the general interval scheduler above.
-    themeCronExpression: process.env.THEME_CRON || '0 9 * * *' // default: 9am daily
+    // Daily job: one draft per campaign + approval email, every day at
+    // 10:00 India time. (The old THEME_CRON setting was removed.)
+    themeCronExpression: process.env.DAILY_JOB_CRON || '32 13 * * *',
+    timezone: process.env.SCHEDULER_TIMEZONE || 'Asia/Kolkata',
   },
   // Free Gmail SMTP — YOUR OWN Gmail account sends the approval emails
   // (not each user's). Needs a Gmail "App Password", not your normal

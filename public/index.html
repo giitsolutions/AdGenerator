@@ -53,6 +53,7 @@
 
   .nav { display: flex; flex-direction: column; gap: 4px; }
   .nav a { display: block; padding: 10px 12px; border-radius: 10px; color: var(--soft); font-size: 14px; font-weight: 600; cursor: pointer; transition: background .15s, color .15s, padding-left .15s; }
+  .nav a.active { background: var(--panel2); color: var(--text); box-shadow: inset 3px 0 0 #f97316; }
   .nav a:hover { background: var(--panel2); color: var(--text); padding-left: 16px; box-shadow: inset 3px 0 0 #f97316; }
   .foot { margin-top: auto; display: flex; flex-direction: column; gap: 10px; padding: 10px 8px 0; border-top: 1px solid var(--line); }
   .foot span { font-size: 12px; color: var(--soft); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 210px; }
@@ -128,11 +129,18 @@
 
   .post-card { border: 1px solid var(--line); border-radius: 14px; padding: 16px; margin-bottom: 14px; background: var(--panel2); transition: transform .2s, border-color .2s; }
   .post-card:hover { transform: translateY(-2px); border-color: rgba(168,85,247,.5); }
-  .post-card img { display: block; width: 100%; max-height: 440px; object-fit: cover; border-radius: 10px; margin: 12px 0; }
+  .post-card img, .post-card video { display: block; width: 100%; max-height: 440px; object-fit: contain; background: #000; border-radius: 10px; margin: 12px 0; }
+  .post-list-state, .action-feedback { color:var(--soft); font-size:13px; }
+  .action-feedback.error { color:var(--err-text); }
+  .post-list-state.error { color:var(--err-text); }
+  .post-title { font-weight:700; margin:8px 0 2px !important; }
+  .post-meta { color:var(--soft); font-size:12px; }
+  .media-type { display: inline-block; margin: 6px 0; color: var(--muted); font-size: 12px; font-weight: 700; }
   .post-card p { margin: 8px 0; white-space: pre-line; }
   .status { display: inline-block; font-size: 12px; font-weight: 700; padding: 3px 12px; border-radius: 999px; color: var(--status-fg); text-transform: capitalize; }
-  .draft { background: var(--draft); }
-  .approved, .posted { background: var(--ok); }
+  .draft, .generated { background: var(--draft); }
+  .ready_to_post, .approved, .posted { background: var(--ok); }
+  .scheduled { background: var(--warn); }
   .rejected { background: var(--bad); }
   .failed { background: var(--warn); }
   .actions { display: flex; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
@@ -168,13 +176,14 @@
       KwikPost
     </a>
     <nav class="nav">
+      <a class="active" href="/index.html" aria-current="page">🖼️ Posts / Images</a>
       <a onclick="goToSection('sec-connect')">Instagram</a>
-      <a onclick="goToSection('sec-campaign')">Campaign</a>
+      <a href="/index.html?section=sec-campaign">Campaigns &amp; branding</a>
       <a onclick="goToSection('sec-generate')">Generate</a>
       <a onclick="goToSection('sec-themes')">Daily themes</a>
-      <a onclick="goToSection('sec-review')">Review posts</a>
-      <a href="/schedule.html">Schedule</a>
-      <a href="upload.html">Upload photos</a>
+      <a onclick="goToSection('sec-review')">Review and approve</a>
+      <a href="/upload.html">Upload images</a>
+      <a href="/reels.html">🎬 Reels / Videos</a>
     </nav>
     <div class="foot">
       <span id="userEmail">Logged in</span>
@@ -184,14 +193,14 @@
   </aside>
 
   <main class="main">
-    <h1>Your KwikPost studio</h1>
-    <p class="sub">Connect your account, describe what you sell, and AI writes the caption and designs the ad. You approve every post before it goes live.</p>
+    <h1>Posts / Images</h1>
+    <p class="sub">Generate image ads and ad copy, upload photos to your library, and manage image posts.</p>
 
     <div class="stats">
       <div class="stat"><small>Instagram</small><b id="statIG" class="txt">Not connected</b></div>
       <div class="stat"><small>Campaigns</small><b id="statCampaigns">0</b></div>
-      <div class="stat"><small>Posts created</small><b id="statPosts">0</b></div>
-      <div class="stat"><small>Approved</small><b id="statApproved">0</b></div>
+      <div class="stat"><small>Image posts</small><b id="statPosts">0</b></div>
+      <div class="stat"><small>Ready or posted</small><b id="statApproved">0</b></div>
     </div>
 
     <div id="igSuccessBanner" class="ig-banner-success" style="display:none;">✅ Instagram connected successfully!</div>
@@ -199,7 +208,7 @@
     <div id="onboarding" class="onboard" style="display:none;"></div>
 
     <section id="sec-connect">
-      <h2><span class="num">1</span>Connect your Instagram</h2>
+      <h2>Connect your Instagram</h2>
       <p class="lead">Posts are published to the account you connect here.</p>
       <div id="igStatusBox" class="ig-box">
         <p id="igStatusText">Checking connection status...</p>
@@ -220,7 +229,7 @@
     </section>
 
     <section id="sec-campaign">
-      <h2><span class="num">2</span>Create a campaign</h2>
+      <h2>Create a campaign and set branding</h2>
       <p class="lead">A campaign describes what you sell. AI uses it for every post.</p>
       <div class="grid2">
         <div><label for="productName">Product or service</label><input id="productName" placeholder="e.g. Home treadmill rental" /></div>
@@ -228,7 +237,12 @@
         <div><label for="tone">Tone of voice</label><input id="tone" placeholder="e.g. fun, professional" /></div>
         <div><label for="website">Website or link</label><input id="website" placeholder="Optional, shown in the caption" /></div>
         <div class="full"><label for="offerDetails">Offer or key message</label><textarea id="offerDetails" rows="3" placeholder="e.g. 20% off the first month"></textarea></div>
-        <div class="full"><label for="logoUrl">Logo image link</label><input id="logoUrl" placeholder="Optional, shown on the ad graphic" /></div>
+        <div class="full">
+          <label for="logoFile">Upload logo image</label>
+          <input id="logoFile" type="file" accept="image/png,image/jpeg,image/webp" onchange="uploadCampaignLogo(event)" />
+          <p id="logoUploadStatus" class="settings-note" aria-live="polite">Optional. This logo will appear on every generated ad for this campaign.</p>
+          <img id="logoPreview" alt="Campaign logo preview" style="display:none;max-width:180px;max-height:90px;margin-top:8px;object-fit:contain;" />
+        </div>
       </div>
       <div class="row">
         <button onclick="createCampaign(event)">Save campaign</button>
@@ -243,7 +257,7 @@
 
     <div class="two">
       <section id="sec-generate">
-        <h2><span class="num">3</span>Generate a post</h2>
+        <h2>Generate an image ad and ad copy</h2>
         <p class="lead">Pick a campaign and AI builds the ad using your next saved photo.</p>
         <label for="campaignSelect">Campaign</label>
         <select id="campaignSelect"></select>
@@ -263,7 +277,7 @@
     <section id="sec-review">
       <h2><span class="num">4</span>Review and approve</h2>
       <p class="lead">Nothing is published until you approve it.</p>
-      <div id="postsList">Loading posts...</div>
+      <div id="postsList" aria-live="polite">Loading posts...</div>
     </section>
   </main>
 

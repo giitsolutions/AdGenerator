@@ -19,13 +19,7 @@ const STATIC_PHOTO_PROMPTS = [
   'a treadmill on a light wooden floor, wide shot, minimal room, soft light, blurred background',
   'a treadmill in a modern apartment, front three-quarter view, warm evening light, blurred background',
   'a treadmill in a bright home gym with a grey wall, side view, soft studio lighting, blurred background',
-  'a black and silver treadmill in a bright minimalist room, side view, blurred background',
-  'a black cross trainer elliptical machine, side view, in a bright modern living room, soft daylight, blurred background',
-  'a cross trainer elliptical machine, three-quarter view, in a clean home gym with white walls, blurred background',
-  'an elliptical cross trainer in a sunlit room next to a large window, side view, blurred background',
-  'an elliptical cross trainer on a light wooden floor, wide shot, minimal room, soft light, blurred background',
-  'a cross trainer in a bright home gym with a grey wall, side view, soft studio lighting, blurred background',
-  'a black and silver elliptical cross trainer in a bright minimalist room, side view, blurred background'
+  'a black and silver treadmill in a bright minimalist room, side view, blurred background'
 ];
 
 // JSON schema for the ad content — the API enforces this shape directly,
@@ -153,7 +147,7 @@ async function generateAdContent(campaignInput) {
   const userOffer = (campaignInput.offerDetails || '').trim();
   if (userOffer) parsed.offerText = userOffer;
 
-  // Fixed photo prompt (treadmills / cross trainers): replaces whatever photo
+  // Fixed photo prompt (treadmills): replaces whatever photo
   // description the model wrote. The image itself is still generated on the
   // spot for every post.
   if (STATIC_PHOTO_PROMPTS.length > 0) {
