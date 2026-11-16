@@ -110,7 +110,8 @@
   font-size: .55rem;
   text-align: center;
 }
-.schedule-calendar-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.schedule-calendar-thumb img,
+.schedule-calendar-thumb video { width: 100%; height: 100%; object-fit: cover; }
 .schedule-calendar-item-copy { min-width: 0; }
 .schedule-calendar-item-time,
 .schedule-calendar-item-title,

@@ -1,6 +1,7 @@
 const { getDb } = require('../db/connection');
 
 let columnsReady = false;
+const EXPIRED_SCHEDULE_ERROR = 'Scheduled time more than 6 hours ago';
 
 async function ensureColumns() {
   if (columnsReady) return;
@@ -99,15 +100,18 @@ async function markFailed(postId, errorMessage) {
         error_message = ?,
         publish_lock_until = NULL
     WHERE id = ? AND status = 'scheduled'
+      AND COALESCE(last_schedule_error, '') <> ?
   `;
   if (typeof db.prepare === 'function') {
     const stmt = await db.prepare(sql);
     const message = errorMessage || 'Publishing error';
-    await stmt.run(message, message, message, postId);
+    const result = await stmt.run(message, message, message, postId, message);
     if (stmt.finalize) await stmt.finalize();
+    return result.changes ?? 0;
   } else {
     const message = errorMessage || 'Publishing error';
-    await db.run(sql, [message, message, message, postId]);
+    const result = await db.run(sql, [message, message, message, postId, message]);
+    return result.changes ?? result.affectedRows ?? 0;
   }
 }
 
@@ -149,12 +153,13 @@ async function getExpiredScheduledPosts({ maxLateMs = 6 * 60 * 60 * 1000 } = {})
       AND scheduled_at IS NOT NULL
       AND scheduled_at < ?
       AND (publish_lock_until IS NULL OR publish_lock_until <= ?)
+      AND COALESCE(last_schedule_error, '') <> ?
   `;
 
   if (typeof db.prepare === 'function') {
-    return db.all(sql, [cutoff, new Date().toISOString()]);
+    return db.all(sql, [cutoff, new Date().toISOString(), EXPIRED_SCHEDULE_ERROR]);
   }
-  return db.all(sql, [cutoff, new Date().toISOString()]);
+  return db.all(sql, [cutoff, new Date().toISOString(), EXPIRED_SCHEDULE_ERROR]);
 }
 
 async function getPostForUser(postId, userId) {
@@ -176,5 +181,6 @@ module.exports = {
   markFailed,
   getDueScheduledPosts,
   getExpiredScheduledPosts,
+  EXPIRED_SCHEDULE_ERROR,
   getPostForUser
 };

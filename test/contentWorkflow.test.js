@@ -336,6 +336,24 @@ test('content transitions persist valid states and reject invalid transitions', 
       }
     });
     assert.ok(legacyCalendar.some(row => row.id === legacyIds.published && row.status === 'posted'));
+    const expiredAt = new Date(Date.now() - 7 * 60 * 60 * 1000).toISOString();
+    await db.run('UPDATE posts SET scheduled_at = ?, last_schedule_error = NULL WHERE id = ?', [
+      expiredAt,
+      legacyIds.scheduled
+    ]);
+    assert.ok((await scheduleStore.getExpiredScheduledPosts()).some(row => row.id === legacyIds.scheduled));
+    assert.equal(
+      await scheduleStore.markFailed(legacyIds.scheduled, scheduleStore.EXPIRED_SCHEDULE_ERROR),
+      1
+    );
+    assert.equal(
+      (await scheduleStore.getExpiredScheduledPosts()).some(row => row.id === legacyIds.scheduled),
+      false
+    );
+    assert.equal(
+      await scheduleStore.markFailed(legacyIds.scheduled, scheduleStore.EXPIRED_SCHEDULE_ERROR),
+      0
+    );
     assert.equal(
       await db.get('SELECT COUNT(*) AS count FROM posts WHERE user_id = ?', [user.lastID]).then(row => row.count),
       11

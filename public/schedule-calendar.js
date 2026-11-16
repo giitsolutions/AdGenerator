@@ -90,6 +90,12 @@
 
   function thumbnail(post) {
     var url = thumbnailUrl(post);
+    if (post.content_type === 'reel' && post.video_url) {
+      return '<span class="schedule-calendar-thumb schedule-calendar-thumb-video" aria-hidden="true">' +
+        '<video muted playsinline autoplay loop preload="metadata"' +
+        (url ? ' poster="' + escapeHtml(url) + '"' : '') +
+        ' src="' + escapeHtml(post.video_url) + '"></video></span>';
+    }
     if (!url) {
       return '<span class="schedule-calendar-thumb" aria-hidden="true">' +
         (post.content_type === 'reel' ? 'Video' : 'Image') + '</span>';

@@ -76,6 +76,11 @@ async function generateReel(req, res, next) {
     }
 
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'kwikreel-'));
+    const logoPath = await resolveCampaignLogo(campaign, tmpDir);
+    if (!logoPath) {
+      return res.status(422).json({ error: 'Add a logo to the selected campaign before generating a video.' });
+    }
+
     const generated = await makeGenerated(campaign, idea);
     Object.assign(generated, ensureDistinctHeadline(generated));
     const headline = generated.headlineMain || campaign.product_name || '';
@@ -88,7 +93,7 @@ async function generateReel(req, res, next) {
       subheadline: generated.subheadline || '',
       offer: generated.offerText || campaign.offer_details || '',
       cta: generated.ctaButtonLabel || generated.cta || '',
-      logoPath: await resolveCampaignLogo(campaign, tmpDir)
+      logoPath
     };
 
     const filename = `${Date.now()}-${crypto.randomBytes(6).toString('hex')}.mp4`;

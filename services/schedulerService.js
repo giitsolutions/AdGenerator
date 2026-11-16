@@ -56,8 +56,8 @@ async function tick() {
   try {
     const expired = await scheduleStore.getExpiredScheduledPosts({ maxLateMs: MAX_LATE_MS });
     for (const p of expired) {
-      await scheduleStore.markFailed(p.id, 'Scheduled time more than 6 hours ago');
-      console.log('[schedulerService] expired post', p.id);
+      const marked = await scheduleStore.markFailed(p.id, scheduleStore.EXPIRED_SCHEDULE_ERROR);
+      if (marked) console.log('[schedulerService] expired post', p.id);
     }
 
     const due = await scheduleStore.getDueScheduledPosts({

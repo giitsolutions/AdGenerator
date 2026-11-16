@@ -9,169 +9,146 @@
 <style>
   :root {
     --bg:#0b0a10; --card:#0f0e15; --soft:#17151f; --line:#2a2634; --text:#f5f2fb; --muted:#a39bbd;
-    --accent:#a855f7; --orange:#f97316; --green:#16a34a; --red:#dc2626;
+    --accent:#a855f7; --orange:#f97316; --red:#dc2626;
   }
   :root[data-theme="light"] {
     --bg:#f6f3fb; --card:#ffffff; --soft:#f0ecf8; --line:#ded8ea; --text:#1d1a2b; --muted:#6a6483;
   }
-  * { box-sizing: border-box; }
-  body { margin:0; overflow-x:hidden; background:var(--bg); color:var(--text); font-family:system-ui,"Segoe UI",sans-serif; line-height:1.5; }
+  * { box-sizing:border-box; }
+  [hidden] { display:none !important; }
+  body { margin:0; overflow-x:hidden; background:var(--bg); color:var(--text);
+         font:14px/1.45 system-ui,"Segoe UI",sans-serif; }
+  a { color:#c4b5fd; text-decoration:none; }
+  :root[data-theme="light"] a { color:#6d28d9; }
+
+  /* header */
   .top { display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;
-         padding:14px 20px; border-bottom:1px solid var(--line); }
-  .top a { color:#c4b5fd; text-decoration:none; }
-  :root[data-theme="light"] .top a { color:#6d28d9; }
-  .top h1 { margin:0; font-size:18px; }
-  .page-nav { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
-  .page-nav a { padding:7px 11px; border:1px solid var(--line); border-radius:9px; background:var(--soft); }
+         padding:10px 18px; border-bottom:1px solid var(--line); }
+  .top h1 { margin:0; font-size:16px; }
+  .page-nav { display:flex; gap:6px; flex-wrap:wrap; }
+  .page-nav a { padding:5px 10px; border:1px solid var(--line); border-radius:8px; background:var(--soft); font-size:13px; }
   .page-nav a.active { background:linear-gradient(120deg,var(--orange),var(--accent)); color:#fff; border-color:transparent; }
-  .wrap { width:100%; max-width:980px; margin:24px auto 60px; padding:0 16px; display:grid; gap:18px; }
-  .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:18px; align-items:start; }
-  @media (max-width:760px) { .grid2 { grid-template-columns:1fr; } }
-  .card { min-width:0; background:var(--card); border:1px solid var(--line); border-radius:16px; padding:18px; }
-  .card h2 { margin:0 0 4px; font-size:17px; }
-  .note { color:var(--muted); font-size:13px; margin:0 0 12px; }
-  label { display:block; margin:12px 0 4px; font-size:13px; color:var(--muted); }
+
+  .wrap { width:100%; max-width:1100px; margin:14px auto 40px; padding:0 14px; display:grid; gap:14px; }
+  .card { min-width:0; background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px; }
+  .card h2 { margin:0; font-size:15px; }
+  .card-head { display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; margin-bottom:10px; }
+  .note { color:var(--muted); font-size:12px; margin:6px 0 0; }
+
+  /* campaign strip */
+  .campaign-strip { display:flex; align-items:center; gap:12px; flex-wrap:wrap; padding:10px 14px; }
+  .campaign-strip label { margin:0; font-weight:700; font-size:13px; }
+  .campaign-strip select { width:auto; min-width:200px; flex:0 1 280px; }
+  .brand-preview { display:flex; align-items:center; gap:8px; color:var(--muted); font-size:12px; }
+  .brand-preview img { width:30px; height:30px; object-fit:contain; border:1px solid var(--line); border-radius:6px; background:var(--soft); }
+  #campaignMsg { margin:0; }
+
+  /* forms */
+  label { display:block; margin:0 0 3px; font-size:12px; color:var(--muted); }
   select, input[type=file], textarea {
-    width:100%; padding:10px; border-radius:8px; border:1px solid var(--line);
-    background:var(--soft); color:var(--text); font:inherit; font-size:14px; color-scheme:dark;
+    width:100%; padding:8px 10px; border-radius:8px; border:1px solid var(--line);
+    background:var(--soft); color:var(--text); font:inherit; color-scheme:dark;
   }
   :root[data-theme="light"] select, :root[data-theme="light"] input[type=file], :root[data-theme="light"] textarea { color-scheme:light; }
-  textarea { min-height:70px; resize:vertical; }
-  button { background:linear-gradient(120deg,var(--orange),var(--accent)); color:#fff; border:0; border-radius:10px;
-           padding:10px 18px; cursor:pointer; font-weight:700; font-size:14px; }
+  textarea { min-height:52px; resize:vertical; }
+  .row3 { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; }
+  .row2 { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .field { margin-bottom:10px; min-width:0; }
+  button { background:linear-gradient(120deg,var(--orange),var(--accent)); color:#fff; border:0; border-radius:9px;
+           padding:8px 14px; cursor:pointer; font-weight:700; font-size:13px; }
   button.secondary { background:var(--soft); color:var(--text); border:1px solid var(--line); font-weight:600; }
   button:disabled { opacity:.55; cursor:not-allowed; }
-  .actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:16px; }
-  a.btn { display:inline-block; text-decoration:none; background:var(--soft); color:var(--text); border:1px solid var(--line);
-          border-radius:10px; padding:10px 18px; font-weight:600; font-size:14px; }
-  .bar { height:8px; background:var(--soft); border-radius:99px; overflow:hidden; margin-top:12px; display:none; }
+  .actions { display:flex; gap:6px; flex-wrap:wrap; margin-top:8px; }
+  .form-foot { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+  details { margin:0 0 10px; font-size:12px; color:var(--muted); }
+  details summary { cursor:pointer; color:var(--text); font-weight:600; }
+  details p { margin:6px 0 0; }
+  .bar { height:6px; background:var(--soft); border-radius:99px; overflow:hidden; margin-top:10px; display:none; }
   .bar i { display:block; height:100%; width:0; background:linear-gradient(120deg,var(--orange),var(--accent)); transition:width .2s; }
   .bar.indeterminate i { width:40%; animation:slide 1.2s infinite ease-in-out; }
   @keyframes slide { 0% { margin-left:-40%; } 100% { margin-left:100%; } }
-  .status { margin-top:10px; font-size:13px; color:var(--muted); min-height:20px; }
-  .error { color:#fca5a5; }
-  :root[data-theme="light"] .error { color:var(--red); }
-  #result { display:none; }
-  #result video { width:100%; max-height:420px; background:#000; border-radius:12px; }
-  #resCaption { white-space:pre-wrap; margin:12px 0 0; }
-  .badge { display:inline-block; font-size:11px; font-weight:800; border-radius:99px; padding:2px 10px; color:#000; text-transform:capitalize; }
+  .status { font-size:12px; color:var(--muted); min-height:16px; }
+  .error, .action-feedback.error { color:#fca5a5; }
+  :root[data-theme="light"] .error, :root[data-theme="light"] .action-feedback.error { color:var(--red); }
+
+  /* tabs */
+  .tabs { display:flex; gap:6px; flex-wrap:wrap; }
+  .tabs button { background:var(--soft); color:var(--muted); border:1px solid var(--line); font-weight:600; padding:6px 12px; }
+  .tabs button.on { background:linear-gradient(120deg,var(--orange),var(--accent)); color:#fff; border-color:transparent; }
+  .count-badge { display:inline-flex; min-width:20px; height:20px; align-items:center; justify-content:center; padding:0 6px;
+                 border-radius:99px; background:rgba(127,127,127,.25); font-size:11px; margin-left:4px; }
+
+  /* video list */
+  .sched-all { display:none; align-items:center; gap:10px; flex-wrap:wrap; margin:0 0 10px; }
+  .reels { display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:10px; }
+  .reel { background:var(--soft); border:1px solid var(--line); border-radius:10px; padding:7px; min-width:0; }
+  .reel video { width:100%; aspect-ratio:9/16; max-height:240px; object-fit:cover; background:#000; border-radius:7px; }
+  .reel p { margin:5px 0 0; font-size:11px; color:var(--muted); overflow:hidden; display:-webkit-box;
+            -webkit-line-clamp:2; line-clamp:2; -webkit-box-orient:vertical; }
+  .reel-title { font-weight:700; color:var(--text) !important; font-size:12px !important; }
+  .reel-meta { font-size:10px !important; }
+  .reel .actions button { padding:5px 9px; font-size:11px; }
+  .badge { display:inline-block; font-size:10px; font-weight:800; border-radius:99px; padding:1px 8px; color:#000; text-transform:capitalize; margin-top:6px; }
   .b-generated { background:#a39bbd; } .b-ready_to_post { background:#c4b5fd; }
   .b-scheduled { background:#fdba74; } .b-posted { background:#4ade80; }
-  .reels { display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:12px; }
-  .reel { background:var(--soft); border:1px solid var(--line); border-radius:12px; padding:8px; min-width:0; }
-  .reel video { width:100%; aspect-ratio:9/16; object-fit:cover; background:#000; border-radius:8px; }
-  .reel-section { margin:22px 0; }
-  .reel-section h2 { display:flex; align-items:center; gap:9px; font-size:17px; margin:0 0 10px; }
-  .count-badge { display:inline-flex; min-width:26px; height:26px; align-items:center; justify-content:center; padding:0 8px; border-radius:99px; background:var(--soft); border:1px solid var(--line); font-size:12px; }
-  .reel-empty, .reel-loading, .action-feedback { color:var(--muted); font-size:13px; }
-  .action-feedback.error { color:#fca5a5; }
-  :root[data-theme="light"] .action-feedback.error { color:var(--red); }
-  .reel-title { font-weight:700; margin-top:8px !important; color:var(--text) !important; }
-  .reel-meta { color:var(--muted) !important; font-size:11px !important; }
-  .reel p { margin:6px 0 0; font-size:12px; color:var(--muted); overflow:hidden; display:-webkit-box;
-            -webkit-line-clamp:2; line-clamp:2; -webkit-box-orient:vertical; }
-  .reel .actions { margin:10px 0 0; }
-  .brand-preview { display:flex; align-items:center; gap:12px; margin-top:12px; }
-  .brand-preview img { width:48px; height:48px; object-fit:contain; border:1px solid var(--line); border-radius:8px; background:var(--soft); }
-  .empty { color:var(--muted); font-size:14px; }
-  @media (max-width:560px) {
-    .top { padding:12px 14px; }
-    .top h1 { order:-1; width:100%; }
-    .top .note { flex:1 1 100%; }
-    .wrap { margin:14px auto 30px; padding:0 10px; gap:12px; }
-    .card { padding:14px; border-radius:12px; }
-    .actions { display:grid; grid-template-columns:1fr; gap:8px; }
-    .actions button, .actions a.btn { width:100%; min-height:44px; text-align:center; }
+  .reel-empty, .reel-loading, .action-feedback { color:var(--muted); font-size:12px; margin:0; }
+
+  /* calendar + side panel */
+  .cal-layout { display:grid; grid-template-columns:minmax(0,1.7fr) minmax(260px,1fr); gap:14px; align-items:start; margin-top:10px; }
+  .cal-main, .cal-side { min-width:0; }
+  .cal-side { border:1px solid var(--line); border-radius:12px; padding:10px; background:var(--soft); max-height:640px; overflow:auto; }
+  .cal-side .tabs { margin-bottom:10px; }
+  .cal-side .tabs button { background:var(--card); }
+  .cal-side .tabs button.on { background:linear-gradient(120deg,var(--orange),var(--accent)); }
+  .cal-side .schedule-calendar-details { margin:0; border:0; padding:0; background:none; }
+  .cal-side .schedule-calendar-detail { display:grid; grid-template-columns:1fr; }
+  .cal-side .schedule-calendar-detail-media { width:100%; max-height:220px; object-fit:cover; }
+  .ready-list { display:grid; gap:8px; margin-top:8px; }
+  .ready-item { display:flex; gap:10px; align-items:center; background:var(--card); border:1px solid var(--line);
+                border-radius:10px; padding:6px; cursor:grab; }
+  .ready-item:active { cursor:grabbing; }
+  .ready-item video { width:48px; aspect-ratio:9/16; object-fit:cover; background:#000; border-radius:6px; pointer-events:none; flex:none; }
+  .ri-copy { min-width:0; flex:1; }
+  .ri-title { font-weight:700; font-size:12px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .ri-meta { font-size:10px; color:var(--muted); margin-bottom:4px; }
+  .ready-item button { padding:4px 9px; font-size:11px; }
+  .drop-target { outline:2px dashed var(--orange); outline-offset:-2px; }
+  @media (max-width:860px) { .cal-layout { grid-template-columns:1fr; } .cal-side { max-height:none; } }
+
+  @media (max-width:640px) {
+    .top { padding:10px 12px; }
+    .wrap { padding:0 10px; gap:10px; }
+    .row3, .row2 { grid-template-columns:1fr; }
+    .campaign-strip select { flex:1 1 100%; }
+    .reels { grid-template-columns:repeat(2,minmax(0,1fr)); }
     select, input[type=file], textarea { font-size:16px; }
-    #result video { max-height:65vh; }
-    .reels { grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
-  }
-  @media (max-width:360px) {
-    .reels { grid-template-columns:1fr; }
   }
 </style>
 </head>
 <body>
+  <!-- 1. HEADER -->
   <div class="top">
     <h1>🎬 Reels / Videos</h1>
     <nav class="page-nav" aria-label="Content pages">
       <a href="/index.html">🖼️ Posts / Images</a>
       <a class="active" href="/reels.html" aria-current="page">🎬 Reels / Videos</a>
-      <a href="#sec-schedule-calendar">Schedule</a>
       <a href="/index.html?section=sec-campaign">Campaigns &amp; branding</a>
     </nav>
   </div>
 
   <div class="wrap">
-    <div class="card">
-      <h2>1. Choose the campaign</h2>
-      <p class="note">The caption, hashtags and offer are written from this campaign.</p>
+    <!-- 2. CAMPAIGN -->
+    <div class="card campaign-strip">
       <label for="campaign">Campaign</label>
       <select id="campaign"><option value="">Loading…</option></select>
       <div id="campaignBranding" class="brand-preview" style="display:none">
         <img id="campaignLogo" alt="Selected campaign logo" />
-        <span id="campaignBrandingText" class="note" style="margin:0"></span>
+        <span id="campaignBrandingText"></span>
       </div>
-      <p class="note" style="margin-top:10px">Branding uses the selected campaign. <a href="/index.html?section=sec-campaign">Edit campaigns and logos</a>.</p>
-      <div id="campaignMsg" class="status" role="alert"></div>
+      <span id="campaignMsg" class="status" role="alert"></span>
     </div>
 
-    <div class="grid2">
-      <!-- GENERATE -->
-      <div class="card" id="sec-generate">
-        <h2>✨ Generate a video</h2>
-        <p class="note">Automatic and stock modes accept only new videos focused on a treadmill, in use or as equipment, in any setting. Walking, jogging, running, incline, interval, and other treadmill videos are supported. Clips where a treadmill is only in the background and unrelated exercise footage are rejected. Stock clips are never reused. For a slideshow, choose treadmill-related photos from your library.</p>
-
-        <label for="genDuration">Length</label>
-        <select id="genDuration">
-          <option value="15">15 seconds</option>
-          <option value="20">20 seconds</option>
-          <option value="25">25 seconds</option>
-          <option value="30">30 seconds</option>
-        </select>
-
-        <label for="genCount">Number of videos</label>
-        <select id="genCount">
-          <option value="1">1 video</option>
-          <option value="2">2 videos</option>
-          <option value="3">3 videos</option>
-          <option value="4">4 videos</option>
-          <option value="5">5 videos</option>
-        </select>
-
-        <label for="genMode">Video source</label>
-        <select id="genMode">
-          <option value="auto">Automatic — treadmill video search</option>
-          <option value="stock">Stock — treadmill videos</option>
-          <option value="slideshow">Slideshow — use photos from my photo library</option>
-        </select>
-        <p class="note" id="videoSourceHelp" role="status" aria-live="polite"></p>
-
-        <label for="genIdea">Idea (optional)</label>
-        <textarea id="genIdea" placeholder="e.g. home treadmill walking plan, 30% off equipment"></textarea>
-
-        <div class="actions"><button type="button" id="genBtn">Generate video</button></div>
-        <div class="bar" id="genBar"><i></i></div>
-        <div class="status" id="genStatus" role="status" aria-live="polite"></div>
-      </div>
-
-      <!-- UPLOAD -->
-      <div class="card" id="sec-upload">
-        <h2>⬆️ Upload — your own video</h2>
-        <p class="note">Use your own MP4 video (up to 90 seconds by default). We add campaign text and place the logo in a corner, then write its caption and hashtags. Common failures: wrong/corrupt MP4, file too large or long, missing campaign, or video rendering unavailable.</p>
-
-        <label for="upFile">Video file (MP4, up to <span id="maxMb">100</span> MB)</label>
-        <input type="file" id="upFile" accept="video/mp4,.mp4" />
-
-        <label for="upIdea">What is this video about? (optional)</label>
-        <textarea id="upIdea" placeholder="e.g. New treadmill arrivals, free trial this week"></textarea>
-
-        <div class="actions"><button type="button" id="upBtn">Upload video</button></div>
-        <div class="bar" id="upBar"><i></i></div>
-        <div class="status" id="upStatus" role="status" aria-live="polite"></div>
-      </div>
-    </div>
-
+    <!-- 3. CALENDAR -->
     <section class="card schedule-calendar" id="sec-schedule-calendar"
       data-schedule-calendar data-content-type="reel" aria-labelledby="reelScheduleTitle">
       <div class="schedule-calendar-header">
@@ -185,35 +162,135 @@
           <button type="button" data-calendar-next aria-label="Next month">›</button>
         </div>
       </div>
-      <p class="schedule-calendar-status" data-calendar-status role="status" aria-live="polite">Loading calendar…</p>
-      <div class="schedule-calendar-weekdays" data-calendar-weekdays aria-hidden="true"></div>
-      <div class="schedule-calendar-grid" data-calendar-grid aria-label="Monthly reel schedule"></div>
-      <section class="schedule-calendar-details" data-calendar-details hidden aria-live="polite">
-        <h3 data-calendar-details-title></h3>
-        <div class="schedule-calendar-detail-list" data-calendar-detail-list></div>
-      </section>
+      <div class="cal-layout">
+        <div class="cal-main">
+          <p class="schedule-calendar-status" data-calendar-status role="status" aria-live="polite">Loading calendar…</p>
+          <div class="schedule-calendar-weekdays" data-calendar-weekdays aria-hidden="true"></div>
+          <div class="schedule-calendar-grid" data-calendar-grid aria-label="Monthly reel schedule"></div>
+        </div>
+
+        <aside class="cal-side" aria-label="Day details and ready to post videos">
+          <div class="tabs" role="tablist">
+            
+            <button type="button" data-tab-group="calside" data-tab="ready">Ready to post <span class="count-badge" id="calReadyCount">0</span></button>
+          </div>
+
+          <div data-panel-group="calside" data-panel="day">
+            <section class="schedule-calendar-details" data-calendar-details hidden aria-live="polite">
+              <h3 data-calendar-details-title></h3>
+              <div class="schedule-calendar-detail-list" data-calendar-detail-list></div>
+            </section>
+          </div>
+
+          <div data-panel-group="calside" data-panel="ready" hidden>
+            <p class="note" style="margin-top:0">Drag a video onto a day to schedule it at 10:00 AM (or the next free hour that day). On a phone, use the Schedule button.</p>
+            <p class="action-feedback" id="calReadyStatus" role="status" aria-live="polite"></p>
+            <div class="ready-list" id="calReadyList"></div>
+          </div>
+        </aside>
+      </div>
     </section>
 
-    <!-- RESULT -->
-    <div class="card" id="result" aria-live="polite">
-      <h2>✅ Your reel is ready <span class="badge b-generated" id="resBadge">generated</span></h2>
-      <p class="note" id="resNote">It is saved as generated content. Approve it or schedule it below.</p>
-      <video id="resVideo" controls playsinline preload="metadata"></video>
-      <p id="resCaption"></p>
-      <div class="actions">
-        <a class="btn" href="#reelList">Manage videos</a>
-        <a class="btn" href="/schedule.html?content_type=reel">Video calendar</a>
-        <button type="button" class="secondary" id="againBtn">Make another</button>
+    <!-- 4. CREATE (Generate / Upload in one card) -->
+    <div class="card" id="sec-create">
+      <div class="card-head">
+        <h2>Create a video</h2>
+        <div class="tabs" role="tablist">
+          <button type="button" class="on" data-tab-group="create" data-tab="gen">✨ Generate</button>
+          <button type="button" data-tab-group="create" data-tab="up">⬆️ Upload my own</button>
+        </div>
+      </div>
+
+      <div data-panel-group="create" data-panel="gen">
+        <div class="row3">
+          <div class="field">
+            <label for="genDuration">Length</label>
+            <select id="genDuration">
+              <option value="15">15 seconds</option>
+              <option value="20">20 seconds</option>
+              <option value="25">25 seconds</option>
+              <option value="30">30 seconds</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="genCount">Number of videos</label>
+            <select id="genCount">
+              <option value="1">1 video</option>
+              <option value="2">2 videos</option>
+              <option value="4">4 videos</option>
+              <option value="8">8 videos</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="genMode">Video source</label>
+            <select id="genMode">
+              <option value="auto">Automatic — treadmill search</option>
+              <option value="stock">Stock — treadmill videos</option>
+              <option value="slideshow">Slideshow — my photo library</option>
+            </select>
+          </div>
+        </div>
+        <div class="field">
+          <label for="genIdea">Idea (optional)</label>
+          <textarea id="genIdea" placeholder="e.g. home treadmill walking plan, 30% off equipment"></textarea>
+        </div>
+        <details>
+          <summary>About the video source</summary>
+          <p id="videoSourceHelp" role="status" aria-live="polite"></p>
+          <p>Only new videos focused on a treadmill (in use or as equipment, any setting) are accepted. Clips where a treadmill is only in the background and unrelated exercise footage are rejected. Stock clips are never reused. For a slideshow, choose treadmill-related photos from your library.</p>
+        </details>
+        <div class="form-foot">
+          <button type="button" id="genBtn">Generate video</button>
+          <span class="status" id="genStatus" role="status" aria-live="polite"></span>
+        </div>
+        <div class="bar" id="genBar"><i></i></div>
+      </div>
+
+      <div data-panel-group="create" data-panel="up" hidden>
+        <div class="row2">
+          <div class="field">
+            <label for="upFile">Video file (MP4, up to <span id="maxMb">100</span> MB)</label>
+            <input type="file" id="upFile" accept="video/mp4,.mp4" />
+          </div>
+          <div class="field">
+            <label for="upIdea">What is this video about? (optional)</label>
+            <textarea id="upIdea" placeholder="e.g. New treadmill arrivals, free trial this week"></textarea>
+          </div>
+        </div>
+        <details>
+          <summary>About uploads</summary>
+          <p>Use your own MP4 (up to 90 seconds by default). Campaign text and the logo are added, and a caption and hashtags are written. Common failures: wrong or corrupt MP4, file too large or long, missing campaign, or video rendering unavailable.</p>
+        </details>
+        <div class="form-foot">
+          <button type="button" id="upBtn">Upload video</button>
+          <span class="status" id="upStatus" role="status" aria-live="polite"></span>
+        </div>
+        <div class="bar" id="upBar"><i></i></div>
       </div>
     </div>
 
-    <div class="card">
-      <h2>Your videos</h2>
-      <p class="note">Review videos in Generated, Ready to Post, Scheduled, and Posted. New generations and uploads appear under Generated.</p>
-      <section class="reel-section"><h2>Generated <span class="count-badge" id="reelCountGenerated">0</span></h2><div id="reelGenerated" class="reel-loading">Loading generated videos…</div></section>
-      <section class="reel-section"><h2>Ready to Post <span class="count-badge" id="reelCountReady">0</span></h2><div id="reelReady" class="reel-loading">Loading ready videos…</div></section>
-      <section class="reel-section"><h2>Scheduled <span class="count-badge" id="reelCountScheduled">0</span></h2><div id="reelScheduled" class="reel-loading">Loading scheduled videos…</div></section>
-      <section class="reel-section"><h2>Posted <span class="count-badge" id="reelCountPosted">0</span></h2><div id="reelPosted" class="reel-loading">Loading posted videos…</div></section>
+    <!-- 5. YOUR VIDEOS (one status tab at a time) -->
+    <div class="card" id="sec-videos">
+      <div class="card-head">
+        <h2>Your videos</h2>
+        <div class="tabs" role="tablist">
+          <button type="button" class="on" data-tab-group="vid" data-tab="generated">Drafts <span class="count-badge" id="reelCountGenerated">0</span></button>
+          <button type="button" data-tab-group="vid" data-tab="ready_to_post">Ready to Post <span class="count-badge" id="reelCountReady">0</span></button>
+          <button type="button" data-tab-group="vid" data-tab="scheduled">Scheduled <span class="count-badge" id="reelCountScheduled">0</span></button>
+          <button type="button" data-tab-group="vid" data-tab="posted">Posted <span class="count-badge" id="reelCountPosted">0</span></button>
+        </div>
+      </div>
+
+      <div data-panel-group="vid" data-panel="generated">
+        <div class="sched-all" id="scheduleAllBar">
+          <button type="button" id="scheduleAllBtn">Schedule all drafts</button>
+          <span class="action-feedback" id="scheduleAllStatus" role="status" aria-live="polite">One video per day at 10:00 AM, on days with nothing scheduled.</span>
+        </div>
+        <div id="reelGenerated" class="reel-loading">Loading generated videos…</div>
+      </div>
+      <div data-panel-group="vid" data-panel="ready_to_post" hidden><div id="reelReady" class="reel-loading">Loading ready videos…</div></div>
+      <div data-panel-group="vid" data-panel="scheduled" hidden><div id="reelScheduled" class="reel-loading">Loading scheduled videos…</div></div>
+      <div data-panel-group="vid" data-panel="posted" hidden><div id="reelPosted" class="reel-loading">Loading posted videos…</div></div>
     </div>
   </div>
 
@@ -226,28 +303,47 @@
   var SELECTED_CAMPAIGN_KEY = 'kwik-selected-campaign';
   var LEGACY_REEL_CAMPAIGN_KEY = 'kwik-reel-campaign';
   var MAX_MB = 100; // the server's REEL_MAX_MB default; the server enforces the real limit
+  var SCHEDULE_HOUR = 10; // 10:00 AM in the time zone of this browser
   var $ = function (id) { return document.getElementById(id); };
-  var sourceHelp = {
-    auto: 'Searches for new videos focused on a treadmill, either being used or as equipment, in any setting. Clips with only a background treadmill are rejected. This mode does not switch to a slideshow automatically. Common failures: missing PEXELS_API_KEY or GEMINI_API_KEY, provider/network errors, or no unused matching clip.',
-    stock: 'Searches Pexels for new videos focused on a treadmill, in use or as equipment, in any setting. Clips with only a background treadmill and unrelated exercise footage are rejected. Common failures: missing PEXELS_API_KEY or GEMINI_API_KEY, provider/network errors, or no unused matching clip.',
-    slideshow: 'Builds a video from photos already in your photo library. Add at least one photo using Upload images first. Common failures: empty/unreadable library photos or video rendering unavailable.'
-  };
-  function updateSourceHelp() {
-    $('videoSourceHelp').textContent = sourceHelp[$('genMode').value] || sourceHelp.auto;
-  }
-  $('genMode').addEventListener('change', updateSourceHelp);
-  updateSourceHelp();
 
   function getToken() { return localStorage.getItem('authToken') || localStorage.getItem('token') || ''; }
   if (!getToken()) { window.location.href = '/login.html'; return; }
   $('maxMb').textContent = MAX_MB;
 
+  // ---- tabs ----------------------------------------------------------
+  function activateTab(group, name) {
+    document.querySelectorAll('[data-tab-group="' + group + '"]').forEach(function (b) {
+      b.classList.toggle('on', b.dataset.tab === name);
+    });
+    document.querySelectorAll('[data-panel-group="' + group + '"]').forEach(function (p) {
+      p.hidden = p.dataset.panel !== name;
+    });
+  }
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-tab-group]');
+    if (b) activateTab(b.dataset.tabGroup, b.dataset.tab);
+  });
+  function revealGenerated() {
+    activateTab('vid', 'generated');
+    $('sec-videos').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  // ---- video source help ----------------------------------------------
+  var sourceHelp = {
+    auto: 'Automatic: searches for new treadmill videos. It does not switch to a slideshow by itself. Common failures: missing PEXELS_API_KEY or GEMINI_API_KEY, provider/network errors, or no unused matching clip.',
+    stock: 'Stock: searches Pexels for new treadmill videos. Common failures: missing PEXELS_API_KEY or GEMINI_API_KEY, provider/network errors, or no unused matching clip.',
+    slideshow: 'Slideshow: builds a video from photos already in your photo library. Add at least one photo using Upload images first. Common failures: empty or unreadable library photos, or video rendering unavailable.'
+  };
+  function updateSourceHelp() { $('videoSourceHelp').textContent = sourceHelp[$('genMode').value] || sourceHelp.auto; }
+  $('genMode').addEventListener('change', updateSourceHelp);
+  updateSourceHelp();
+
+  // ---- requests ---------------------------------------------------------
   function authHeaders(extra) {
     var h = Object.assign({ 'ngrok-skip-browser-warning': 'true' }, extra || {});
     h['Authorization'] = 'Bearer ' + getToken();
     return h;
   }
-
   async function request(url, options) {
     options = options || {};
     var res = await fetch(url, Object.assign({}, options, { headers: authHeaders(options.headers) }));
@@ -257,8 +353,11 @@
     if (!res.ok || (data && data.error)) throw new Error((data && data.error) || 'Request failed (' + res.status + ')');
     return data;
   }
+  function say(id, text, isError) {
+    var el = $(id); el.textContent = text || ''; el.className = 'status' + (isError ? ' error' : '');
+  }
 
-  // ---- campaigns -----------------------------------------------------
+  // ---- campaigns --------------------------------------------------------
   var campaignSel = $('campaign');
   var campaigns = [];
   function updateCampaignBranding() {
@@ -266,21 +365,15 @@
     var preview = $('campaignBranding');
     var logo = $('campaignLogo');
     var label = $('campaignBrandingText');
-    if (!campaign) {
-      preview.style.display = 'none';
-      logo.removeAttribute('src');
-      label.textContent = '';
-      return;
-    }
+    if (!campaign) { preview.style.display = 'none'; logo.removeAttribute('src'); label.textContent = ''; return; }
     var logoUrl = campaign.logo_url || campaign.logoUrl;
-    preview.style.display = logoUrl ? 'flex' : 'block';
+    preview.style.display = 'flex';
     if (logoUrl) {
-      logo.src = logoUrl;
-      logo.style.display = '';
-      label.textContent = 'Using ' + (campaign.product_name || 'selected campaign') + ' branding.';
+      logo.src = logoUrl; logo.style.display = '';
+      label.textContent = 'Using ' + (campaign.product_name || 'selected campaign') + ' branding';
     } else {
       logo.style.display = 'none';
-      label.textContent = 'No logo set for ' + (campaign.product_name || 'this campaign') + '. Campaign text and offer will still be used.';
+      label.textContent = 'No logo set for ' + (campaign.product_name || 'this campaign');
     }
   }
   async function loadCampaigns() {
@@ -289,7 +382,7 @@
       campaigns = Array.isArray(list) ? list : ((list && list.campaigns) || []);
       if (!campaigns.length) {
         campaignSel.innerHTML = '<option value="">No campaigns yet</option>';
-        $('campaignMsg').innerHTML = 'Create a campaign on the <a href="/index.html?section=sec-campaign" style="color:#c4b5fd">Posts / Images page</a> first.';
+        $('campaignMsg').innerHTML = 'Create a campaign on the <a href="/index.html?section=sec-campaign">Posts / Images page</a> first.';
         setEnabled(false);
         return;
       }
@@ -323,48 +416,23 @@
   function setEnabled(on) { $('genBtn').disabled = !on || busy; $('upBtn').disabled = !on || busy; }
   function setBusy(v) { busy = v; setEnabled(!!campaignSel.value); }
 
-  function say(id, text, isError) {
-    var el = $(id); el.textContent = text || ''; el.className = 'status' + (isError ? ' error' : '');
-  }
-
-  // ---- result ---------------------------------------------------------
-  function showResult(post, source) {
-    $('resVideo').src = post.video_url || '';
-    var tags = '';
-    try { var h = typeof post.hashtags === 'string' ? JSON.parse(post.hashtags) : post.hashtags; if (Array.isArray(h)) tags = h.join(' '); } catch (e) {}
-    $('resCaption').textContent = [post.caption || '', tags].filter(Boolean).join('\n\n');
-    var b = $('resBadge'); var st = post.status || 'generated'; b.textContent = st; b.className = 'badge b-' + st;
-    $('resNote').textContent = source === 'upload'
-      ? 'Made from your uploaded MP4. Campaign branding was applied. Saved as generated content; manage it below.'
-      : (source
-        ? 'Made from ' + (source === 'stock' ? 'stock treadmill footage' : 'photos in your library (slideshow)') + '. Saved as generated content; manage it below.'
-        : 'Your selected campaign branding was applied. Saved as generated content; manage it below.');
-    $('result').style.display = 'block';
-    $('result').scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }
-  $('againBtn').addEventListener('click', function () {
-    $('result').style.display = 'none'; $('resVideo').removeAttribute('src');
-    $('genIdea').value = ''; $('upIdea').value = ''; $('upFile').value = '';
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  });
-
   // ---- generate ---------------------------------------------------------
   var timer = null;
   var batchProgress = '';
   function startTimer() {
     var t0 = Date.now(); $('genBar').style.display = 'block'; $('genBar').className = 'bar indeterminate';
-    timer = setInterval(function () {
+    function tick() {
       var s = Math.floor((Date.now() - t0) / 1000);
-      say('genStatus', batchProgress + ' · ' + Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0') + ' elapsed (this can take a few minutes — keep this page open)');
-    }, 1000);
-    say('genStatus', batchProgress + ' · 0:00 elapsed (this can take a few minutes — keep this page open)');
+      say('genStatus', batchProgress + ' · ' + Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0') + ' elapsed (keep this page open)');
+    }
+    timer = setInterval(tick, 1000); tick();
   }
   function stopTimer() { clearInterval(timer); $('genBar').style.display = 'none'; $('genBar').className = 'bar'; }
 
   $('genBtn').addEventListener('click', async function () {
     if (!campaignSel.value) { say('genStatus', 'Choose a campaign first.', true); return; }
     var count = Number($('genCount').value);
-    if (!Number.isInteger(count) || count < 1 || count > 5) { say('genStatus', 'Choose between 1 and 5 videos.', true); return; }
+    if ([1, 2, 4, 8].indexOf(count) === -1) { say('genStatus', 'Choose 1, 2, 4 or 8 videos.', true); return; }
     var created = [];
     var failures = [];
     setBusy(true); startTimer();
@@ -388,21 +456,17 @@
           failures.push('Video ' + (index + 1) + ': ' + error.message);
         }
       }
-
-      stopTimer();
-      batchProgress = '';
-      if (created.length) showResult(created[created.length - 1], created[created.length - 1].source);
+      stopTimer(); batchProgress = '';
+      if (created.length) revealGenerated();
       if (failures.length) {
-        say('genStatus', 'Created ' + created.length + ' of ' + count + ' videos. ' + failures.join(' '), true);
+        say('genStatus', 'Created ' + created.length + ' of ' + count + '. ' + failures.join(' '), true);
       } else {
-        say('genStatus', 'Done! Created ' + created.length + ' video' + (created.length === 1 ? '' : 's') + '.');
+        say('genStatus', 'Done! Created ' + created.length + ' video' + (created.length === 1 ? '' : 's') + ' — see Generated below.');
       }
     } catch (e) {
       stopTimer(); batchProgress = ''; say('genStatus', e.message, true);
     } finally {
-      stopTimer();
-      batchProgress = '';
-      setBusy(false);
+      stopTimer(); batchProgress = ''; setBusy(false);
       await loadReels();
     }
   });
@@ -441,7 +505,9 @@
       finish();
       if (xhr.status === 401) { window.location.href = '/login.html'; return; }
       if (xhr.status >= 200 && xhr.status < 300 && data && !data.error) {
-        say('upStatus', 'Done!'); showResult(data, 'upload'); loadReels();
+        say('upStatus', 'Done! Your video is under Generated below.');
+        $('upFile').value = ''; $('upIdea').value = '';
+        loadReels().then(revealGenerated);
       } else {
         say('upStatus', (data && data.error) || 'Upload failed (' + xhr.status + ')', true);
       }
@@ -449,6 +515,7 @@
     xhr.send(fd);
   });
 
+  // ---- video cards -------------------------------------------------------
   function formatDate(value) {
     if (!value) return 'Date unavailable';
     var date = new Date(value);
@@ -466,27 +533,20 @@
       if (options.confirm && !confirm(options.confirm)) return;
       button.disabled = true;
       button.textContent = options.busyLabel || 'Working…';
-      if (feedback) {
-        feedback.classList.remove('error');
-        feedback.textContent = options.pendingText || 'Working…';
-      }
+      if (feedback) { feedback.classList.remove('error'); feedback.textContent = options.pendingText || 'Working…'; }
       try {
         await action();
         if (options.refresh === false) {
-          button.disabled = false;
-          button.textContent = label;
+          button.disabled = false; button.textContent = label;
           if (feedback) feedback.textContent = options.pendingText || '';
           return;
         }
-        if (feedback) feedback.textContent = 'Saved. Refreshing status counts…';
+        if (feedback) feedback.textContent = 'Saved. Refreshing…';
         await loadReels();
+        if (typeof window.refreshScheduleCalendar === 'function') window.refreshScheduleCalendar();
       } catch (error) {
-        if (feedback) {
-          feedback.classList.add('error');
-          feedback.textContent = 'Could not ' + label.toLowerCase() + ': ' + error.message;
-        }
-        button.disabled = false;
-        button.textContent = label;
+        if (feedback) { feedback.classList.add('error'); feedback.textContent = 'Could not ' + label.toLowerCase() + ': ' + error.message; }
+        button.disabled = false; button.textContent = label;
       }
     });
     actions.appendChild(button);
@@ -499,15 +559,12 @@
 
     if (post.video_url && post.video_available !== false) {
       var video = document.createElement('video');
-      video.src = post.video_url;
-      video.controls = true;
-      video.preload = 'metadata';
-      video.playsInline = true;
+      video.src = post.video_url; video.controls = true; video.preload = 'metadata'; video.playsInline = true;
       video.addEventListener('error', function () {
         var unavailable = document.createElement('p');
         unavailable.className = 'reel-empty error';
         unavailable.setAttribute('role', 'status');
-        unavailable.textContent = 'Video preview unavailable. The video file may have been removed from the server.';
+        unavailable.textContent = 'Video preview unavailable. The file may have been removed from the server.';
         video.replaceWith(unavailable);
       }, { once: true });
       card.appendChild(video);
@@ -516,7 +573,7 @@
       noPreview.className = 'reel-empty error';
       noPreview.setAttribute('role', 'status');
       noPreview.textContent = post.video_url
-        ? 'Video file is missing from this server. The post remains in your history; restore the file from a backup to preview it.'
+        ? 'Video file is missing from this server. Restore it from a backup to preview it.'
         : 'Video preview unavailable.';
       card.appendChild(noPreview);
     }
@@ -527,22 +584,18 @@
     badge.textContent = status.replace(/_/g, ' ');
     card.appendChild(badge);
 
-    var title = post.headline_main || (post.caption || ('Video #' + post.id)).split('\n')[0];
     var titleElement = document.createElement('p');
     titleElement.className = 'reel-title';
-    titleElement.textContent = title;
+    titleElement.textContent = post.headline_main || (post.caption || ('Video #' + post.id)).split('\n')[0];
     card.appendChild(titleElement);
 
     var campaign = campaigns.find(function (item) { return String(item.id) === String(post.campaign_id); });
-    var campaignName = campaign ? (campaign.product_name || 'Campaign') : 'Campaign';
     var date = status === 'posted'
       ? 'Posted ' + formatDate(post.posted_at || post.created_at)
-      : (status === 'scheduled'
-        ? 'Scheduled ' + formatDate(post.scheduled_at)
-        : 'Created ' + formatDate(post.created_at));
+      : (status === 'scheduled' ? 'Scheduled ' + formatDate(post.scheduled_at) : 'Created ' + formatDate(post.created_at));
     var meta = document.createElement('p');
     meta.className = 'reel-meta';
-    meta.textContent = campaignName + ' · ' + date;
+    meta.textContent = (campaign ? (campaign.product_name || 'Campaign') : 'Campaign') + ' · ' + date;
     card.appendChild(meta);
 
     if (post.caption) {
@@ -571,11 +624,10 @@
         var editWindow = window.open('', '_blank');
         try {
           var edit = await request(API + '/' + id + '/edit-link', { method: 'POST' });
-          if (editWindow) editWindow.location.href = edit.url;
-          else window.open(edit.url, '_blank');
-        } catch (error) {
+          if (editWindow) editWindow.location.href = edit.url; else window.open(edit.url, '_blank');
+        } catch (err) {
           if (editWindow) editWindow.close();
-          throw error;
+          throw err;
         }
       }, { secondary: true, refresh: false, pendingText: 'Edit opened. Saving there moves this video to Ready to Post.' });
       addVideoAction(card, actions, post, 'Approve', function () {
@@ -606,11 +658,230 @@
         });
       }
     }
-
     if (actions.childNodes.length) card.appendChild(actions);
     return card;
   }
 
+  // ---- schedule all drafts onto days that have no scheduled video --------
+  var allPosts = [];
+
+  // Same rule the calendar uses: a stored time with no zone is treated as UTC.
+  function parseStamp(value) {
+    if (!value) return null;
+    var text = String(value).trim().replace(' ', 'T');
+    if (!/(Z|[+-]\d{2}:\d{2})$/i.test(text)) text += 'Z';
+    var d = new Date(text);
+    return Number.isNaN(d.getTime()) ? null : d;
+  }
+  function dayKey(d) { return d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate(); }
+
+  // The next `count` days after today that are not in `taken`, each at SCHEDULE_HOUR.
+  function pickFreeDays(count, taken, now) {
+    var cursor = new Date(now.getTime());
+    cursor.setHours(SCHEDULE_HOUR, 0, 0, 0);
+    var out = [];
+    while (out.length < count) {
+      cursor.setDate(cursor.getDate() + 1);
+      if (!taken[dayKey(cursor)]) out.push(new Date(cursor.getTime()));
+    }
+    return out;
+  }
+
+  function updateScheduleAllBar() {
+    var n = allPosts.filter(function (p) { return p.status === 'generated'; }).length;
+    $('scheduleAllBar').style.display = n ? 'flex' : 'none';
+    $('scheduleAllBtn').textContent = 'Schedule all drafts (' + n + ')';
+  }
+
+  $('scheduleAllBtn').addEventListener('click', async function () {
+    var btn = $('scheduleAllBtn');
+    var out = $('scheduleAllStatus');
+    function note(text, isError) { out.textContent = text; out.className = 'action-feedback' + (isError ? ' error' : ''); }
+    btn.disabled = true;
+    try {
+      note('Checking your calendar…');
+      var data = await request(API + '?content_type=reel&_=' + Date.now(), { cache: 'no-store' });
+      var posts = Array.isArray(data) ? data : ((data && data.posts) || []);
+      var drafts = posts.filter(function (p) { return p.status === 'generated'; })
+        .sort(function (a, b) { return String(a.created_at).localeCompare(String(b.created_at)) || a.id - b.id; });
+      if (!drafts.length) { note('There are no drafts to schedule.'); return; }
+
+      var taken = {};
+      posts.forEach(function (p) {
+        if (p.status === 'scheduled' && p.scheduled_at) {
+          var d = parseStamp(p.scheduled_at);
+          if (d) taken[dayKey(d)] = true;
+        }
+      });
+      var days = pickFreeDays(drafts.length, taken, new Date());
+      var fmt = { day: 'numeric', month: 'short', year: 'numeric' };
+      var first = days[0].toLocaleDateString(undefined, fmt);
+      var last = days[days.length - 1].toLocaleDateString(undefined, fmt);
+      if (!confirm('Schedule ' + drafts.length + ' video' + (drafts.length === 1 ? '' : 's') +
+          ', one per day at ' + SCHEDULE_HOUR + ':00 AM, from ' + first + ' to ' + last +
+          '?\n\nDays that already have a scheduled video are skipped. Scheduled videos are posted to Instagram automatically.')) {
+        note('Cancelled. Nothing was scheduled.');
+        return;
+      }
+
+      var done = 0;
+      var failures = [];
+      for (var i = 0; i < drafts.length; i++) {
+        note('Scheduling ' + (i + 1) + ' of ' + drafts.length + '…');
+        var id = encodeURIComponent(drafts[i].id);
+        try {
+          await request(API + '/' + id + '/approve', { method: 'POST' });
+          await request(API + '/' + id + '/schedule', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ scheduledAt: days[i].toISOString() })
+          });
+          done++;
+        } catch (error) {
+          failures.push('Video #' + drafts[i].id + ': ' + error.message);
+        }
+      }
+      await loadReels();
+      if (typeof window.refreshScheduleCalendar === 'function') await window.refreshScheduleCalendar();
+      if (failures.length) {
+        note('Scheduled ' + done + ' of ' + drafts.length + '. ' + failures.join(' ') +
+          ' Failed videos are in Ready to Post, so you can schedule them by hand.', true);
+      } else {
+        note('Done! Scheduled ' + done + ' video' + (done === 1 ? '' : 's') + ' from ' + first + ' to ' + last + '.');
+      }
+    } catch (error) {
+      note('Could not schedule: ' + error.message, true);
+    } finally {
+      btn.disabled = false;
+      updateScheduleAllBar();
+    }
+  });
+
+  // ---- ready-to-post videos beside the calendar (drag onto a day) --------
+  var READY_TYPE = 'application/x-kwik-ready';
+  var calRoot = document.querySelector('[data-schedule-calendar]');
+
+  function readyNote(text, isError) {
+    var el = $('calReadyStatus');
+    el.textContent = text || '';
+    el.className = 'action-feedback' + (isError ? ' error' : '');
+  }
+
+  function renderReadyPanel(posts) {
+    var items = posts.filter(function (p) { return p.status === 'ready_to_post'; });
+    $('calReadyCount').textContent = String(items.length);
+    var box = $('calReadyList');
+    box.textContent = '';
+    if (!items.length) {
+      var none = document.createElement('p');
+      none.className = 'reel-empty';
+      none.textContent = 'No videos are ready to post. Approve a draft to see it here.';
+      box.appendChild(none);
+      return;
+    }
+    items.forEach(function (post) {
+      var row = document.createElement('div');
+      row.className = 'ready-item';
+      row.draggable = true;
+      row.dataset.postId = post.id;
+      row.addEventListener('dragstart', function (ev) {
+        ev.dataTransfer.setData(READY_TYPE, String(post.id));
+        ev.dataTransfer.setData('text/plain', 'ready:' + post.id); // not a calendar item id
+        ev.dataTransfer.effectAllowed = 'move';
+      });
+
+      if (post.video_url && post.video_available !== false) {
+        var v = document.createElement('video');
+        v.src = post.video_url; v.preload = 'metadata'; v.muted = true; v.playsInline = true; v.draggable = false;
+        row.appendChild(v);
+      }
+      var copy = document.createElement('div');
+      copy.className = 'ri-copy';
+      var title = document.createElement('div');
+      title.className = 'ri-title';
+      title.textContent = post.headline_main || (post.caption || ('Video #' + post.id)).split('\n')[0];
+      var meta = document.createElement('div');
+      meta.className = 'ri-meta';
+      meta.textContent = 'Created ' + formatDate(post.created_at);
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'secondary';
+      btn.textContent = 'Schedule';
+      btn.addEventListener('click', function () {
+        if (typeof window.schedulePost === 'function') window.schedulePost(post.id);
+      });
+      copy.appendChild(title); copy.appendChild(meta); copy.appendChild(btn);
+      row.appendChild(copy);
+      box.appendChild(row);
+    });
+  }
+
+  function clearDropMarks() {
+    document.querySelectorAll('.drop-target').forEach(function (n) { n.classList.remove('drop-target'); });
+  }
+
+  // 10:00 AM on the dropped day, or the next free hour if that day already has a video.
+  async function scheduleReadyOnDay(postId, day) {
+    var now = new Date();
+    var endOfDay = new Date(day.getFullYear(), day.getMonth(), day.getDate(), 23, 59, 59);
+    if (endOfDay.getTime() < now.getTime()) { readyNote('Choose today or a later day.', true); return; }
+
+    var usedHours = {};
+    allPosts.forEach(function (p) {
+      if (p.status === 'scheduled' && p.scheduled_at) {
+        var d = parseStamp(p.scheduled_at);
+        if (d && dayKey(d) === dayKey(day)) usedHours[d.getHours()] = true;
+      }
+    });
+    var when = null;
+    for (var h = SCHEDULE_HOUR; h < 24 && !when; h++) {
+      if (usedHours[h]) continue;
+      var candidate = new Date(day.getFullYear(), day.getMonth(), day.getDate(), h, 0, 0, 0);
+      if (candidate.getTime() > now.getTime() + 2 * 60000) when = candidate;
+    }
+    if (!when) { readyNote('That day has no free time left. Choose a later day.', true); return; }
+
+    readyNote('Scheduling…');
+    try {
+      await request(API + '/' + encodeURIComponent(postId) + '/schedule', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ scheduledAt: when.toISOString() })
+      });
+      await loadReels();
+      if (typeof window.refreshScheduleCalendar === 'function') await window.refreshScheduleCalendar();
+      readyNote('Scheduled for ' + when.toLocaleString(undefined, { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' }) + '.');
+    } catch (error) {
+      readyNote('Could not schedule: ' + error.message, true);
+    }
+  }
+
+  if (calRoot) {
+    calRoot.addEventListener('dragover', function (ev) {
+      if (!ev.dataTransfer || Array.prototype.indexOf.call(ev.dataTransfer.types, READY_TYPE) === -1) return;
+      var day = ev.target.closest('[data-calendar-day]');
+      clearDropMarks();
+      if (day) { ev.preventDefault(); ev.dataTransfer.dropEffect = 'move'; day.classList.add('drop-target'); }
+    });
+    calRoot.addEventListener('drop', function (ev) {
+      if (!ev.dataTransfer) return;
+      var postId = ev.dataTransfer.getData(READY_TYPE);
+      clearDropMarks();
+      if (!postId) return;
+      var day = ev.target.closest('[data-calendar-day]');
+      if (!day) return;
+      ev.preventDefault();
+      var parts = day.dataset.calendarDay.split('-').map(Number);
+      scheduleReadyOnDay(postId, new Date(parts[0], parts[1] - 1, parts[2]));
+    });
+    // clicking a day always shows that day's details
+    calRoot.addEventListener('click', function (ev) {
+      if (ev.target.closest('[data-calendar-day]')) activateTab('calside', 'day');
+    });
+  }
+  document.addEventListener('dragend', clearDropMarks);
+
+  // ---- load the lists ------------------------------------------------------
   async function loadReels() {
     var groups = {
       generated: { list: $('reelGenerated'), count: $('reelCountGenerated'), empty: 'No generated videos yet. Generate or upload a video to get started.' },
@@ -620,15 +891,20 @@
     };
     Object.keys(groups).forEach(function (status) {
       groups[status].count.textContent = '…';
-      groups[status].list.textContent = 'Loading ' + status.replace(/_/g, ' ') + ' videos…';
+      groups[status].list.className = 'reel-loading';
+      groups[status].list.textContent = 'Loading…';
     });
     try {
       var data = await request(API + '?content_type=reel&_=' + Date.now(), { cache: 'no-store' });
       var posts = Array.isArray(data) ? data : ((data && data.posts) || []);
+      allPosts = posts;
+      updateScheduleAllBar();
+      renderReadyPanel(posts);
       Object.keys(groups).forEach(function (status) {
         var group = groups[status];
         var items = posts.filter(function (post) { return post.status === status; });
         group.count.textContent = String(items.length);
+        group.list.className = '';
         group.list.textContent = '';
         if (!items.length) {
           var empty = document.createElement('p');
@@ -645,8 +921,8 @@
     } catch (error) {
       Object.keys(groups).forEach(function (status) {
         groups[status].count.textContent = '!';
-        groups[status].list.textContent = 'Could not load videos: ' + error.message;
         groups[status].list.className = 'reel-empty error';
+        groups[status].list.textContent = 'Could not load videos: ' + error.message;
       });
     }
   }

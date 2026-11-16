@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const campaignController = require('../controllers/campaignController');
+const campaignLogoController = require('../controllers/campaignLogoController');
 const { requireAuth } = require('../middleware/authMiddleware');
 
 // Every route here requires a logged-in user
@@ -8,6 +9,7 @@ router.use(requireAuth);
 
 router.post('/', campaignController.createCampaign);
 router.get('/', campaignController.listCampaigns);
+router.post('/logo', campaignLogoController.uploadCampaignLogo);
 
 // Edit & Delete
 router.put('/:id', campaignController.updateCampaign);

@@ -92,6 +92,15 @@ function campaignFormValues() {
 function clearCampaignForm() {
   ['productName', 'audience', 'tone', 'offerDetails', 'website', 'logoUrl']
     .forEach(function (id) { if ($(id)) $(id).value = ''; });
+  if ($('logoFile')) $('logoFile').value = '';
+  if ($('logoPreview')) {
+    $('logoPreview').removeAttribute('src');
+    $('logoPreview').style.display = 'none';
+  }
+  if ($('logoUploadStatus')) {
+    $('logoUploadStatus').className = 'settings-note';
+    $('logoUploadStatus').textContent = 'Required for generated Reels/videos; optional for image posts.';
+  }
 }
 
 function campaignPayload(v) {
@@ -106,6 +115,56 @@ function campaignPayload(v) {
     offer_details: v.offerDetails,
     logo_url: v.logoUrl
   };
+}
+
+function showCampaignLogo(url) {
+  const preview = $('logoPreview');
+  if (!preview) return;
+  if (url) {
+    preview.src = url;
+    preview.style.display = '';
+  } else {
+    preview.removeAttribute('src');
+    preview.style.display = 'none';
+  }
+}
+
+async function uploadCampaignLogo(evt) {
+  const input = evt && evt.target;
+  const file = input && input.files && input.files[0];
+  if (!file) return;
+
+  const status = $('logoUploadStatus');
+  status.className = 'settings-note';
+  status.textContent = 'Uploading logo…';
+  const formData = new FormData();
+  formData.append('logo', file);
+
+  try {
+    const response = await fetch(CAMPAIGNS_API + '/logo', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: formData
+    });
+    if (response.status === 401) {
+      logout();
+      throw new Error('Session expired');
+    }
+    let data = null;
+    try { data = await response.json(); } catch (error) {}
+    if (!response.ok || (data && data.error)) {
+      throw new Error((data && data.error) || 'Logo upload failed (' + response.status + ')');
+    }
+
+    $('logoUrl').value = data.logoUrl;
+    showCampaignLogo(data.logoUrl);
+    status.textContent = 'Logo uploaded. Save the campaign to use it in generated videos.';
+    input.value = '';
+  } catch (error) {
+    status.classList.add('error');
+    status.textContent = 'Logo upload failed: ' + error.message;
+    input.value = '';
+  }
 }
 
 // ===== REDIRECT MESSAGES =====
@@ -251,6 +310,12 @@ function startEditCampaign(id) {
   if ($('offerDetails')) $('offerDetails').value = c.offer_details || c.offerDetails || '';
   if ($('website')) $('website').value = c.website || '';
   if ($('logoUrl')) $('logoUrl').value = c.logo_url || c.logoUrl || '';
+  showCampaignLogo(c.logo_url || c.logoUrl || '');
+  if ($('logoUploadStatus')) {
+    $('logoUploadStatus').textContent = c.logo_url || c.logoUrl
+      ? 'Saved logo. Upload another image to replace it.'
+      : 'Required for generated Reels/videos; optional for image posts.';
+  }
 
   if ($('updateCampaignBtn')) $('updateCampaignBtn').style.display = 'inline-block';
   if ($('cancelEditBtn')) $('cancelEditBtn').style.display = 'inline-block';
@@ -272,7 +337,7 @@ function updateCampaign(evt) {
     if (!v.productName) throw new Error('Product/Service name is required');
 
     await api(CAMPAIGNS_API + '/' + encodeURIComponent(editingCampaignId), {
-      method: 'PATCH',
+      method: 'PUT',
       body: JSON.stringify(campaignPayload(v))
     });
 

@@ -7,10 +7,6 @@ const emailService = require('./emailService');
 const { q } = require('../db/query');
 const { findThemeMeta } = require('../db/migrations');
 
-/**
- * In-memory lock so the same campaign is not processed twice at once
- * (daily job + reject-regenerate overlapping).
- */
 const busyCampaigns = new Set();
 
 function isCampaignBusy(campaignId) {
@@ -30,12 +26,6 @@ async function runExclusive(campaignId, fn) {
   }
 }
 
-/**
- * Builds a signed, time-limited link for a specific post:
- *   approve -> approves it when clicked
- *   reject  -> rejects it (and regenerates the theme)
- *   edit    -> opens the edit page for it
- */
 function buildEmailActionLink(postId, userId, action) {
   const token = jwt.sign({ postId, userId, action }, config.jwtSecret, { expiresIn: '7d' });
   if (action === 'edit') return `${config.appBaseUrl}/edit.html?token=${token}`;
@@ -43,10 +33,6 @@ function buildEmailActionLink(postId, userId, action) {
   return `${config.appBaseUrl}/api/posts/${path}?token=${token}`;
 }
 
-/**
- * Generates one post for a campaign.
- * Theme is only marked used on APPROVE (performApproval), not here.
- */
 async function generateThemedPost({ campaign, theme }) {
   const generated = await aiService.generateAdContent({
     productName: campaign.product_name,
@@ -56,8 +42,8 @@ async function generateThemedPost({ campaign, theme }) {
     theme: theme ? theme.theme_text : ''
   });
 
-  const postedCount = await postModel.countPostedPosts(campaign.id);
-  const layoutIndex = postedCount % imageService.LAYOUT_COUNT;
+  // Random layout every theme generate (one of the 8 templates)
+  const layoutIndex = Math.floor(Math.random() * (imageService.LAYOUT_COUNT || 8));
 
   const backgroundFile = `bg-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`;
 
@@ -95,37 +81,25 @@ async function generateThemedPost({ campaign, theme }) {
     layoutIndex
   });
 
-  return { postId, generated, imageUrl };
+  return { postId, generated, imageUrl, layoutIndex };
 }
 
-/**
- * Email for the campaign USER (users.email).
- * Does not fall back to notificationEmail for normal accounts.
- * Returns null if the user has no usable email.
- */
 async function ownerEmailFor(userId) {
   if (userId == null) return null;
 
-  // 1) Prefer userModel if you have it
   try {
     const userModel = require('../models/userModel');
-    if (typeof userModel.findById === 'function') {
-      const u = await userModel.findById(userId);
-      if (u && u.email) {
-        const email = String(u.email).trim();
-        if (!/@(localhost|local|example\.com)$/i.test(email)) return email;
-      }
-    }
-    if (typeof userModel.getById === 'function') {
-      const u = await userModel.getById(userId);
-      if (u && u.email) {
-        const email = String(u.email).trim();
-        if (!/@(localhost|local|example\.com)$/i.test(email)) return email;
+    for (const fn of ['findById', 'getById', 'getUserById']) {
+      if (typeof userModel[fn] === 'function') {
+        const u = await userModel[fn](userId);
+        if (u && u.email) {
+          const email = String(u.email).trim();
+          if (!/@(localhost|local|example\.com)$/i.test(email)) return email;
+        }
       }
     }
   } catch (_) {}
 
-  // 2) Direct SQL via getDb (same as clearDrafts)
   try {
     const { getDb } = require('../db/connection');
     const db = await getDb();
@@ -147,9 +121,6 @@ async function ownerEmailFor(userId) {
   return null;
 }
 
-/**
- * Emails the campaign user Approve / Edit / Reject links.
- */
 async function emailForApproval({ campaign, userEmail, postId, generated, imageUrl, theme }) {
   const to = userEmail || (await ownerEmailFor(campaign.user_id));
 
@@ -198,8 +169,6 @@ async function emailForApproval({ campaign, userEmail, postId, generated, imageU
   }
 }
 
-/* ---------------- theme queue helpers ---------------- */
-
 function shapeTheme(meta, row) {
   return row ? { ...row, theme_text: String(row[meta.labelCol] ?? '') } : null;
 }
@@ -218,7 +187,8 @@ async function getNextUnusedTheme(campaignId) {
 async function getThemeById(themeId) {
   const meta = await findThemeMeta(q());
   if (!meta || !themeId) return null;
-  return shapeTheme(meta, await q().get(`SELECT * FROM ${meta.table} WHERE id = ?`, [themeId]));
+  const row = await q().get(`SELECT * FROM ${meta.table} WHERE id = ?`, [themeId]);
+  return shapeTheme(meta, row);
 }
 
 async function countUnusedThemes() {

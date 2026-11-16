@@ -55,18 +55,13 @@ async function generateForCampaign(req, res, next) {
       offerDetails: campaign.offer_details
     });
 
-    // Button text must never be empty: the layouts call .toUpperCase() on it.
     const ctaLabel = generated.ctaButtonLabel || generated.cta || 'Learn more';
 
-    // Layout changes only after a post is published.
-    const postedCount = await postModel.countPostedPosts(campaign.id);
-    const layoutIndex = postedCount % imageService.LAYOUT_COUNT;
+    // Random layout every generate (one of the 8 templates)
+    const layoutIndex = Math.floor(Math.random() * (imageService.LAYOUT_COUNT || 8));
 
-    // Next saved photo from the library (null if none are saved).
     const chosenId = req.body && req.body.libraryImageId ? Number(req.body.libraryImageId) : null;
-const libraryPhoto = await libraryPhotoService.pickLibraryPhoto(req.userId, chosenId);
-
-    // Name of the saved background, used by the Edit page.
+    const libraryPhoto = await libraryPhotoService.pickLibraryPhoto(req.userId, chosenId);
     const backgroundFile = libraryPhotoService.newBackgroundFile();
 
     const imageUrl = await imageService.generateAndHostAdImage({
@@ -86,8 +81,6 @@ const libraryPhoto = await libraryPhotoService.pickLibraryPhoto(req.userId, chos
       photoBuffer: libraryPhoto ? libraryPhoto.buffer : undefined
     });
 
-    // The file exists when the canvas pipeline ran (always true for library photos).
-    // A full Nano Banana image has no background, so it can't be edited.
     const savedBackground = imageService.hasBackground(backgroundFile) ? backgroundFile : null;
 
     const postId = await postModel.createPost({
@@ -107,16 +100,12 @@ const libraryPhoto = await libraryPhotoService.pickLibraryPhoto(req.userId, chos
       layoutIndex
     });
 
-    res.json({ postId, ...generated, ctaButtonLabel: ctaLabel, imageUrl });
+    res.json({ postId, ...generated, ctaButtonLabel: ctaLabel, imageUrl, layoutIndex });
   } catch (err) {
     next(err);
   }
 }
 
-/**
- * Loads a batch of daily themes into a campaign's queue.
- * Accepts a string (one theme per line) or an array of strings.
- */
 async function setThemes(req, res, next) {
   try {
     const campaign = await campaignModel.getCampaignById(req.params.id, req.userId);
@@ -155,6 +144,10 @@ async function getThemes(req, res, next) {
   }
 }
 
+function sent(...values) {
+  return values.find((v) => v !== undefined);
+}
+
 async function updateCampaign(req, res, next) {
   try {
     const id = req.params.id;
@@ -165,15 +158,20 @@ async function updateCampaign(req, res, next) {
       return res.status(400).json({ error: 'Product/Service name is required' });
     }
 
+    const existing = await campaignModel.getCampaignById(id, req.userId);
+    if (!existing) {
+      return res.status(404).json({ error: 'Campaign not found' });
+    }
+
     const changes = await campaignModel.updateCampaign(id, req.userId, {
       productName,
       audience: body.audience || '',
       tone: body.tone || '',
       offerDetails: body.offerDetails || body.offer_details || '',
       website: body.website || '',
-      logoUrl: body.logoUrl || body.logo_url || '',
-      contactEmail: body.contactEmail || body.contact_email || '',
-      whatsappNumber: body.whatsappNumber || body.whatsapp_number || ''
+      logoUrl: sent(body.logoUrl, body.logo_url, existing.logo_url) || '',
+      contactEmail: sent(body.contactEmail, body.contact_email, existing.contact_email) || '',
+      whatsappNumber: sent(body.whatsappNumber, body.whatsapp_number, existing.whatsapp_number) || ''
     });
 
     if (!changes) {
