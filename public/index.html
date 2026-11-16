@@ -53,6 +53,7 @@
 
   .nav { display: flex; flex-direction: column; gap: 4px; }
   .nav a { display: block; padding: 10px 12px; border-radius: 10px; color: var(--soft); font-size: 14px; font-weight: 600; cursor: pointer; transition: background .15s, color .15s, padding-left .15s; }
+  .nav a.active { background: var(--panel2); color: var(--text); box-shadow: inset 3px 0 0 #f97316; }
   .nav a:hover { background: var(--panel2); color: var(--text); padding-left: 16px; box-shadow: inset 3px 0 0 #f97316; }
   .foot { margin-top: auto; display: flex; flex-direction: column; gap: 10px; padding: 10px 8px 0; border-top: 1px solid var(--line); }
   .foot span { font-size: 12px; color: var(--soft); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 210px; }
@@ -128,27 +129,22 @@
 
   .post-card { border: 1px solid var(--line); border-radius: 14px; padding: 16px; margin-bottom: 14px; background: var(--panel2); transition: transform .2s, border-color .2s; }
   .post-card:hover { transform: translateY(-2px); border-color: rgba(168,85,247,.5); }
-  .post-card img { display: block; width: 100%; height: auto; max-height: none; object-fit: contain; background: #000; border-radius: 10px; margin: 12px 0; }
+  .post-card img, .post-card video { display: block; width: 100%; max-height: 440px; object-fit: contain; background: #000; border-radius: 10px; margin: 12px 0; }
+  .post-list-state, .action-feedback { color:var(--soft); font-size:13px; }
+  .action-feedback.error { color:var(--err-text); }
+  .post-list-state.error { color:var(--err-text); }
+  .post-title { font-weight:700; margin:8px 0 2px !important; }
+  .post-meta { color:var(--soft); font-size:12px; }
+  .media-type { display: inline-block; margin: 6px 0; color: var(--muted); font-size: 12px; font-weight: 700; }
   .post-card p { margin: 8px 0; white-space: pre-line; }
   .status { display: inline-block; font-size: 12px; font-weight: 700; padding: 3px 12px; border-radius: 999px; color: var(--status-fg); text-transform: capitalize; }
-  .draft { background: var(--draft); }
-  .approved, .posted { background: var(--ok); }
+  .draft, .generated { background: var(--draft); }
+  .ready_to_post, .approved, .posted { background: var(--ok); }
+  .scheduled { background: var(--warn); }
   .rejected { background: var(--bad); }
   .failed { background: var(--warn); }
   .actions { display: flex; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
   .actions button { padding: 8px 18px; font-size: 13px; }
-
-  /* Review and approve: tabs + card grid */
-  .rv-tabs { display: flex; gap: 8px; flex-wrap: wrap; border-bottom: 1px solid var(--line); margin: 4px 0 16px; }
-  .rv-tab { display: inline-flex; align-items: center; gap: 10px; background: var(--panel2); color: var(--soft); border: 1px solid var(--line); border-bottom: 0; border-radius: 12px 12px 0 0; padding: 11px 20px; font: 700 15px var(--sans); cursor: pointer; box-shadow: none; margin-bottom: -1px; }
-  .rv-tab:hover { filter: none; color: var(--text); }
-  .rv-tab.on { background: var(--panel); color: var(--text); border-top: 3px solid #f97316; padding-top: 9px; }
-  .rv-count { min-width: 26px; height: 26px; padding: 0 8px; border-radius: 999px; background: var(--line); color: var(--text); font-size: 13px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; }
-  #postsList.rv-on { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 14px; align-items: start; }
-  #postsList.rv-on .post-card { margin: 0; display: flex; flex-direction: column; }
-  #postsList.rv-on .post-card.rv-hide { display: none; }
-  #postsList.rv-on .post-card .actions { margin-top: auto; }
-  .rv-empty { color: var(--soft); font-size: 14px; padding: 26px 8px; text-align: center; border: 1px dashed var(--dash); border-radius: 14px; }
 
   .claim-now-wrap { margin-top: 10px; }
   .claim-now-btn { padding: 10px 20px; font-size: 14px; }
@@ -180,14 +176,14 @@
       KwikPost
     </a>
     <nav class="nav">
-      <a onclick="goToSection('sec-campaign')">Campaign</a>
+      <a class="active" href="/index.html" aria-current="page">🖼️ Posts / Images</a>
+      <a onclick="goToSection('sec-connect')">Instagram</a>
+      <a href="/index.html?section=sec-campaign">Campaigns &amp; branding</a>
       <a onclick="goToSection('sec-generate')">Generate</a>
       <a onclick="goToSection('sec-themes')">Daily themes</a>
-      <a onclick="goToSection('sec-review')">Review posts</a>
-      <a onclick="goToSection('sec-connect')">Instagram</a>
-      <a href="/schedule.html">Schedule</a>
-      <a href="upload.html">Upload photos</a>
-      <a href="/reels.html">Reels (video)</a>
+      <a onclick="goToSection('sec-review')">Review and approve</a>
+      <a href="/upload.html">Upload images</a>
+      <a href="/reels.html">🎬 Reels / Videos</a>
     </nav>
     <div class="foot">
       <span id="userEmail">Logged in</span>
@@ -197,75 +193,23 @@
   </aside>
 
   <main class="main">
-    <h1>Your KwikPost studio</h1>
-    <p class="sub">Describe what you sell, and AI writes the caption and designs the ad. You review every post, and connect Instagram only when you are ready to publish.</p>
+    <h1>Posts / Images</h1>
+    <p class="sub">Generate image ads and ad copy, upload photos to your library, and manage image posts.</p>
 
     <div class="stats">
       <div class="stat"><small>Instagram</small><b id="statIG" class="txt">Not connected</b></div>
       <div class="stat"><small>Campaigns</small><b id="statCampaigns">0</b></div>
-      <div class="stat"><small>Posts created</small><b id="statPosts">0</b></div>
-      <div class="stat"><small>Approved</small><b id="statApproved">0</b></div>
+      <div class="stat"><small>Image posts</small><b id="statPosts">0</b></div>
+      <div class="stat"><small>Ready or posted</small><b id="statApproved">0</b></div>
     </div>
 
     <div id="igSuccessBanner" class="ig-banner-success" style="display:none;">✅ Instagram connected successfully!</div>
     <div id="igErrorBanner" class="ig-banner-error" style="display:none;"></div>
     <div id="onboarding" class="onboard" style="display:none;"></div>
 
-
-    <section id="sec-campaign">
-      <h2><span class="num">1</span>Create a campaign</h2>
-      <p class="lead">A campaign describes what you sell. AI uses it for every post.</p>
-      <div class="grid2">
-        <div><label for="productName">Product or service</label><input id="productName" placeholder="e.g. Home treadmill rental" /></div>
-        <div><label for="audience">Who is it for?</label><input id="audience" placeholder="e.g. college students" /></div>
-        <div><label for="tone">Tone of voice</label><input id="tone" placeholder="e.g. fun, professional" /></div>
-        <div><label for="website">Website or link</label><input id="website" placeholder="Optional, shown in the caption" /></div>
-        <div class="full"><label for="offerDetails">Offer or key message</label><textarea id="offerDetails" rows="3" placeholder="e.g. 20% off the first month"></textarea></div>
-        <div class="full"><label for="logoFile">Logo image</label>
-          <input id="logoFile" type="file" accept="image/png,image/jpeg,image/webp,image/gif" onchange="uploadLogo(event)" />
-          <img id="logoPreview" alt="" style="display:none;max-height:64px;margin-top:8px;border-radius:8px;background:#fff" />
-          <input id="logoUrl" type="hidden" /></div>
-      </div>
-      <div class="row">
-        <button onclick="createCampaign(event)">Save campaign</button>
-        <button id="updateCampaignBtn" onclick="updateCampaign(event)" style="display:none;">Update campaign</button>
-        <button id="cancelEditBtn" class="btn-secondary" onclick="cancelEdit()" style="display:none;">Cancel edit</button>
-      </div>
-      <div style="margin-top: 28px;">
-        <h3 style="font-size: 16px; margin: 0 0 12px;">Your campaigns</h3>
-        <div id="campaignsList"><p class="settings-note">Loading campaigns...</p></div>
-      </div>
-    </section>
-
-    <div class="two">
-      <section id="sec-generate">
-        <h2><span class="num">2</span>Generate a post</h2>
-        <p class="lead">Pick a campaign and AI builds the ad using your next saved photo.</p>
-        <label for="campaignSelect">Campaign</label>
-        <select id="campaignSelect"></select>
-        <label for="genPhoto">Photo for this post</label>
-<select id="genPhoto"></select>
-        <button onclick="generatePost(event)">Generate with AI</button>
-      </section>
-      <section id="sec-themes">
-        <h2><span class="num">+</span>Daily themes <span class="opt">Optional</span></h2>
-        <p class="lead">One theme per line, up to 20. One is posted each day.</p>
-        <textarea id="themesInput" rows="5" placeholder="Monday motivation&#10;Meet the trainer&#10;Member success story"></textarea>
-        <button onclick="saveThemes(event)">Save themes</button>
-        <p id="themesStatus" class="settings-note" style="margin-top:10px;"></p>
-      </section>
-    </div>
-
-    <section id="sec-review">
-      <h2><span class="num">3</span>Review and approve</h2>
-      <p class="lead">Nothing is published until you approve it.</p>
-      <div id="rvTabs" class="rv-tabs" role="tablist"></div>
-      <div id="postsList">Loading posts...</div>
-    </section>
-
     <section id="sec-connect">
-      <h2><span class="num">4</span>Connect Instagram and publish</h2>
-      <p class="lead">Only needed when you are ready to publish — you will also be asked automatically when you press Approve or Schedule. Posts go to the account you connect here.</p>
+      <h2>Connect your Instagram</h2>
+      <p class="lead">Posts are published to the account you connect here.</p>
       <div id="igStatusBox" class="ig-box">
         <p id="igStatusText">Checking connection status...</p>
         <div id="igActions" class="row" style="margin-top:12px;">
@@ -283,6 +227,59 @@
       </details>
       <p class="settings-note" style="margin-top:12px;">You need an Instagram <strong>Business</strong> or <strong>Creator</strong> account linked to a Facebook Page.</p>
     </section>
+
+    <section id="sec-campaign">
+      <h2>Create a campaign and set branding</h2>
+      <p class="lead">A campaign describes what you sell. AI uses it for every post.</p>
+      <div class="grid2">
+        <div><label for="productName">Product or service</label><input id="productName" placeholder="e.g. Home treadmill rental" /></div>
+        <div><label for="audience">Who is it for?</label><input id="audience" placeholder="e.g. college students" /></div>
+        <div><label for="tone">Tone of voice</label><input id="tone" placeholder="e.g. fun, professional" /></div>
+        <div><label for="website">Website or link</label><input id="website" placeholder="Optional, shown in the caption" /></div>
+        <div class="full"><label for="offerDetails">Offer or key message</label><textarea id="offerDetails" rows="3" placeholder="e.g. 20% off the first month"></textarea></div>
+        <div class="full">
+          <label for="logoFile">Upload logo image</label>
+          <input id="logoFile" type="file" accept="image/png,image/jpeg,image/webp" onchange="uploadCampaignLogo(event)" />
+          <input id="logoUrl" type="hidden" />
+          <p id="logoUploadStatus" class="settings-note" aria-live="polite">Required for generated Reels/videos; optional for image posts.</p>
+          <img id="logoPreview" alt="Campaign logo preview" style="display:none;max-width:180px;max-height:90px;margin-top:8px;object-fit:contain;" />
+        </div>
+      </div>
+      <div class="row">
+        <button onclick="createCampaign(event)">Save campaign</button>
+        <button id="updateCampaignBtn" onclick="updateCampaign(event)" style="display:none;">Update campaign</button>
+        <button id="cancelEditBtn" class="btn-secondary" onclick="cancelEdit()" style="display:none;">Cancel edit</button>
+      </div>
+      <div style="margin-top: 28px;">
+        <h3 style="font-size: 16px; margin: 0 0 12px;">Your campaigns</h3>
+        <div id="campaignsList"><p class="settings-note">Loading campaigns...</p></div>
+      </div>
+    </section>
+
+    <div class="two">
+      <section id="sec-generate">
+        <h2>Generate an image ad and ad copy</h2>
+        <p class="lead">Pick a campaign and AI builds the ad using your next saved photo.</p>
+        <label for="campaignSelect">Campaign</label>
+        <select id="campaignSelect"></select>
+        <label for="genPhoto">Photo for this post</label>
+<select id="genPhoto"></select>
+        <button onclick="generatePost(event)">Generate with AI</button>
+      </section>
+      <section id="sec-themes">
+        <h2><span class="num">+</span>Daily themes <span class="opt">Optional</span></h2>
+        <p class="lead">One theme per line, up to 20. One is posted each day.</p>
+        <textarea id="themesInput" rows="5" placeholder="Monday motivation&#10;Meet the trainer&#10;Member success story"></textarea>
+        <button onclick="saveThemes(event)">Save themes</button>
+        <p id="themesStatus" class="settings-note" style="margin-top:10px;"></p>
+      </section>
+    </div>
+
+    <section id="sec-review">
+      <h2><span class="num">4</span>Review and approve</h2>
+      <p class="lead">Nothing is published until you approve it.</p>
+      <div id="postsList" aria-live="polite">Loading posts...</div>
+    </section>
   </main>
 
 </div>
@@ -297,99 +294,7 @@
     </div>
   </div>
 </div>
-<script src="instagram-connect.js"></script>
 <script src="schedule.js"></script>
 <script src="app.js"></script>
-<script>
-  // The old Connect button in section 4 used the removed /auth/start URL.
-  // This replaces it, and works whether or not a post is being scheduled.
-  window.connectInstagram = function () {
-    window.startInstagramConnect(null);
-  };
-</script>
-<script>
-  // Review and approve: tabs + grid. Only shows/hides the cards app.js
-  // creates, so Approve, Reject, Edit text, Schedule and Claim keep working.
-  (function () {
-    var list = document.getElementById('postsList');
-    var tabsBar = document.getElementById('rvTabs');
-    if (!list || !tabsBar) return;
-
-    var TABS = [
-      { key: 'drafts',    label: 'Drafts' },
-      { key: 'ready',     label: 'Ready to Post' },
-      { key: 'scheduled', label: 'Scheduled' },
-      { key: 'posted',    label: 'Posted' }
-    ];
-    var EMPTY_TEXT = {
-      drafts: 'No drafts. Generate a post above and it will appear here.',
-      ready: 'Nothing is ready to post yet. Approve a draft to move it here.',
-      scheduled: 'Nothing is scheduled yet.',
-      posted: 'No posts have been published yet.'
-    };
-
-    var active = 'drafts';
-    try { active = sessionStorage.getItem('rvTab') || 'drafts'; } catch (_) {}
-    if (!TABS.some(function (t) { return t.key === active; })) active = 'drafts';
-
-    function tabOf(card) {
-      var badge = card.querySelector('.status');
-      var text = ((badge && (badge.textContent + ' ' + badge.className)) || '')
-        .toLowerCase().replace(/[_-]+/g, ' ');
-      if (text.indexOf('posted') !== -1) return 'posted';
-      if (text.indexOf('schedul') !== -1 || text.indexOf('fail') !== -1) return 'scheduled';
-      if (text.indexOf('ready') !== -1 || text.indexOf('approved') !== -1) return 'ready';
-      return 'drafts';
-    }
-
-    var emptyBox = document.createElement('div');
-    emptyBox.className = 'rv-empty';
-    emptyBox.style.display = 'none';
-    tabsBar.parentNode.insertBefore(emptyBox, list);
-
-    var buttons = {};
-    TABS.forEach(function (t) {
-      var b = document.createElement('button');
-      b.type = 'button';
-      b.className = 'rv-tab';
-      b.setAttribute('role', 'tab');
-      b.innerHTML = '<span>' + t.label + '</span><span class="rv-count">0</span>';
-      b.addEventListener('click', function () {
-        active = t.key;
-        try { sessionStorage.setItem('rvTab', active); } catch (_) {}
-        apply();
-      });
-      tabsBar.appendChild(b);
-      buttons[t.key] = b;
-    });
-
-    function apply() {
-      var cards = list.querySelectorAll('.post-card');
-      var counts = { drafts: 0, ready: 0, scheduled: 0, posted: 0 };
-
-      Array.prototype.forEach.call(cards, function (card) {
-        var key = tabOf(card);
-        counts[key]++;
-        card.setAttribute('data-rv', key);
-        card.classList.toggle('rv-hide', key !== active);
-      });
-
-      TABS.forEach(function (t) {
-        buttons[t.key].querySelector('.rv-count').textContent = counts[t.key];
-        buttons[t.key].classList.toggle('on', t.key === active);
-        buttons[t.key].setAttribute('aria-selected', t.key === active ? 'true' : 'false');
-      });
-
-      var hasCards = cards.length > 0;
-      list.classList.toggle('rv-on', hasCards);
-      emptyBox.textContent = EMPTY_TEXT[active];
-      emptyBox.style.display = (hasCards && counts[active] === 0) ? 'block' : 'none';
-    }
-
-    // Re-run whenever app.js re-renders the posts
-    new MutationObserver(apply).observe(list, { childList: true, subtree: true });
-    apply();
-  })();
-</script>
 </body>
 </html>

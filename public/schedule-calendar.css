@@ -81,65 +81,45 @@
 .schedule-calendar-day.is-selected { border-color: var(--calendar-accent); }
 .schedule-calendar-day.is-today .schedule-calendar-day-number { color: var(--calendar-accent); }
 .schedule-calendar-day-number { display: block; margin-bottom: 4px; font-size: .85rem; font-weight: 800; }
-
-/* Day cell list: thumbs only, no scrollbar arrows */
-.schedule-calendar-day-items {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(48px, 1fr));
-  gap: 4px;
-  max-height: 86px;
-  overflow-x: hidden;
-  overflow-y: auto;
-  scrollbar-width: none;           /* Firefox */
-  -ms-overflow-style: none;        /* old Edge */
-}
-.schedule-calendar-day-items::-webkit-scrollbar {
-  width: 0;
-  height: 0;
-  display: none;                   /* Chrome / Safari / Edge */
-}
-
+.schedule-calendar-day-items { display: grid; gap: 4px; max-height: 86px; overflow: auto; }
 .schedule-calendar-item {
-  display: block;
-  padding: 0;
-  border: 0;
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr);
+  gap: 5px;
+  align-items: center;
+  padding: 3px;
   border-left: 3px solid #fb923c;
-  border-radius: 6px;
-  background: transparent;
-  overflow: hidden;
-  aspect-ratio: 1;
+  border-radius: 4px;
+  background: var(--calendar-soft);
+  font-size: .68rem;
+  line-height: 1.25;
 }
 .schedule-calendar-item.is-posted { border-left-color: #22c55e; }
 .schedule-calendar-item[draggable="true"] { cursor: grab; }
 .schedule-calendar-item[draggable="true"]:active { cursor: grabbing; }
-
 .schedule-calendar-thumb {
-  display: block;
-  width: 100%;
-  height: 100%;
+  display: flex;
+  width: 30px;
+  height: 30px;
+  align-items: center;
+  justify-content: center;
   overflow: hidden;
   border-radius: 4px;
-  background: var(--calendar-soft);
+  background: var(--calendar-card);
+  color: var(--calendar-muted);
+  font-size: .55rem;
+  text-align: center;
 }
 .schedule-calendar-thumb img,
-.schedule-calendar-thumb video {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-}
-
-/* Hide text only inside calendar day cells */
-.schedule-calendar-item-copy,
+.schedule-calendar-thumb video { width: 100%; height: 100%; object-fit: cover; }
+.schedule-calendar-item-copy { min-width: 0; }
 .schedule-calendar-item-time,
 .schedule-calendar-item-title,
-.schedule-calendar-item-campaign {
-  display: none !important;
-}
-
+.schedule-calendar-item-campaign { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.schedule-calendar-item-time { color: var(--calendar-muted); }
+.schedule-calendar-item-title { font-weight: 700; }
+.schedule-calendar-item-campaign { color: var(--calendar-muted); }
 .schedule-calendar-day-empty { color: var(--calendar-muted); font-size: .68rem; }
-
-/* ========== Day details (click a date) — FULL details visible ========== */
 .schedule-calendar-details {
   margin-top: 16px;
   padding: 14px;
@@ -150,7 +130,6 @@
 .schedule-calendar-details[hidden] { display: none; }
 .schedule-calendar-details h3 { margin: 0 0 10px; font-size: 1rem; }
 .schedule-calendar-detail-list { display: grid; gap: 10px; }
-
 .schedule-calendar-detail {
   display: grid;
   grid-template-columns: minmax(90px, 160px) minmax(0, 1fr);
@@ -162,7 +141,6 @@
   background: var(--calendar-card);
 }
 .schedule-calendar-detail.is-posted { border-left-color: #22c55e; }
-
 .schedule-calendar-detail-media {
   width: 100%;
   max-height: 190px;
@@ -170,28 +148,14 @@
   object-fit: cover;
   border-radius: 6px;
   background: var(--calendar-soft);
-  display: block;
 }
-
-/* Show detail text again (do NOT hide these) */
 .schedule-calendar-detail-copy { min-width: 0; }
-.schedule-calendar-detail-title {
-  margin: 4px 0;
-  font-weight: 800;
-  overflow-wrap: anywhere;
-}
-.schedule-calendar-detail-meta {
-  margin: 3px 0;
-  color: var(--calendar-muted);
-  font-size: .88rem;
-  overflow-wrap: anywhere;
-}
+.schedule-calendar-detail-title { margin: 4px 0; font-weight: 800; overflow-wrap: anywhere; }
+.schedule-calendar-detail-meta { margin: 3px 0; color: var(--calendar-muted); font-size: .88rem; overflow-wrap: anywhere; }
 .schedule-calendar-status-label { font-weight: 800; }
 .schedule-calendar-status-label.is-scheduled { color: #fb923c; }
 .schedule-calendar-status-label.is-posted { color: #22c55e; }
-
 .schedule-calendar-empty { margin: 0; color: var(--calendar-muted); }
-
 .schedule-calendar-reschedule-toggle,
 .schedule-calendar-reschedule-actions button {
   min-height: 40px;
@@ -222,14 +186,12 @@
 .schedule-calendar-reschedule-actions button:disabled { cursor: wait; opacity: .6; }
 .schedule-calendar-reschedule-error { margin: 6px 0 0; color: var(--calendar-muted); font-size: .85rem; }
 .schedule-calendar-reschedule-error.error { color: #dc2626; }
-
 @media (max-width: 700px) {
   .schedule-calendar-day,
   .schedule-calendar-blank { min-height: 88px; padding: 4px; }
-  .schedule-calendar-day-items {
-    max-height: 62px;
-    grid-template-columns: repeat(auto-fill, minmax(36px, 1fr));
-  }
+  .schedule-calendar-day-items { max-height: 62px; }
+  .schedule-calendar-item { grid-template-columns: 22px minmax(0, 1fr); gap: 3px; padding: 2px; font-size: .6rem; }
+  .schedule-calendar-thumb { width: 22px; height: 22px; font-size: .45rem; }
   .schedule-calendar-weekdays { gap: 2px; }
   .schedule-calendar-grid { gap: 2px; }
 }
