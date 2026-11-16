@@ -3,18 +3,17 @@ const router = express.Router();
 const instagramAuthController = require('../controllers/instagramAuthController');
 const { requireAuth } = require('../middleware/authMiddleware');
 
-// Facebook OAuth callback - PUBLIC (Facebook redirects here without your auth header).
-// The user is identified from the signed `state` inside the controller.
-router.get('/callback', instagramAuthController.handleCallback);
+// Start OAuth flow - user clicks "Connect Instagram"
+// Can be called with token in query or Bearer token in header
+router.get('/auth/start', instagramAuthController.startConnect);
 
-// Step 1 of connecting: frontend calls this (authenticated) and gets back { url }.
-// Body: { postId } (optional) so the user returns to the same draft afterwards.
-router.post('/connect-url', requireAuth, instagramAuthController.getConnectUrl);
+// Facebook OAuth callback - public endpoint
+router.get('/callback', instagramAuthController.handleCallback);
 
 // Get Instagram connection status
 router.get('/status', requireAuth, instagramAuthController.getStatus);
 
-// Disconnect Instagram (for a Settings page)
+// Disconnect Instagram
 router.post('/disconnect', requireAuth, instagramAuthController.disconnect);
 
 module.exports = router;

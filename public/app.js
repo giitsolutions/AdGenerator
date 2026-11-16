@@ -39,7 +39,7 @@ async function api(url, options) {
   let data = null;
   try { data = await res.json(); } catch (e) {}
   if (!res.ok || (data && data.error)) {
-    throw new Error((data && data.error) || 'Request failed (' + res.status + ')');
+    throw new Error((data && (data.error || data.message)) || 'Request failed (' + res.status + ')');
   }
   return data;
 }
@@ -92,15 +92,6 @@ function campaignFormValues() {
 function clearCampaignForm() {
   ['productName', 'audience', 'tone', 'offerDetails', 'website', 'logoUrl']
     .forEach(function (id) { if ($(id)) $(id).value = ''; });
-  if ($('logoFile')) $('logoFile').value = '';
-  if ($('logoPreview')) {
-    $('logoPreview').removeAttribute('src');
-    $('logoPreview').style.display = 'none';
-  }
-  if ($('logoUploadStatus')) {
-    $('logoUploadStatus').className = 'settings-note';
-    $('logoUploadStatus').textContent = 'Required for generated Reels/videos; optional for image posts.';
-  }
 }
 
 function campaignPayload(v) {
@@ -115,56 +106,6 @@ function campaignPayload(v) {
     offer_details: v.offerDetails,
     logo_url: v.logoUrl
   };
-}
-
-function showCampaignLogo(url) {
-  const preview = $('logoPreview');
-  if (!preview) return;
-  if (url) {
-    preview.src = url;
-    preview.style.display = '';
-  } else {
-    preview.removeAttribute('src');
-    preview.style.display = 'none';
-  }
-}
-
-async function uploadCampaignLogo(evt) {
-  const input = evt && evt.target;
-  const file = input && input.files && input.files[0];
-  if (!file) return;
-
-  const status = $('logoUploadStatus');
-  status.className = 'settings-note';
-  status.textContent = 'Uploading logo…';
-  const formData = new FormData();
-  formData.append('logo', file);
-
-  try {
-    const response = await fetch(CAMPAIGNS_API + '/logo', {
-      method: 'POST',
-      headers: authHeaders(),
-      body: formData
-    });
-    if (response.status === 401) {
-      logout();
-      throw new Error('Session expired');
-    }
-    let data = null;
-    try { data = await response.json(); } catch (error) {}
-    if (!response.ok || (data && data.error)) {
-      throw new Error((data && data.error) || 'Logo upload failed (' + response.status + ')');
-    }
-
-    $('logoUrl').value = data.logoUrl;
-    showCampaignLogo(data.logoUrl);
-    status.textContent = 'Logo uploaded. Save the campaign to use it in generated videos.';
-    input.value = '';
-  } catch (error) {
-    status.classList.add('error');
-    status.textContent = 'Logo upload failed: ' + error.message;
-    input.value = '';
-  }
 }
 
 // ===== REDIRECT MESSAGES =====
@@ -310,12 +251,6 @@ function startEditCampaign(id) {
   if ($('offerDetails')) $('offerDetails').value = c.offer_details || c.offerDetails || '';
   if ($('website')) $('website').value = c.website || '';
   if ($('logoUrl')) $('logoUrl').value = c.logo_url || c.logoUrl || '';
-  showCampaignLogo(c.logo_url || c.logoUrl || '');
-  if ($('logoUploadStatus')) {
-    $('logoUploadStatus').textContent = c.logo_url || c.logoUrl
-      ? 'Saved logo. Upload another image to replace it.'
-      : 'Required for generated Reels/videos; optional for image posts.';
-  }
 
   if ($('updateCampaignBtn')) $('updateCampaignBtn').style.display = 'inline-block';
   if ($('cancelEditBtn')) $('cancelEditBtn').style.display = 'inline-block';
@@ -337,7 +272,7 @@ function updateCampaign(evt) {
     if (!v.productName) throw new Error('Product/Service name is required');
 
     await api(CAMPAIGNS_API + '/' + encodeURIComponent(editingCampaignId), {
-      method: 'PUT',
+      method: 'PATCH',
       body: JSON.stringify(campaignPayload(v))
     });
 
@@ -549,7 +484,7 @@ async function loadPosts() {
 
     onboard.posts = posts.length;
     onboard.approvedCount = posts.filter(function (p) {
-      return p.status === 'ready_to_post' || p.status === 'scheduled' || p.status === 'posted';
+      return p.status === 'scheduled' || p.status === 'posted';
     }).length;
     onboard.approved = onboard.approvedCount > 0;
     updateOnboarding();
@@ -585,18 +520,20 @@ function renderImagePostCard(post) {
       ? 'Scheduled ' + workflowDate(post.scheduled_at)
       : 'Created ' + workflowDate(post.created_at));
   const id = esc(JSON.stringify(post.id));
-  const statusLabel = esc(post.status.replace(/_/g, ' '));
+  // No Ready to Post step: a draft is "draft", or "edited" once saved in the editor.
+  const isDraft = post.status === 'generated' || post.status === 'ready_to_post';
+  const isEdited = isDraft && Number(post.edited) === 1;
+  const badgeClass = isEdited ? 'edited' : (isDraft ? 'generated' : post.status);
+  const statusLabel = esc(isEdited ? 'edited' : (isDraft ? 'draft' : post.status.replace(/_/g, ' ')));
   const image = post.image_url
     ? '<img src="' + esc(post.image_url) + (post.image_url.indexOf('?') >= 0 ? '&' : '?') + 't=' + Date.now() + '" alt="Image ad preview" />'
     : '<div class="post-list-state">Image preview unavailable</div>';
   let actions = '';
-  if (post.status === 'generated') {
+  if (isDraft) {
     actions = '<button type="button" onclick="openImageEditor(' + id + ', this)">Edit</button>' +
       '<button type="button" onclick="runImageAction(' + id + ', this, \'approve\')">Approve</button>' +
+      '<button type="button" class="btn-secondary" onclick="schedulePost(' + id + ')">Schedule</button>' +
       '<button type="button" class="btn-danger" onclick="runImageAction(' + id + ', this, \'reject\')">Reject</button>';
-  } else if (post.status === 'ready_to_post') {
-    actions = '<button type="button" onclick="schedulePost(' + id + ')">Schedule</button>' +
-      '<button type="button" class="btn-secondary" onclick="runImageAction(' + id + ', this, \'back-to-generated\')">Back to Generated</button>';
   } else if (post.status === 'scheduled') {
     actions = '<button type="button" class="unschedule-btn" onclick="runImageAction(' + id + ', this, \'unschedule\')">Unschedule</button>' +
       (post.last_error
@@ -604,10 +541,10 @@ function renderImagePostCard(post) {
         : '');
   }
   const error = post.last_error
-    ? '<p class="action-feedback error">Last publish error: ' + esc(post.last_error) + '</p>'
+    ? '<p class="action-feedback error">Publish failed: ' + esc(post.last_error) + '</p>'
     : '';
   return '<article class="post-card" data-post-id="' + esc(post.id) + '">' +
-    '<span class="status ' + esc(post.status) + '">' + statusLabel + '</span>' +
+    '<span class="status ' + esc(badgeClass) + '">' + statusLabel + '</span>' +
     image +
     '<p class="post-title">' + esc(title) + '</p>' +
     '<p class="post-meta">' + esc(campaignName) + ' · ' + esc(dateLabel) + '</p>' +
@@ -622,12 +559,15 @@ async function runImageAction(postId, button, action) {
   const card = button.closest('.post-card');
   const feedback = card && card.querySelector('.action-feedback');
   if (action === 'reject' && !confirm('Reject and delete this post? This cannot be undone.')) return;
+  if (action === 'approve' && !confirm('Post this to Instagram now?')) return;
   const originalLabel = button.textContent;
   button.disabled = true;
-  button.textContent = action === 'back-to-generated' ? 'Moving…' : 'Working…';
+  button.textContent = action === 'approve' ? 'Posting…' : 'Working…';
   if (feedback) {
     feedback.classList.remove('error');
-    feedback.textContent = 'Working…';
+    feedback.textContent = action === 'approve'
+      ? 'Posting to Instagram… this can take a minute. Keep this page open.'
+      : 'Working…';
   }
   try {
     const result = await api(POSTS_API + '/' + encodeURIComponent(postId) + '/' + action, {
@@ -665,8 +605,8 @@ function openImageEditor(postId, button) {
     alert('Post not found');
     return;
   }
-  if (post.status && post.status !== 'generated') {
-    alert('Only generated image posts can be edited');
+  if (post.status && post.status !== 'generated' && post.status !== 'ready_to_post') {
+    alert('Only draft image posts can be edited');
     return;
   }
 
@@ -686,7 +626,7 @@ function openImageEditor(postId, button) {
     .then(function (d) {
       if (win) win.location.href = d.url;
       else window.open(d.url, '_blank');
-      if (feedback) feedback.textContent = 'Edit the image and save; it will move to Ready to Post.';
+      if (feedback) feedback.textContent = 'Edit opened. "Save changes" keeps it here as an edited draft; "Save & approve + post" posts it.';
     })
     .catch(function (err) {
       if (win) win.close();

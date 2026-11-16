@@ -109,7 +109,7 @@ GET    /api/library                      list saved photos for slideshow generat
 netstat -ano | findstr :5000
 
 
-taskkill /PID 18348 /F
+taskkill /PID 1628 /F
 npm start
 
    ngrok config add-authtoken <new-token>
