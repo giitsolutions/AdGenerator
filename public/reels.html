@@ -72,23 +72,33 @@
   :root[data-theme="light"] .error, :root[data-theme="light"] .action-feedback.error { color:var(--red); }
 
   /* tabs */
-  .tabs { display:flex; gap:6px; flex-wrap:wrap; }
-  .tabs button { background:var(--soft); color:var(--muted); border:1px solid var(--line); font-weight:600; padding:6px 12px; }
-  .tabs button.on { background:linear-gradient(120deg,var(--orange),var(--accent)); color:#fff; border-color:transparent; }
+  .tabs { display:flex; gap:4px; flex-wrap:wrap; border-bottom:1px solid var(--line); }
+  .card-head .tabs { flex:1 1 100%; }
+  .tabs button { background:var(--soft); color:var(--muted); border:1px solid var(--line); border-bottom:0;
+                 border-radius:10px 10px 0 0; padding:8px 16px; font-weight:600; margin-bottom:-1px; position:relative; }
+  .tabs button:hover { color:var(--text); }
+  .tabs button.on { background:var(--card); color:var(--text); border-top:3px solid var(--orange); padding-top:6px; }
   .count-badge { display:inline-flex; min-width:20px; height:20px; align-items:center; justify-content:center; padding:0 6px;
                  border-radius:99px; background:rgba(127,127,127,.25); font-size:11px; margin-left:4px; }
 
   /* video list */
-  .sched-all { display:none; align-items:center; gap:10px; flex-wrap:wrap; margin:0 0 10px; }
-  .reels { display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:10px; }
+  #scheduleAllBtn { padding:6px 12px; font-size:12px; }
+  #scheduleAllStatus { margin:0 0 10px; }
+  .action-feedback:empty { display:none; }
+  .reels { display:grid; grid-template-columns:repeat(auto-fill,minmax(190px,1fr)); gap:10px; }
   .reel { background:var(--soft); border:1px solid var(--line); border-radius:10px; padding:7px; min-width:0; }
   .reel video { width:100%; aspect-ratio:9/16; max-height:240px; object-fit:cover; background:#000; border-radius:7px; }
   .reel p { margin:5px 0 0; font-size:11px; color:var(--muted); overflow:hidden; display:-webkit-box;
             -webkit-line-clamp:2; line-clamp:2; -webkit-box-orient:vertical; }
+  .reel p.reel-caption { -webkit-line-clamp:2; line-clamp:2; cursor:pointer; line-height:1.35; }
+  .reel p.reel-caption.open { display:block; overflow:visible; white-space:pre-wrap; }
   .reel-title { font-weight:700; color:var(--text) !important; font-size:12px !important; }
-  .reel-meta { font-size:10px !important; }
-  .reel .actions button { padding:5px 9px; font-size:11px; }
-  .badge { display:inline-block; font-size:10px; font-weight:800; border-radius:99px; padding:1px 8px; color:#000; text-transform:capitalize; margin-top:6px; }
+  .reel-head { display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-top:6px; }
+  .reel-date { font-size:10px; color:var(--muted); }
+  .reel .action-feedback:empty { display:none; }
+  .reel .actions { flex-wrap:nowrap; gap:4px; }
+  .reel .actions button { flex:1 1 auto; min-width:0; padding:5px 4px; font-size:11px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .badge { display:inline-block; font-size:10px; font-weight:800; border-radius:99px; padding:1px 8px; color:#000; text-transform:capitalize; }
   .b-generated { background:#a39bbd; } .b-ready_to_post { background:#c4b5fd; }
   .b-scheduled { background:#fdba74; } .b-posted { background:#4ade80; }
   .reel-empty, .reel-loading, .action-feedback { color:var(--muted); font-size:12px; margin:0; }
@@ -99,7 +109,7 @@
   .cal-side { border:1px solid var(--line); border-radius:12px; padding:10px; background:var(--soft); max-height:640px; overflow:auto; }
   .cal-side .tabs { margin-bottom:10px; }
   .cal-side .tabs button { background:var(--card); }
-  .cal-side .tabs button.on { background:linear-gradient(120deg,var(--orange),var(--accent)); }
+  .cal-side .tabs button.on { background:var(--soft); }
   .cal-side .schedule-calendar-details { margin:0; border:0; padding:0; background:none; }
   .cal-side .schedule-calendar-detail { display:grid; grid-template-columns:1fr; }
   .cal-side .schedule-calendar-detail-media { width:100%; max-height:220px; object-fit:cover; }
@@ -113,6 +123,13 @@
   .ri-meta { font-size:10px; color:var(--muted); margin-bottom:4px; }
   .ready-item button { padding:4px 9px; font-size:11px; }
   .drop-target { outline:2px dashed var(--orange); outline-offset:-2px; }
+
+  /* brief drag hint above the calendar (space is reserved so nothing jumps) */
+  .drag-hint { height:30px; margin-top:10px; display:flex; align-items:center; justify-content:center; pointer-events:none; }
+  .drag-hint span { padding:5px 16px; border:1px dashed var(--orange); border-radius:99px; background:rgba(249,115,22,.1);
+                    font-size:12px; font-weight:600; opacity:0; transition:opacity .3s; }
+  .drag-hint.show span { opacity:1; }
+
   @media (max-width:860px) { .cal-layout { grid-template-columns:1fr; } .cal-side { max-height:none; } }
 
   @media (max-width:640px) {
@@ -162,6 +179,7 @@
           <button type="button" data-calendar-next aria-label="Next month">›</button>
         </div>
       </div>
+      <div class="drag-hint" id="dragHint" role="status" aria-live="polite"><span>✋ Drag to schedule / reschedule</span></div>
       <div class="cal-layout">
         <div class="cal-main">
           <p class="schedule-calendar-status" data-calendar-status role="status" aria-live="polite">Loading calendar…</p>
@@ -171,7 +189,7 @@
 
         <aside class="cal-side" aria-label="Day details and ready to post videos">
           <div class="tabs" role="tablist">
-            
+            <button type="button" class="on" data-tab-group="calside" data-tab="day" id="calDayTab">Select a day</button>
             <button type="button" data-tab-group="calside" data-tab="ready">Ready to post <span class="count-badge" id="calReadyCount">0</span></button>
           </div>
 
@@ -183,7 +201,6 @@
           </div>
 
           <div data-panel-group="calside" data-panel="ready" hidden>
-            <p class="note" style="margin-top:0">Drag a video onto a day to schedule it at 10:00 AM (or the next free hour that day). On a phone, use the Schedule button.</p>
             <p class="action-feedback" id="calReadyStatus" role="status" aria-live="polite"></p>
             <div class="ready-list" id="calReadyList"></div>
           </div>
@@ -273,6 +290,7 @@
     <div class="card" id="sec-videos">
       <div class="card-head">
         <h2>Your videos</h2>
+        <button type="button" id="scheduleAllBtn" hidden title="Schedules every draft, one per day at 10:00 AM, on days with nothing scheduled.">Schedule all drafts</button>
         <div class="tabs" role="tablist">
           <button type="button" class="on" data-tab-group="vid" data-tab="generated">Drafts <span class="count-badge" id="reelCountGenerated">0</span></button>
           <button type="button" data-tab-group="vid" data-tab="ready_to_post">Ready to Post <span class="count-badge" id="reelCountReady">0</span></button>
@@ -282,11 +300,8 @@
       </div>
 
       <div data-panel-group="vid" data-panel="generated">
-        <div class="sched-all" id="scheduleAllBar">
-          <button type="button" id="scheduleAllBtn">Schedule all drafts</button>
-          <span class="action-feedback" id="scheduleAllStatus" role="status" aria-live="polite">One video per day at 10:00 AM, on days with nothing scheduled.</span>
-        </div>
-        <div id="reelGenerated" class="reel-loading">Loading generated videos…</div>
+        <p class="action-feedback" id="scheduleAllStatus" role="status" aria-live="polite"></p>
+        <div id="reelGenerated" class="reel-loading">Loading drafts…</div>
       </div>
       <div data-panel-group="vid" data-panel="ready_to_post" hidden><div id="reelReady" class="reel-loading">Loading ready videos…</div></div>
       <div data-panel-group="vid" data-panel="scheduled" hidden><div id="reelScheduled" class="reel-loading">Loading scheduled videos…</div></div>
@@ -461,7 +476,7 @@
       if (failures.length) {
         say('genStatus', 'Created ' + created.length + ' of ' + count + '. ' + failures.join(' '), true);
       } else {
-        say('genStatus', 'Done! Created ' + created.length + ' video' + (created.length === 1 ? '' : 's') + ' — see Generated below.');
+        say('genStatus', 'Done! Created ' + created.length + ' video' + (created.length === 1 ? '' : 's') + ' — see Drafts below.');
       }
     } catch (e) {
       stopTimer(); batchProgress = ''; say('genStatus', e.message, true);
@@ -505,7 +520,7 @@
       finish();
       if (xhr.status === 401) { window.location.href = '/login.html'; return; }
       if (xhr.status >= 200 && xhr.status < 300 && data && !data.error) {
-        say('upStatus', 'Done! Your video is under Generated below.');
+        say('upStatus', 'Done! Your video is under Drafts below.');
         $('upFile').value = ''; $('upIdea').value = '';
         loadReels().then(revealGenerated);
       } else {
@@ -517,9 +532,9 @@
 
   // ---- video cards -------------------------------------------------------
   function formatDate(value) {
-    if (!value) return 'Date unavailable';
-    var date = new Date(value);
-    return Number.isNaN(date.getTime()) ? 'Date unavailable' : date.toLocaleString();
+    var date = parseStamp(value);
+    if (!date) return 'Date unavailable';
+    return date.toLocaleString(undefined, { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' });
   }
 
   function addVideoAction(card, actions, post, label, action, options) {
@@ -527,6 +542,7 @@
     var button = document.createElement('button');
     button.type = 'button';
     button.textContent = label;
+    if (options.title) button.title = options.title;
     if (options.secondary) button.className = 'secondary';
     var feedback = card.querySelector('.action-feedback');
     button.addEventListener('click', async function () {
@@ -579,28 +595,41 @@
     }
 
     var status = post.status || 'generated';
+    var campaign = campaigns.find(function (item) { return String(item.id) === String(post.campaign_id); });
+    var head = document.createElement('div');
+    head.className = 'reel-head';
     var badge = document.createElement('span');
     badge.className = 'badge b-' + status;
-    badge.textContent = status.replace(/_/g, ' ');
-    card.appendChild(badge);
+    badge.textContent = status === 'generated' ? 'draft' : status.replace(/_/g, ' ');
+    var when = document.createElement('span');
+    when.className = 'reel-date';
+    var whenLabel = status === 'posted' ? 'Posted' : (status === 'scheduled' ? 'Scheduled for' : 'Created');
+    when.textContent = formatDate(status === 'posted' ? (post.posted_at || post.created_at)
+      : (status === 'scheduled' ? post.scheduled_at : post.created_at));
+    when.title = whenLabel + ' ' + when.textContent;
+    head.appendChild(badge);
+    head.appendChild(when);
+    card.appendChild(head);
 
-    var titleElement = document.createElement('p');
-    titleElement.className = 'reel-title';
-    titleElement.textContent = post.headline_main || (post.caption || ('Video #' + post.id)).split('\n')[0];
-    card.appendChild(titleElement);
-
-    var campaign = campaigns.find(function (item) { return String(item.id) === String(post.campaign_id); });
-    var date = status === 'posted'
-      ? 'Posted ' + formatDate(post.posted_at || post.created_at)
-      : (status === 'scheduled' ? 'Scheduled ' + formatDate(post.scheduled_at) : 'Created ' + formatDate(post.created_at));
-    var meta = document.createElement('p');
-    meta.className = 'reel-meta';
-    meta.textContent = (campaign ? (campaign.product_name || 'Campaign') : 'Campaign') + ' · ' + date;
-    card.appendChild(meta);
+    if (post.headline_main) {
+      var titleElement = document.createElement('p');
+      titleElement.className = 'reel-title';
+      titleElement.textContent = post.headline_main;
+      if (campaign) titleElement.title = campaign.product_name || '';
+      card.appendChild(titleElement);
+    }
 
     if (post.caption) {
       var caption = document.createElement('p');
-      caption.textContent = post.caption;
+      caption.className = 'reel-caption';
+      var shortText = post.caption.replace(/#[^\s#]+/g, '').replace(/\s+/g, ' ').trim() || post.caption;
+      caption.textContent = shortText;
+      caption.title = 'Click to show the full caption';
+      caption.addEventListener('click', function () {
+        var open = caption.classList.toggle('open');
+        caption.textContent = open ? post.caption : shortText;
+        caption.title = open ? 'Click to collapse' : 'Click to show the full caption';
+      });
       card.appendChild(caption);
     }
     if (status === 'scheduled' && post.last_error) {
@@ -645,9 +674,9 @@
         if (typeof window.schedulePost !== 'function') throw new Error('Scheduling is unavailable.');
         window.schedulePost(post.id);
       }, { refresh: false, pendingText: 'Choose a date and time to schedule this video.' });
-      addVideoAction(card, actions, post, 'Back to Generated', function () {
+      addVideoAction(card, actions, post, 'Back', function () {
         return request(API + '/' + id + '/back-to-generated', { method: 'POST', body: '{}' });
-      }, { secondary: true, busyLabel: 'Moving…' });
+      }, { secondary: true, busyLabel: 'Moving…', title: 'Move back to Drafts' });
     } else if (status === 'scheduled') {
       addVideoAction(card, actions, post, 'Unschedule', function () {
         return request(API + '/' + id + '/unschedule', { method: 'POST', body: '{}' });
@@ -689,7 +718,7 @@
 
   function updateScheduleAllBar() {
     var n = allPosts.filter(function (p) { return p.status === 'generated'; }).length;
-    $('scheduleAllBar').style.display = n ? 'flex' : 'none';
+    $('scheduleAllBtn').hidden = !n;
     $('scheduleAllBtn').textContent = 'Schedule all drafts (' + n + ')';
   }
 
@@ -760,6 +789,16 @@
   // ---- ready-to-post videos beside the calendar (drag onto a day) --------
   var READY_TYPE = 'application/x-kwik-ready';
   var calRoot = document.querySelector('[data-schedule-calendar]');
+
+  // Brief hint (2 seconds) once per page load, when there is something to drag.
+  var hintShown = false;
+  function showHint() {
+    if (hintShown) return;
+    hintShown = true;
+    var el = $('dragHint');
+    el.classList.add('show');
+    setTimeout(function () { el.classList.remove('show'); }, 2000);
+  }
 
   function readyNote(text, isError) {
     var el = $('calReadyStatus');
@@ -874,9 +913,16 @@
       var parts = day.dataset.calendarDay.split('-').map(Number);
       scheduleReadyOnDay(postId, new Date(parts[0], parts[1] - 1, parts[2]));
     });
-    // clicking a day always shows that day's details
+    // clicking a day shows that day's details, and the tab shows that day's date
     calRoot.addEventListener('click', function (ev) {
-      if (ev.target.closest('[data-calendar-day]')) activateTab('calside', 'day');
+      var cell = ev.target.closest('[data-calendar-day]');
+      if (!cell) return;
+      activateTab('calside', 'day');
+      var q = String(cell.dataset.calendarDay).split('-').map(Number);
+      var picked = new Date(q[0], q[1] - 1, q[2]);
+      if (!Number.isNaN(picked.getTime())) {
+        $('calDayTab').textContent = picked.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
+      }
     });
   }
   document.addEventListener('dragend', clearDropMarks);
@@ -884,7 +930,7 @@
   // ---- load the lists ------------------------------------------------------
   async function loadReels() {
     var groups = {
-      generated: { list: $('reelGenerated'), count: $('reelCountGenerated'), empty: 'No generated videos yet. Generate or upload a video to get started.' },
+      generated: { list: $('reelGenerated'), count: $('reelCountGenerated'), empty: 'No drafts yet. Generate or upload a video to get started.' },
       ready_to_post: { list: $('reelReady'), count: $('reelCountReady'), empty: 'No videos are ready to post.' },
       scheduled: { list: $('reelScheduled'), count: $('reelCountScheduled'), empty: 'No videos are scheduled.' },
       posted: { list: $('reelPosted'), count: $('reelCountPosted'), empty: 'No videos have been published yet.' }
@@ -900,6 +946,7 @@
       allPosts = posts;
       updateScheduleAllBar();
       renderReadyPanel(posts);
+      if (posts.some(function (p) { return p.status === 'ready_to_post' || p.status === 'scheduled'; })) showHint();
       Object.keys(groups).forEach(function (status) {
         var group = groups[status];
         var items = posts.filter(function (post) { return post.status === status; });
