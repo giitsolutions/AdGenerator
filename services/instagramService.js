@@ -13,41 +13,90 @@ function graphErrorMessage(response) {
     : JSON.stringify(response && response.data);
 }
 
-async function publishToInstagram({ imageUrl, caption }) {
-  const webhookUrl =
-    (config.make && config.make.webhookUrl) ||
-    process.env.MAKE_WEBHOOK_URL;
+function graphBase() {
+  return `https://graph.facebook.com/${config.facebook.graphApiVersion}`;
+}
 
-  if (!webhookUrl) {
-    throw new Error('Make.com webhook URL is not configured');
-  }
-
-  const publicImageUrl = await ensurePublicImageUrl(imageUrl);
-
-  const payload = {
-    imageUrl: publicImageUrl,
-    image_url: publicImageUrl,
-    caption: caption || ''
-  };
-
-  console.log('[instagram] Make imageUrl:', publicImageUrl);
-
-  const response = await axios.post(webhookUrl, payload, {
-    headers: { 'Content-Type': 'application/json' },
-    timeout: 90000,
+async function graphRequest(method, url, params) {
+  const response = await axios({
+    method,
+    url,
+    params,
+    timeout: 30000,
     validateStatus: () => true
   });
+  if (response.status < 200 || response.status >= 300 || (response.data && response.data.error)) {
+    throw new Error('Instagram Graph API: ' + graphErrorMessage(response));
+  }
+  return response.data;
+}
 
-  if (response.status < 200 || response.status >= 300) {
-    throw new Error('Make webhook HTTP ' + response.status + ': ' + JSON.stringify(response.data));
+function requireCredentials(instagramBusinessAccountId, accessToken, what) {
+  if (!instagramBusinessAccountId || !accessToken) {
+    const err = new Error(`Connect an Instagram professional account before publishing ${what}`);
+    err.code = 'INSTAGRAM_NOT_CONNECTED';
+    throw err;
+  }
+}
+
+/**
+ * Publish an image post to the USER'S OWN Instagram Business account
+ * through the Graph API (no Make.com, so every user posts to their own account).
+ */
+async function publishToInstagram({
+  imageUrl,
+  caption,
+  instagramBusinessAccountId,
+  accessToken
+}) {
+  requireCredentials(instagramBusinessAccountId, accessToken, 'a post');
+
+  // Instagram must be able to download the image, so it needs a public URL.
+  const publicImageUrl = await ensurePublicImageUrl(imageUrl);
+  console.log('[instagram] Publishing image:', publicImageUrl);
+
+  const base = graphBase();
+
+  // 1. Create the media container
+  const container = await graphRequest('post', `${base}/${instagramBusinessAccountId}/media`, {
+    image_url: publicImageUrl,
+    caption: caption || '',
+    access_token: accessToken
+  });
+  if (!container || !container.id) {
+    throw new Error('Instagram did not return a media container ID');
   }
 
-  const data = response.data;
-  if (data && (data.error || data.status === 'error')) {
-    throw new Error(data.error || data.message || 'Make returned an error');
+  // 2. Wait until Instagram has finished fetching the image
+  let status;
+  for (let attempt = 0; attempt < 15; attempt++) {
+    status = await graphRequest('get', `${base}/${container.id}`, {
+      fields: 'status_code,status',
+      access_token: accessToken
+    });
+    if (status.status_code === 'FINISHED') break;
+    if (status.status_code === 'ERROR' || status.status_code === 'EXPIRED') {
+      throw new Error(
+        'Instagram image processing failed' +
+        (status.status ? ': ' + status.status : ' (' + status.status_code + ')')
+      );
+    }
+    await sleep(2000);
+  }
+  if (!status || status.status_code !== 'FINISHED') {
+    throw new Error('Timed out waiting for Instagram to process the image');
   }
 
-  return { ok: true, publicImageUrl, makeResponse: data };
+  // 3. Publish
+  const published = await graphRequest('post', `${base}/${instagramBusinessAccountId}/media_publish`, {
+    creation_id: container.id,
+    access_token: accessToken
+  });
+  if (!published || !published.id) {
+    throw new Error('Instagram did not confirm the post publication');
+  }
+
+  return { ok: true, mediaId: published.id, containerId: container.id, publicImageUrl };
 }
 
 function publicVideoUrl(videoUrl) {
@@ -70,33 +119,17 @@ function publicVideoUrl(videoUrl) {
   return resolved.toString();
 }
 
-async function graphRequest(method, url, params) {
-  const response = await axios({
-    method,
-    url,
-    params,
-    timeout: 30000,
-    validateStatus: () => true
-  });
-  if (response.status < 200 || response.status >= 300 || (response.data && response.data.error)) {
-    throw new Error('Instagram Graph API: ' + graphErrorMessage(response));
-  }
-  return response.data;
-}
-
 async function publishReelToInstagram({
   videoUrl,
   caption,
   instagramBusinessAccountId,
   accessToken
 }) {
-  if (!instagramBusinessAccountId || !accessToken) {
-    throw new Error('Connect an Instagram professional account before publishing a Reel');
-  }
+  requireCredentials(instagramBusinessAccountId, accessToken, 'a Reel');
 
   const videoPublicUrl = publicVideoUrl(videoUrl);
-  const graphBase = `https://graph.facebook.com/${config.facebook.graphApiVersion}`;
-  const container = await graphRequest('post', `${graphBase}/${instagramBusinessAccountId}/media`, {
+  const base = graphBase();
+  const container = await graphRequest('post', `${base}/${instagramBusinessAccountId}/media`, {
     media_type: 'REELS',
     video_url: videoPublicUrl,
     caption: caption || '',
@@ -112,7 +145,7 @@ async function publishReelToInstagram({
   let status;
   do {
     await sleep(config.reels.pollIntervalMs);
-    status = await graphRequest('get', `${graphBase}/${container.id}`, {
+    status = await graphRequest('get', `${base}/${container.id}`, {
       fields: 'status_code,status',
       access_token: accessToken
     });
@@ -130,7 +163,7 @@ async function publishReelToInstagram({
     throw new Error('Timed out waiting for Instagram to finish processing the Reel');
   }
 
-  const published = await graphRequest('post', `${graphBase}/${instagramBusinessAccountId}/media_publish`, {
+  const published = await graphRequest('post', `${base}/${instagramBusinessAccountId}/media_publish`, {
     creation_id: container.id,
     access_token: accessToken
   });
