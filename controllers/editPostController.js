@@ -5,6 +5,7 @@ const path = require('path');
 const crypto = require('crypto');
 const config = require('../config/env');
 const postModel = require('../models/postModel');
+const postController = require('./postController');
 const campaignModel = require('../models/campaignModel');
 const imageService = require('../services/imageService');
 const { renderReelOverlay } = require('../services/reelOverlay');
@@ -238,7 +239,8 @@ async function save(req, res, next) {
           console.error('[reels] Could not clean up the replaced video:', error.message);
         }
       }
-      return res.json({ videoUrl, status: 'ready_to_post' });
+      // A saved Reel stays a draft; it is only marked as edited.
+      return res.json({ videoUrl, status: 'generated', edited: true });
     }
     const imageUrl = await renderFromFields(post, campaign, f);
 
@@ -254,21 +256,21 @@ async function save(req, res, next) {
       layoutIndex: clampLayout(f.layoutIndex),
       imageUrl
     });
-    res.json({ imageUrl, status: 'ready_to_post' });
+    // A saved post stays a draft; it is only marked as edited.
+    res.json({ imageUrl, status: 'generated', edited: true });
   } catch (err) {
     next(err);
   }
 }
 
 // POST /api/posts/edit-approve?token=...
-// The page saves first, advancing it to ready_to_post; approval does not publish immediately.
+// The page saves first. Approving then posts the edited draft (Reel or image)
+// to Instagram right away.
 async function approve(req, res, next) {
   try {
     const { payload, post } = await loadFromToken(req);
-    if (post.status !== 'ready_to_post') {
-      await postModel.markReadyToPost(post.id, payload.userId);
-    }
-    res.json({ message: 'Post approved and ready to schedule.', status: 'ready_to_post' });
+    await postController.performApproval(post.id, payload.userId);
+    res.json({ message: 'Posted to Instagram.', status: 'posted' });
   } catch (err) {
     next(err);
   }

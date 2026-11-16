@@ -29,7 +29,11 @@ const AD_CONTENT_SCHEMA = {
   type: 'object',
   properties: {
     caption: { type: 'string' },
-    hashtags: { type: 'array', items: { type: 'string' } },
+    hashtags: {
+      type: 'array',
+      items: { type: 'string' },
+      description: 'Between 18 and 25 relevant hashtags, each starting with #, no spaces inside a tag. Mix broad fitness tags, niche treadmill/home-workout tags, and tags for this specific business and offer.'
+    },
     cta: { type: 'string' },
     headlineMain: {
       type: 'string',

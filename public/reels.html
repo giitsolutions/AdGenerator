@@ -99,7 +99,7 @@
   .reel .actions { flex-wrap:nowrap; gap:4px; }
   .reel .actions button { flex:1 1 auto; min-width:0; padding:5px 4px; font-size:11px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .badge { display:inline-block; font-size:10px; font-weight:800; border-radius:99px; padding:1px 8px; color:#000; text-transform:capitalize; }
-  .b-generated { background:#a39bbd; } .b-ready_to_post { background:#c4b5fd; }
+  .b-generated { background:#a39bbd; } .b-edited { background:#38bdf8; }
   .b-scheduled { background:#fdba74; } .b-posted { background:#4ade80; }
   .reel-empty, .reel-loading, .action-feedback { color:var(--muted); font-size:12px; margin:0; }
 
@@ -187,10 +187,10 @@
           <div class="schedule-calendar-grid" data-calendar-grid aria-label="Monthly reel schedule"></div>
         </div>
 
-        <aside class="cal-side" aria-label="Day details and ready to post videos">
+        <aside class="cal-side" aria-label="Day details and draft videos">
           <div class="tabs" role="tablist">
             <button type="button" class="on" data-tab-group="calside" data-tab="day" id="calDayTab">Select a day</button>
-            <button type="button" data-tab-group="calside" data-tab="ready">Ready to post <span class="count-badge" id="calReadyCount">0</span></button>
+            <button type="button" data-tab-group="calside" data-tab="ready">Drafts <span class="count-badge" id="calReadyCount">0</span></button>
           </div>
 
           <div data-panel-group="calside" data-panel="day">
@@ -290,10 +290,9 @@
     <div class="card" id="sec-videos">
       <div class="card-head">
         <h2>Your videos</h2>
-        <button type="button" id="scheduleAllBtn" hidden title="Schedules every draft, one per day at 10:00 AM, on days with nothing scheduled.">Schedule all drafts</button>
+        <button type="button" id="scheduleAllBtn" hidden title="Schedules every draft, one per day at 10:00 AM, on days with nothing scheduled. It does not post them right now.">Schedule all drafts</button>
         <div class="tabs" role="tablist">
           <button type="button" class="on" data-tab-group="vid" data-tab="generated">Drafts <span class="count-badge" id="reelCountGenerated">0</span></button>
-          <button type="button" data-tab-group="vid" data-tab="ready_to_post">Ready to Post <span class="count-badge" id="reelCountReady">0</span></button>
           <button type="button" data-tab-group="vid" data-tab="scheduled">Scheduled <span class="count-badge" id="reelCountScheduled">0</span></button>
           <button type="button" data-tab-group="vid" data-tab="posted">Posted <span class="count-badge" id="reelCountPosted">0</span></button>
         </div>
@@ -303,7 +302,6 @@
         <p class="action-feedback" id="scheduleAllStatus" role="status" aria-live="polite"></p>
         <div id="reelGenerated" class="reel-loading">Loading drafts…</div>
       </div>
-      <div data-panel-group="vid" data-panel="ready_to_post" hidden><div id="reelReady" class="reel-loading">Loading ready videos…</div></div>
       <div data-panel-group="vid" data-panel="scheduled" hidden><div id="reelScheduled" class="reel-loading">Loading scheduled videos…</div></div>
       <div data-panel-group="vid" data-panel="posted" hidden><div id="reelPosted" class="reel-loading">Loading posted videos…</div></div>
     </div>
@@ -365,7 +363,7 @@
     if (res.status === 401) { window.location.href = '/login.html'; throw new Error('Session expired'); }
     var data = null;
     try { data = await res.json(); } catch (e) {}
-    if (!res.ok || (data && data.error)) throw new Error((data && data.error) || 'Request failed (' + res.status + ')');
+    if (!res.ok || (data && data.error)) throw new Error((data && (data.error || data.message)) || 'Request failed (' + res.status + ')');
     return data;
   }
   function say(id, text, isError) {
@@ -594,13 +592,16 @@
       card.appendChild(noPreview);
     }
 
-    var status = post.status || 'generated';
+    // A Reel has no Ready to Post step any more: old ready items count as drafts.
+    var status = (post.status === 'ready_to_post' || !post.status) ? 'generated' : post.status;
     var campaign = campaigns.find(function (item) { return String(item.id) === String(post.campaign_id); });
     var head = document.createElement('div');
     head.className = 'reel-head';
+    var isEdited = status === 'generated' && Number(post.edited) === 1;
     var badge = document.createElement('span');
-    badge.className = 'badge b-' + status;
-    badge.textContent = status === 'generated' ? 'draft' : status.replace(/_/g, ' ');
+    badge.className = 'badge b-' + (isEdited ? 'edited' : status);
+    badge.textContent = isEdited ? 'edited' : (status === 'generated' ? 'draft' : status.replace(/_/g, ' '));
+    if (isEdited) badge.title = 'Edited draft';
     var when = document.createElement('span');
     when.className = 'reel-date';
     var whenLabel = status === 'posted' ? 'Posted' : (status === 'scheduled' ? 'Scheduled for' : 'Created');
@@ -611,10 +612,11 @@
     head.appendChild(when);
     card.appendChild(head);
 
-    if (post.headline_main) {
+    var fullTitle = [post.headline_main, post.headline_accent].filter(Boolean).join(' ').trim();
+    if (fullTitle) {
       var titleElement = document.createElement('p');
       titleElement.className = 'reel-title';
-      titleElement.textContent = post.headline_main;
+      titleElement.textContent = fullTitle;
       if (campaign) titleElement.title = campaign.product_name || '';
       card.appendChild(titleElement);
     }
@@ -632,7 +634,7 @@
       });
       card.appendChild(caption);
     }
-    if (status === 'scheduled' && post.last_error) {
+    if ((status === 'scheduled' || status === 'generated') && post.last_error) {
       var error = document.createElement('p');
       error.className = 'status error';
       error.setAttribute('role', 'alert');
@@ -658,9 +660,14 @@
           if (editWindow) editWindow.close();
           throw err;
         }
-      }, { secondary: true, refresh: false, pendingText: 'Edit opened. Saving there moves this video to Ready to Post.' });
+      }, { secondary: true, refresh: false, pendingText: 'Edit opened. "Save changes" keeps it here as an edited draft; "Save & approve + post" posts it.' });
       addVideoAction(card, actions, post, 'Approve', function () {
         return request(API + '/' + id + '/approve', { method: 'POST' });
+      }, {
+        title: 'Approve and post to Instagram now',
+        confirm: 'Post this reel to Instagram now?',
+        busyLabel: 'Posting…',
+        pendingText: 'Posting to Instagram… this can take a minute. Keep this page open.'
       });
       addVideoAction(card, actions, post, 'Reject', function () {
         return request(API + '/' + id + '/reject', { method: 'POST' }).then(function (result) {
@@ -669,14 +676,6 @@
           return result;
         });
       }, { secondary: true, confirm: 'Reject and delete this video? This cannot be undone.' });
-    } else if (status === 'ready_to_post') {
-      addVideoAction(card, actions, post, 'Schedule', function () {
-        if (typeof window.schedulePost !== 'function') throw new Error('Scheduling is unavailable.');
-        window.schedulePost(post.id);
-      }, { refresh: false, pendingText: 'Choose a date and time to schedule this video.' });
-      addVideoAction(card, actions, post, 'Back', function () {
-        return request(API + '/' + id + '/back-to-generated', { method: 'POST', body: '{}' });
-      }, { secondary: true, busyLabel: 'Moving…', title: 'Move back to Drafts' });
     } else if (status === 'scheduled') {
       addVideoAction(card, actions, post, 'Unschedule', function () {
         return request(API + '/' + id + '/unschedule', { method: 'POST', body: '{}' });
@@ -716,8 +715,10 @@
     return out;
   }
 
+  function isDraft(p) { return p.status === 'generated' || p.status === 'ready_to_post'; }
+
   function updateScheduleAllBar() {
-    var n = allPosts.filter(function (p) { return p.status === 'generated'; }).length;
+    var n = allPosts.filter(isDraft).length;
     $('scheduleAllBtn').hidden = !n;
     $('scheduleAllBtn').textContent = 'Schedule all drafts (' + n + ')';
   }
@@ -731,7 +732,7 @@
       note('Checking your calendar…');
       var data = await request(API + '?content_type=reel&_=' + Date.now(), { cache: 'no-store' });
       var posts = Array.isArray(data) ? data : ((data && data.posts) || []);
-      var drafts = posts.filter(function (p) { return p.status === 'generated'; })
+      var drafts = posts.filter(isDraft)
         .sort(function (a, b) { return String(a.created_at).localeCompare(String(b.created_at)) || a.id - b.id; });
       if (!drafts.length) { note('There are no drafts to schedule.'); return; }
 
@@ -748,7 +749,7 @@
       var last = days[days.length - 1].toLocaleDateString(undefined, fmt);
       if (!confirm('Schedule ' + drafts.length + ' video' + (drafts.length === 1 ? '' : 's') +
           ', one per day at ' + SCHEDULE_HOUR + ':00 AM, from ' + first + ' to ' + last +
-          '?\n\nDays that already have a scheduled video are skipped. Scheduled videos are posted to Instagram automatically.')) {
+          '?\n\nDays that already have a scheduled video are skipped. They are posted to Instagram automatically at that time.')) {
         note('Cancelled. Nothing was scheduled.');
         return;
       }
@@ -759,7 +760,6 @@
         note('Scheduling ' + (i + 1) + ' of ' + drafts.length + '…');
         var id = encodeURIComponent(drafts[i].id);
         try {
-          await request(API + '/' + id + '/approve', { method: 'POST' });
           await request(API + '/' + id + '/schedule', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -774,7 +774,7 @@
       if (typeof window.refreshScheduleCalendar === 'function') await window.refreshScheduleCalendar();
       if (failures.length) {
         note('Scheduled ' + done + ' of ' + drafts.length + '. ' + failures.join(' ') +
-          ' Failed videos are in Ready to Post, so you can schedule them by hand.', true);
+          ' Failed videos stay in Drafts, so you can schedule them by hand.', true);
       } else {
         note('Done! Scheduled ' + done + ' video' + (done === 1 ? '' : 's') + ' from ' + first + ' to ' + last + '.');
       }
@@ -807,14 +807,14 @@
   }
 
   function renderReadyPanel(posts) {
-    var items = posts.filter(function (p) { return p.status === 'ready_to_post'; });
+    var items = posts.filter(isDraft);
     $('calReadyCount').textContent = String(items.length);
     var box = $('calReadyList');
     box.textContent = '';
     if (!items.length) {
       var none = document.createElement('p');
       none.className = 'reel-empty';
-      none.textContent = 'No videos are ready to post. Approve a draft to see it here.';
+      none.textContent = 'No drafts yet. Generate or upload a video to get started.';
       box.appendChild(none);
       return;
     }
@@ -838,10 +838,10 @@
       copy.className = 'ri-copy';
       var title = document.createElement('div');
       title.className = 'ri-title';
-      title.textContent = post.headline_main || (post.caption || ('Video #' + post.id)).split('\n')[0];
+      title.textContent = [post.headline_main, post.headline_accent].filter(Boolean).join(' ').trim() || (post.caption || ('Video #' + post.id)).split('\n')[0];
       var meta = document.createElement('div');
       meta.className = 'ri-meta';
-      meta.textContent = 'Created ' + formatDate(post.created_at);
+      meta.textContent = (Number(post.edited) === 1 ? 'Edited · ' : '') + 'Created ' + formatDate(post.created_at);
       var btn = document.createElement('button');
       btn.type = 'button';
       btn.className = 'secondary';
@@ -931,7 +931,6 @@
   async function loadReels() {
     var groups = {
       generated: { list: $('reelGenerated'), count: $('reelCountGenerated'), empty: 'No drafts yet. Generate or upload a video to get started.' },
-      ready_to_post: { list: $('reelReady'), count: $('reelCountReady'), empty: 'No videos are ready to post.' },
       scheduled: { list: $('reelScheduled'), count: $('reelCountScheduled'), empty: 'No videos are scheduled.' },
       posted: { list: $('reelPosted'), count: $('reelCountPosted'), empty: 'No videos have been published yet.' }
     };
@@ -946,10 +945,12 @@
       allPosts = posts;
       updateScheduleAllBar();
       renderReadyPanel(posts);
-      if (posts.some(function (p) { return p.status === 'ready_to_post' || p.status === 'scheduled'; })) showHint();
+      if (posts.some(function (p) { return isDraft(p) || p.status === 'scheduled'; })) showHint();
       Object.keys(groups).forEach(function (status) {
         var group = groups[status];
-        var items = posts.filter(function (post) { return post.status === status; });
+        var items = posts.filter(function (post) {
+          return status === 'generated' ? isDraft(post) : post.status === status;
+        });
         group.count.textContent = String(items.length);
         group.list.className = '';
         group.list.textContent = '';

@@ -2,6 +2,33 @@ const { getDb } = require('../db/connection');
 const { CONTENT_STATUSES, createTransitionError } = require('./contentWorkflow');
 
 /**
+ * One-time setup (runs once per server start, safe to repeat):
+ *  1. adds the posts.edited column (1 = the video was changed in the editor)
+ *  2. moves anything left in "ready_to_post" back to drafts, because
+ *     there is no Ready to Post step any more (Reels or images).
+ */
+let editedColumnReady = null;
+function ensureEditedColumn() {
+  if (!editedColumnReady) {
+    editedColumnReady = (async () => {
+      const db = await getDb();
+      const columns = await db.all('PRAGMA table_info(posts)');
+      if (!columns.some(column => column.name === 'edited')) {
+        await db.run('ALTER TABLE posts ADD COLUMN edited INTEGER NOT NULL DEFAULT 0');
+      }
+      await db.run(
+        `UPDATE posts SET status = 'generated'
+         WHERE status = 'ready_to_post'`
+      );
+    })().catch(error => {
+      editedColumnReady = null;
+      throw error;
+    });
+  }
+  return editedColumnReady;
+}
+
+/**
  * Creates a generated item. Reels: pass mediaType: 'reel' and
  * videoUrl (and optionally videoSourceUrl / videoThumbUrl). Needs the reel columns from
  * db/reelMigration.js (ensureReelColumns) — if they are missing the half-made
@@ -94,6 +121,7 @@ async function countPostedPosts(campaignId) {
 }
 
 async function getAllPosts(userId, filters = {}) {
+  await ensureEditedColumn();
   const db = await getDb();
   const conditions = ['user_id = ?'];
   const params = [userId];
@@ -189,15 +217,16 @@ async function invalidTransitionForPost(id, userId, nextStatus) {
   throw createTransitionError(post.status, nextStatus);
 }
 
-/** Saves edited content and advances a generated post to ready_to_post. */
+/** Saves edited content. The post STAYS a draft and is marked edited = 1. */
 async function updatePostContent(id, userId, f) {
+  await ensureEditedColumn();
   const db = await getDb();
   const result = await db.run(
     `UPDATE posts SET
        caption = ?, hashtags = ?, cta = ?,
        headline_main = ?, headline_accent = ?, subheadline = ?,
        offer_text = ?, cta_label = ?, layout_index = ?, image_url = ?,
-       status = 'ready_to_post', last_error = NULL
+       status = 'generated', edited = 1, last_error = NULL
      WHERE id = ? AND user_id = ? AND status = 'generated'`,
     [
       f.caption, JSON.stringify(f.hashtags), f.cta,
@@ -206,7 +235,7 @@ async function updatePostContent(id, userId, f) {
       id, userId
     ]
   );
-  if (!result.changes) await invalidTransitionForPost(id, userId, 'ready_to_post');
+  if (!result.changes) await invalidTransitionForPost(id, userId, 'generated');
   return result.changes;
 }
 
@@ -215,27 +244,33 @@ async function updatePostContent(id, userId, f) {
  * Only the owner's generated Reel can be edited. Returns rows changed.
  */
 async function updatePostCaption(id, userId, { caption, hashtags, cta }) {
+  await ensureEditedColumn();
   const db = await getDb();
   const result = await db.run(
     `UPDATE posts
      SET caption = ?, hashtags = ?, cta = ?,
-         status = 'ready_to_post', last_error = NULL
+         status = 'generated', edited = 1, last_error = NULL
      WHERE id = ? AND user_id = ?
        AND status = 'generated'`,
     [caption || '', JSON.stringify(hashtags || []), cta || '', id, userId]
   );
-  if (!result.changes) await invalidTransitionForPost(id, userId, 'ready_to_post');
+  if (!result.changes) await invalidTransitionForPost(id, userId, 'generated');
   return result.changes;
 }
 
+/**
+ * Saves an edited Reel. It STAYS a draft (status 'generated') and is marked
+ * edited = 1, so the Drafts list can show an "Edited" badge.
+ */
 async function updateReelContent(id, userId, fields) {
+  await ensureEditedColumn();
   const db = await getDb();
   const result = await db.run(
     `UPDATE posts SET
        caption = ?, hashtags = ?, cta = ?,
        headline_main = ?, headline_accent = ?, subheadline = ?,
        offer_text = ?, cta_label = ?, layout_index = ?, video_url = ?,
-       status = 'ready_to_post', last_error = NULL
+       edited = 1, last_error = NULL
      WHERE id = ? AND user_id = ? AND content_type = 'reel'
        AND status = 'generated'`,
     [
@@ -253,7 +288,7 @@ async function updateReelContent(id, userId, fields) {
       userId
     ]
   );
-  if (!result.changes) await invalidTransitionForPost(id, userId, 'ready_to_post');
+  if (!result.changes) await invalidTransitionForPost(id, userId, 'generated');
   return result.changes;
 }
 
@@ -333,7 +368,8 @@ async function markAsPosted(id, userId) {
 
 /**
  * Schedules a post of this user for scheduledAtIso (a UTC ISO string).
- * Only a ready_to_post item can enter the scheduled state.
+ * A ready_to_post item can be scheduled. A draft Reel can be scheduled too,
+ * because the Reels page has no separate Ready to Post step.
  */
 async function schedulePostAt(id, userId, scheduledAtIso) {
   const db = await getDb();
@@ -342,7 +378,8 @@ async function schedulePostAt(id, userId, scheduledAtIso) {
      SET status = 'scheduled', scheduled_at = ?,
          last_error = NULL, error_message = NULL, last_schedule_error = NULL,
          schedule_attempts = 0, publish_lock_until = NULL
-     WHERE id = ? AND user_id = ? AND status = 'ready_to_post'`,
+     WHERE id = ? AND user_id = ?
+       AND status IN ('generated', 'ready_to_post')`,
     [scheduledAtIso, id, userId]
   );
   if (!result.changes) await invalidTransitionForPost(id, userId, 'scheduled');
@@ -400,18 +437,19 @@ async function reschedulePostAt(id, userId, scheduledAtIso) {
   return result.changes;
 }
 
-/** Cancels a schedule: the post returns to ready_to_post. */
+/** Cancels a schedule: the post returns to drafts. */
 async function unschedulePost(id, userId) {
   const db = await getDb();
   const result = await db.run(
     `UPDATE posts
-     SET status = 'ready_to_post', scheduled_at = NULL,
+     SET status = 'generated',
+         scheduled_at = NULL,
          last_error = NULL, error_message = NULL, last_schedule_error = NULL,
          schedule_attempts = 0, publish_lock_until = NULL
      WHERE id = ? AND user_id = ? AND status = 'scheduled'`,
     [id, userId]
   );
-  if (!result.changes) await invalidTransitionForPost(id, userId, 'ready_to_post');
+  if (!result.changes) await invalidTransitionForPost(id, userId, 'generated');
   return result.changes;
 }
 
@@ -427,6 +465,42 @@ async function requeueFailedPost(id, userId) {
     [new Date(Date.now() + 60 * 1000).toISOString(), id, userId]
   );
   if (!result.changes) await invalidTransitionForPost(id, userId, 'scheduled');
+  return result.changes;
+}
+
+/**
+ * Reserves a draft for posting right now. The post becomes 'scheduled'
+ * with a publish lock, so the background scheduler cannot pick it up and post
+ * it a second time while this request is publishing it.
+ */
+async function markPublishingNow(id, userId) {
+  await ensureEditedColumn();
+  const db = await getDb();
+  const now = new Date();
+  const result = await db.run(
+    `UPDATE posts
+     SET status = 'scheduled', scheduled_at = ?, publish_lock_until = ?,
+         last_error = NULL, error_message = NULL, last_schedule_error = NULL,
+         schedule_attempts = 0
+     WHERE id = ? AND user_id = ?
+       AND status IN ('generated', 'ready_to_post')`,
+    [now.toISOString(), new Date(now.getTime() + 15 * 60 * 1000).toISOString(), id, userId]
+  );
+  if (!result.changes) await invalidTransitionForPost(id, userId, 'scheduled');
+  return result.changes;
+}
+
+/** A post-now attempt failed: the post goes back to drafts with the error. */
+async function revertToDraft(id, userId, errorMessage) {
+  const db = await getDb();
+  const message = errorMessage || 'Unknown publishing error';
+  const result = await db.run(
+    `UPDATE posts
+     SET status = 'generated', scheduled_at = NULL, publish_lock_until = NULL,
+         last_error = ?, error_message = ?
+     WHERE id = ? AND user_id = ? AND status = 'scheduled'`,
+    [message, message, id, userId]
+  );
   return result.changes;
 }
 
@@ -460,7 +534,7 @@ async function failStuckPublishingPosts() {
   const db = await getDb();
   const result = await db.run(
     `UPDATE posts
-     SET status = CASE WHEN scheduled_at IS NULL THEN 'ready_to_post' ELSE 'scheduled' END,
+     SET status = CASE WHEN scheduled_at IS NULL THEN 'generated' ELSE 'scheduled' END,
          last_error = 'The server stopped while this post was being published. Check Instagram before retrying.',
          error_message = 'The server stopped while this post was being published. Check Instagram before retrying.',
          publish_lock_until = NULL
@@ -516,6 +590,9 @@ module.exports = {
   updatePostCaption,
   updateReelContent,
   markReadyToPost,
+  markPublishingNow,
+  revertToDraft,
+  ensureEditedColumn,
   movePostToGenerated,
   markAsPosted,
   markAsFailed,

@@ -131,7 +131,8 @@
   .post-card img { display: block; width: 100%; height: auto; max-height: none; object-fit: contain; background: #000; border-radius: 10px; margin: 12px 0; }
   .post-card p { margin: 8px 0; white-space: pre-line; }
   .status { display: inline-block; font-size: 12px; font-weight: 700; padding: 3px 12px; border-radius: 999px; color: var(--status-fg); text-transform: capitalize; }
-  .draft { background: var(--draft); }
+  .draft, .generated { background: var(--draft); }
+  .edited { background: #38bdf8; }
   .approved, .posted { background: var(--ok); }
   .rejected { background: var(--bad); }
   .failed { background: var(--warn); }
@@ -317,13 +318,11 @@
 
     var TABS = [
       { key: 'drafts',    label: 'Drafts' },
-      { key: 'ready',     label: 'Ready to Post' },
       { key: 'scheduled', label: 'Scheduled' },
       { key: 'posted',    label: 'Posted' }
     ];
     var EMPTY_TEXT = {
-      drafts: 'No drafts. Generate a post above and it will appear here.',
-      ready: 'Nothing is ready to post yet. Approve a draft to move it here.',
+      drafts: 'No drafts. Generate a post above and it will appear here. Approve posts it to Instagram.',
       scheduled: 'Nothing is scheduled yet.',
       posted: 'No posts have been published yet.'
     };
@@ -332,14 +331,36 @@
     try { active = sessionStorage.getItem('rvTab') || 'drafts'; } catch (_) {}
     if (!TABS.some(function (t) { return t.key === active; })) active = 'drafts';
 
+    // Which posts were edited in the editor (the server sends edited = 1).
+    var editedIds = {};
+    document.addEventListener('kwik:posts', function (e) {
+      editedIds = {};
+      ((e && e.detail) || []).forEach(function (p) {
+        if (Number(p.edited) === 1) editedIds[String(p.id)] = true;
+      });
+    });
+
     function tabOf(card) {
       var badge = card.querySelector('.status');
-      var text = ((badge && (badge.textContent + ' ' + badge.className)) || '')
-        .toLowerCase().replace(/[_-]+/g, ' ');
+      // Remember the real status: the badge text is rewritten below.
+      if (badge && card.getAttribute('data-rv-raw') === null) {
+        card.setAttribute('data-rv-raw', (badge.textContent + ' ' + badge.className).toLowerCase().replace(/[_-]+/g, ' '));
+      }
+      var text = card.getAttribute('data-rv-raw') || '';
       if (text.indexOf('posted') !== -1) return 'posted';
       if (text.indexOf('schedul') !== -1 || text.indexOf('fail') !== -1) return 'scheduled';
-      if (text.indexOf('ready') !== -1 || text.indexOf('approved') !== -1) return 'ready';
-      return 'drafts';
+      return 'drafts'; // drafts, plus anything older that was "ready to post"
+    }
+
+    // One badge: "edited" for an edited draft, otherwise "draft".
+    function labelBadge(card, key) {
+      var badge = card.querySelector('.status');
+      if (!badge || key !== 'drafts') return;
+      var edited = !!editedIds[card.getAttribute('data-post-id')];
+      var text = edited ? 'edited' : 'draft';
+      if (badge.textContent !== text) badge.textContent = text;
+      var cls = 'status ' + text;
+      if (badge.className !== cls) badge.className = cls;
     }
 
     var emptyBox = document.createElement('div');
@@ -365,12 +386,13 @@
 
     function apply() {
       var cards = list.querySelectorAll('.post-card');
-      var counts = { drafts: 0, ready: 0, scheduled: 0, posted: 0 };
+      var counts = { drafts: 0, scheduled: 0, posted: 0 };
 
       Array.prototype.forEach.call(cards, function (card) {
         var key = tabOf(card);
         counts[key]++;
         card.setAttribute('data-rv', key);
+        labelBadge(card, key);
         card.classList.toggle('rv-hide', key !== active);
       });
 

@@ -54,8 +54,12 @@ async function loadLogoImage(logoPath) {
 
 async function renderReelOverlay({
   width = 1080, height = 1920, logoPath, brand, headline,
-  headlineMain, headlineAccent, subheadline, caption, offer, cta, layoutIndex = 0
+  headlineMain, headlineAccent, subheadline, caption, offer, cta, layoutIndex
 }) {
+  // No layout given: pick one of the 8 at random for every new reel.
+  if (layoutIndex === undefined || layoutIndex === null || layoutIndex === '') {
+    layoutIndex = Math.floor(Math.random() * 8);
+  }
   if (!Number.isInteger(width) || !Number.isInteger(height) || width < 1 || height < 1) {
     throw new Error('Video dimensions are required to render the reel overlay');
   }

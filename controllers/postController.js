@@ -224,6 +224,26 @@ async function performApproval(postId, userId) {
   }
   publishing.add(key);
   try {
+    const post = await postModel.getPostById(postId, userId);
+    const isDraft = post && ['generated', 'ready_to_post'].includes(post.status);
+
+    // A draft (Reel or image) is posted straight to Instagram. If that fails,
+    // it goes back to Drafts with the error, so nothing is lost.
+    if (isDraft) {
+      await postModel.markPublishingNow(post.id, userId);
+      try {
+        return await publishDraft(post.id, userId);
+      } catch (err) {
+        if (err.code !== 'ALREADY_POSTED') {
+          try {
+            await postModel.revertToDraft(post.id, userId, err.message);
+          } catch (revertError) {
+            console.error(`[postController] Could not move post ${post.id} back to drafts:`, revertError.message);
+          }
+        }
+        throw err;
+      }
+    }
     return await publishDraft(postId, userId);
   } finally {
     publishing.delete(key);
@@ -370,8 +390,13 @@ async function performRejection(postId, userId, { waitForRegeneration = true } =
 
 async function approvePost(req, res, next) {
   try {
-    await postModel.markReadyToPost(req.params.id, req.userId);
-    res.json({ message: 'Post approved and ready to schedule', status: 'ready_to_post' });
+    const post = await postModel.getPostById(req.params.id, req.userId);
+    if (!post) return res.status(404).json({ error: 'Post not found.' });
+
+    // Approve posts to Instagram right away (no Ready to Post step).
+    if (!(await ensureInstagramConnected(req.userId, res, post.id))) return;
+    await performApproval(post.id, req.userId);
+    res.json({ message: 'Posted to Instagram', id: post.id, status: 'posted' });
   } catch (err) {
     next(err);
   }
@@ -440,7 +465,12 @@ async function schedulePost(req, res, next) {
 async function unschedulePost(req, res, next) {
   try {
     await postModel.unschedulePost(req.params.id, req.userId);
-    res.json({ message: 'Schedule cancelled', id: Number(req.params.id), status: 'ready_to_post' });
+    const updated = await postModel.getPostById(req.params.id, req.userId);
+    res.json({
+      message: 'Schedule cancelled',
+      id: Number(req.params.id),
+      status: updated ? updated.status : 'generated'
+    });
   } catch (err) {
     next(err);
   }

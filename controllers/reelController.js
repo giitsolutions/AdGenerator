@@ -98,6 +98,8 @@ async function makeGenerated(campaign, idea) {
     Object.assign(generated || (generated = {}), createFreshHeadline(recentWithFallback), { subheadline });
   }
   Object.assign(generated, ensureDistinctHeadline(generated, recentReelCopy));
+  // One of the 8 overlay layouts, chosen at random for every new reel.
+  generated.layoutIndex = Math.floor(Math.random() * 8);
   return generated;
 }
 
@@ -109,7 +111,7 @@ async function createReelDraft({ userId, campaign, videoUrl, videoSourceUrl, gen
     caption: g.caption || '', hashtags: g.hashtags || [], cta: g.cta || '', imageUrl: null,
     headlineMain: g.headlineMain, headlineAccent: g.headlineAccent, subheadline: g.subheadline,
     offerText: g.offerText, ctaLabel: g.ctaButtonLabel, photoKeywords: g.photoKeywords,
-    layoutIndex: 0,
+    layoutIndex: Number.isInteger(g.layoutIndex) ? g.layoutIndex : 0,
     mediaType: 'reel', videoUrl, videoSourceUrl,
   });
   return postModel.getPostById(postId, userId);
@@ -168,7 +170,8 @@ function handleUpload(req, res) {
         headlineAccent: generated.headlineAccent,
         subheadline: generated.subheadline,
         offer: generated.offerText || campaign.offer_details || '',
-        cta: generated.ctaButtonLabel || generated.cta || ''
+        cta: generated.ctaButtonLabel || generated.cta || '',
+        layoutIndex: generated.layoutIndex
       }));
       sourcePath = path.join(SOURCE_DIR, `${path.parse(req.file.filename).name}-source.mp4`);
       fs.copyFileSync(req.file.path, sourcePath);
