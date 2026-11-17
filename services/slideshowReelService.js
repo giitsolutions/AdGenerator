@@ -7,7 +7,7 @@ const path = require('path');
 const { renderReelOverlay } = require('./reelOverlay');
 const { composeFromPhotos } = require('./reelRender');
 
-async function generateSlideshowReel({ photos, headline, headlineAccent, subheadline, offer, cta, logoPath, brand, caption, duration, outPath, sourceOutPath }) {
+async function generateSlideshowReel({ photos, headline, headlineMain, headlineAccent, subheadline, offer, cta, logoPath, brand, caption, layoutIndex, duration, outPath, sourceOutPath }) {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'kwikreel-ov-'));
   try {
     if (sourceOutPath) {
@@ -15,8 +15,8 @@ async function generateSlideshowReel({ photos, headline, headlineAccent, subhead
     }
     const overlayPath = path.join(tmp, 'overlay.png');
     fs.writeFileSync(overlayPath, await renderReelOverlay({
-      logoPath, brand: brand || headline, headline, headlineAccent, subheadline,
-      caption: caption || '', offer, cta
+      logoPath, brand: brand || headline, headline, headlineMain, headlineAccent, subheadline,
+      caption: caption || '', offer, cta, layoutIndex
     }));
     await composeFromPhotos({ photos, overlayPath, duration, outPath });
   } finally {

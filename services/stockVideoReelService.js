@@ -204,7 +204,7 @@ async function fetchStockClip(destDir) {
   throw new Error('No unused stock video focused on a treadmill was found; unrelated or incidental treadmill footage is not used');
 }
 
-async function generateStockVideoReel({ headline, headlineAccent, subheadline, offer, cta, logoPath, brand, caption, duration, outPath, sourceOutPath }) {
+async function generateStockVideoReel({ headline, headlineMain, headlineAccent, subheadline, offer, cta, logoPath, brand, caption, layoutIndex, duration, outPath, sourceOutPath }) {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'kwikreel-stock-'));
   try {
     const videoPath = await fetchStockClip(tmp);
@@ -213,8 +213,8 @@ async function generateStockVideoReel({ headline, headlineAccent, subheadline, o
     }
     const overlayPath = path.join(tmp, 'overlay.png');
     fs.writeFileSync(overlayPath, await renderReelOverlay({
-      logoPath, brand: brand || headline, headline, headlineAccent, subheadline,
-      caption: caption || '', offer, cta
+      logoPath, brand: brand || headline, headline, headlineMain, headlineAccent, subheadline,
+      caption: caption || '', offer, cta, layoutIndex
     }));
     await composeFromVideo({ videoPath, overlayPath, duration, outPath });
   } finally {

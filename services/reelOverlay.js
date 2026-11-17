@@ -111,19 +111,34 @@ async function renderReelOverlay({
     context.fillStyle = accent;
     context.fillRect(0, Math.round(height * 0.86), width, Math.round(height * 0.14));
   } else if (layout === 4) {
+    // Ribbon: a slanted band across the screen that carries the offer.
+    const bandHeight = Math.round(84 * scale);
     context.save();
-    context.translate(-width * 0.12, height * 0.56);
-    context.rotate(-Math.PI / 12);
+    context.translate(center, Math.round(height * 0.625));
+    context.rotate(-0.07);
     context.fillStyle = accent;
-    context.fillRect(0, 0, width * 0.75, Math.round(height * 0.055));
+    context.fillRect(-width * 0.6, -bandHeight / 2, width * 1.2, bandHeight);
+    if (offerText) {
+      context.font = `bold ${Math.round(34 * scale)}px ${FONT}`;
+      context.fillStyle = '#ffffff';
+      context.textAlign = 'center';
+      context.textBaseline = 'middle';
+      context.fillText(offerText, 0, 0, width * 0.86);
+    }
     context.restore();
   } else if (layout === 5) {
-    const cardY = Math.round(height * 0.62);
-    const cardHeight = Math.round(height * 0.34);
-    context.fillStyle = 'rgba(12, 12, 16, 0.68)';
+    // Glass card: frosted panel with a thin light edge; text sits inside it.
+    const cardY = Math.round(height * 0.655);
+    const cardHeight = Math.round(height * 0.235);
+    const cardX = Math.round(margin * 0.6);
+    const radius = Math.round(34 * scale);
+    context.fillStyle = 'rgba(20, 20, 28, 0.62)';
     context.beginPath();
-    context.roundRect(margin / 2, cardY, width - margin, cardHeight, Math.round(28 * scale));
+    context.roundRect(cardX, cardY, width - cardX * 2, cardHeight, radius);
     context.fill();
+    context.strokeStyle = 'rgba(255, 255, 255, 0.35)';
+    context.lineWidth = Math.max(2, Math.round(3 * scale));
+    context.stroke();
   } else if (layout === 6) {
     context.strokeStyle = 'rgba(255,255,255,0.9)';
     context.lineWidth = Math.max(2, Math.round(8 * scale));
@@ -150,7 +165,8 @@ async function renderReelOverlay({
   }
 
   const leftAligned = layout === 4 || layout === 5;
-  const textX = leftAligned ? margin : center;
+  const cardPad = Math.round(margin * 0.6) + Math.round(40 * scale);
+  const textX = layout === 5 ? cardPad : (leftAligned ? margin : center);
   const textAlign = leftAligned ? 'left' : 'center';
   context.textAlign = textAlign;
   context.textBaseline = 'top';
@@ -158,7 +174,8 @@ async function renderReelOverlay({
   context.shadowBlur = Math.round(8 * scale);
   context.shadowOffsetY = Math.round(2 * scale);
 
-  let y = Math.round(height * 0.7);
+  let y = layout === 5 ? Math.round(height * 0.685) : (layout === 4 ? Math.round(height * 0.68) : Math.round(height * 0.7));
+  const boxWidth = layout === 5 ? width - cardPad * 2 : textWidth;
   const accentText = String(headlineAccent || '').trim();
   const combinedOrMainText = String(headlineMain || headline || brand || '').trim();
   const mainText = headlineMain
@@ -167,12 +184,12 @@ async function renderReelOverlay({
   const mainFontSize = Math.round(64 * scale);
   context.font = `bold ${mainFontSize}px ${FONT}`;
   context.fillStyle = '#ffffff';
-  y = drawLines(context, wrappedLines(context, mainText, textWidth, 2), textX, y, Math.round(mainFontSize * 1.12));
+  y = drawLines(context, wrappedLines(context, mainText, boxWidth, 2), textX, y, Math.round(mainFontSize * 1.12));
 
   if (accentText) {
     const accentFontSize = Math.round(60 * scale);
     context.font = `bold ${accentFontSize}px ${FONT}`;
-    const accentLines = wrappedLines(context, accentText, textWidth, 2);
+    const accentLines = wrappedLines(context, accentText, boxWidth, 2);
     if (layout === 7) {
       context.save();
       context.globalAlpha = 0.3;
@@ -191,21 +208,19 @@ async function renderReelOverlay({
     const subFontSize = Math.round(28 * scale);
     context.font = `${subFontSize}px ${FONT}`;
     context.fillStyle = 'rgba(255,255,255,0.94)';
-    y = drawLines(context, wrappedLines(context, subText, textWidth, 2), textX, y + Math.round(10 * scale), Math.round(subFontSize * 1.3));
+    y = drawLines(context, wrappedLines(context, subText, boxWidth, 2), textX, y + Math.round(10 * scale), Math.round(subFontSize * 1.3));
   }
 
-  if (offerText && layout !== 0 && layout !== 3 && layout !== 7) {
+  if (offerText && layout !== 0 && layout !== 3 && layout !== 4 && layout !== 7) {
     const offerFontSize = Math.round(34 * scale);
     context.font = `bold ${offerFontSize}px ${FONT}`;
     context.fillStyle = layout === 1 ? '#ffffff' : accent;
-    if (layout === 4) {
-      y = Math.round(height * 0.635);
-    } else if (layout === 1) {
+    if (layout === 1) {
       y = Math.round(height * 0.87);
     } else {
       y += Math.round(12 * scale);
     }
-    y = drawLines(context, wrappedLines(context, offerText, textWidth, 2), textX, y, Math.round(offerFontSize * 1.2));
+    y = drawLines(context, wrappedLines(context, offerText, boxWidth, 2), textX, y, Math.round(offerFontSize * 1.2));
   }
 
   const buttonText = String(cta || '').trim();
@@ -224,12 +239,13 @@ async function renderReelOverlay({
       : Math.min(Math.round(height * 0.92), y + Math.round(18 * scale));
     context.shadowBlur = 0;
     context.shadowOffsetY = 0;
-    context.fillStyle = layout === 3 ? '#ffffff' : layout === 7 ? '#111111' : accent;
+    context.fillStyle = layout === 3 ? '#ffffff' : accent;
     context.beginPath();
-    const buttonCenterX = layout === 3 ? width - margin - buttonWidth / 2 : center;
+    const buttonCenterX = layout === 3 ? width - margin - buttonWidth / 2 : (leftAligned ? textX + buttonWidth / 2 : center);
     context.roundRect(buttonCenterX - buttonWidth / 2, buttonY, buttonWidth, buttonHeight, buttonHeight * 0.28);
     context.fill();
     context.fillStyle = layout === 3 ? accent : '#ffffff';
+    context.textAlign = 'center';
     context.textBaseline = 'middle';
     context.fillText(buttonLabel, buttonCenterX, buttonY + buttonHeight / 2, buttonWidth - 24 * scale);
   }
@@ -244,7 +260,7 @@ async function renderReelOverlay({
   } else if (layout === 7 && offerText) {
     const offerFontSize = Math.round(28 * scale);
     context.font = `bold ${offerFontSize}px ${FONT}`;
-    context.fillStyle = '#111111';
+    context.fillStyle = '#ffffff';
     context.textAlign = 'center';
     context.textBaseline = 'middle';
     context.fillText(offerText, center, Math.round(height * 0.89), width * 0.7);
