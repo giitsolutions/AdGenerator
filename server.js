@@ -32,7 +32,7 @@ app.use('/api/campaigns', campaignRoutes);
 app.use('/api/posts', postRoutes);
 app.use('/api/posts', scheduleRoutes.router);   // schedule / unschedule / retry
 app.use('/api/library', require('./routes/libraryRoutes'));
-
+app.use('/uploads', express.static(path.join(__dirname, 'public/uploads'), { maxAge: 0 }));
 app.use(errorHandler); // must be registered last
 
 async function startServer() {

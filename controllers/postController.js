@@ -18,6 +18,23 @@ const IMAGE_BACKGROUND_DIR = path.join(__dirname, '..', 'storage', 'backgrounds'
 const REEL_UPLOAD_DIR = path.join(__dirname, '..', 'public', 'uploads', 'reels');
 const REEL_SOURCE_DIR = path.join(__dirname, '..', 'storage', 'reel-sources');
 const MAX_IMAGE_UPLOAD_BYTES = 8 * 1024 * 1024;
+const MAX_SCHEDULE_AHEAD_DAYS = 365;
+
+// ---------------------------------------------------------------------
+// Instagram connection guard (used by approve, schedule, reschedule, retry)
+// Sends a 409 and returns false when the user has not connected Instagram.
+// ---------------------------------------------------------------------
+async function ensureInstagramConnected(userId, res, postId, action = 'schedule') {
+  const connected = await userModel.isInstagramConnected(userId);
+  if (connected) return true;
+
+  res.status(409).json({
+    code: 'INSTAGRAM_NOT_CONNECTED',
+    message: `Connect your Instagram account to ${action} this post.`,
+    postId: postId ? Number(postId) : null
+  });
+  return false;
+}
 
 async function reelVideoAvailable(videoUrl) {
   const prefix = '/uploads/reels/';
@@ -190,9 +207,6 @@ function buildFinalCaption(post, campaign) {
     .trim();
 }
 
-/**
- * Publish a scheduled item. It is marked posted only after Instagram confirms.
- */
 // Posts being published right now. Two quick clicks on the same Approve link
 // would otherwise both pass the "not posted yet" check and post twice.
 const publishing = new Set();
@@ -210,32 +224,16 @@ async function performApproval(postId, userId) {
   }
   publishing.add(key);
   try {
-    const post = await postModel.getPostById(postId, userId);
-    const isDraft = post && ['generated', 'ready_to_post'].includes(post.status);
-
-    // A draft (Reel or image) is posted straight to Instagram. If that fails,
-    // it goes back to Drafts with the error, so nothing is lost.
-    if (isDraft) {
-      await postModel.markPublishingNow(post.id, userId);
-      try {
-        return await publishDraft(post.id, userId);
-      } catch (err) {
-        if (err.code !== 'ALREADY_POSTED') {
-          try {
-            await postModel.revertToDraft(post.id, userId, err.message);
-          } catch (revertError) {
-            console.error(`[postController] Could not move post ${post.id} back to drafts:`, revertError.message);
-          }
-        }
-        throw err;
-      }
-    }
     return await publishDraft(postId, userId);
   } finally {
     publishing.delete(key);
   }
 }
 
+/**
+ * Publish a scheduled item using the OWNER's Instagram account.
+ * It is marked posted only after Instagram confirms.
+ */
 async function publishDraft(postId, userId) {
   const post = await postModel.getPostById(postId, userId);
   if (!post) {
@@ -249,31 +247,34 @@ async function publishDraft(postId, userId) {
   }
 
   try {
-    const campaign = await campaignModel.getCampaignById(post.campaign_id, userId);
-    const linkLine = campaign && campaign.website ? campaign.website : '🔗 Link in bio';
-    let hashtags = '';
-    try {
-      const h = typeof post.hashtags === 'string' ? JSON.parse(post.hashtags) : post.hashtags;
-      hashtags = Array.isArray(h) ? h.join(' ') : '';
-    } catch (_) {}
+    // Safety net: the user may have disconnected after scheduling.
+    const instagramUser = await userModel.getUserWithInstagramToken(userId);
+    if (!instagramUser) {
+      const notConnected = new Error('Instagram is not connected. Reconnect it, then press Retry.');
+      notConnected.code = 'INSTAGRAM_NOT_CONNECTED';
+      throw notConnected;
+    }
 
-    const fullCaption = `${post.caption || ''}\n\n${post.cta || ''}\n\n${linkLine}\n\n${hashtags}`.trim();
+    const campaign = await campaignModel.getCampaignById(post.campaign_id, userId);
+    const fullCaption = buildFinalCaption(post, campaign);
+
+    const credentials = {
+      instagramBusinessAccountId: instagramUser.instagram_business_account_id,
+      accessToken: instagramUser.instagram_access_token
+    };
+
     let igResult;
     if (post.content_type === 'reel') {
-      const instagramUser = await userModel.getUserWithInstagramToken(userId);
-      if (!instagramUser) {
-        throw new Error('Connect an Instagram professional account before publishing a Reel');
-      }
       igResult = await instagramService.publishReelToInstagram({
         videoUrl: post.video_url,
         caption: fullCaption,
-        instagramBusinessAccountId: instagramUser.instagram_business_account_id,
-        accessToken: instagramUser.instagram_access_token
+        ...credentials
       });
     } else {
       igResult = await instagramService.publishToInstagram({
         imageUrl: post.image_url,
-        caption: fullCaption
+        caption: fullCaption,
+        ...credentials
       });
     }
 
@@ -359,7 +360,6 @@ async function performRejection(postId, userId, { waitForRegeneration = true } =
   };
 
   // Email click: answer at once and build the new post in the background
-  // (AI text + image can take minutes; a browser tab should not wait for that).
   if (!waitForRegeneration) {
     regenerate();
     return { deleted: true, regenerated: false, regenerating: true, cleanupWarnings };
@@ -370,13 +370,13 @@ async function performRejection(postId, userId, { waitForRegeneration = true } =
 
 async function approvePost(req, res, next) {
   try {
+    // Works for posts and reels. The draft is NOT changed when Instagram is missing.
     const post = await postModel.getPostById(req.params.id, req.userId);
     if (!post) return res.status(404).json({ error: 'Post not found.' });
+    if (!(await ensureInstagramConnected(req.userId, res, post.id, 'approve'))) return;
 
-    // Approve posts to Instagram right away (no Ready to Post step).
-    if (!(await ensureInstagramConnected(req.userId, res, post.id))) return;
-    await performApproval(post.id, req.userId);
-    res.json({ message: 'Posted to Instagram', id: post.id, status: 'posted' });
+    await postModel.markReadyToPost(req.params.id, req.userId);
+    res.json({ message: 'Post approved and ready to schedule', status: 'ready_to_post' });
   } catch (err) {
     next(err);
   }
@@ -412,17 +412,16 @@ async function rejectPost(req, res, next) {
 
 // ---------------------------------------------------------------------
 // Scheduling: a ready_to_post item is published automatically at the chosen time.
+// Instagram must be connected here (and is checked again at publish time).
 // ---------------------------------------------------------------------
-const MAX_SCHEDULE_AHEAD_DAYS = 365;
-
 async function schedulePost(req, res, next) {
   try {
     const post = await postModel.getPostById(req.params.id, req.userId);
     if (!post) return res.status(404).json({ error: 'Post not found.' });
-    if (!post.image_url && !post.video_url) return res.status(400).json({ error: 'This post has no image or video yet, so it cannot be scheduled.' });
+    if (!post.image_url && !post.video_url) {
+      return res.status(400).json({ error: 'This post has no image or video yet, so it cannot be scheduled.' });
+    }
 
-    // The browser sends the time it picked as an ISO/UTC string, so the time zone
-    // of the person is already handled. ("when" is accepted too, for older callers.)
     const raw = req.body && (req.body.scheduledAt || req.body.when);
     if (!raw) return res.status(400).json({ error: 'Pick a date and time first.' });
     const when = new Date(raw);
@@ -434,6 +433,8 @@ async function schedulePost(req, res, next) {
       return res.status(400).json({ error: 'Please choose a date within the next year.' });
     }
 
+    if (!(await ensureInstagramConnected(req.userId, res, post.id))) return;
+
     await postModel.schedulePostAt(post.id, req.userId, when.toISOString());
     res.json({ message: 'Scheduled', id: post.id, status: 'scheduled', scheduled_at: when.toISOString() });
   } catch (err) {
@@ -444,12 +445,7 @@ async function schedulePost(req, res, next) {
 async function unschedulePost(req, res, next) {
   try {
     await postModel.unschedulePost(req.params.id, req.userId);
-    const updated = await postModel.getPostById(req.params.id, req.userId);
-    res.json({
-      message: 'Schedule cancelled',
-      id: Number(req.params.id),
-      status: updated ? updated.status : 'generated'
-    });
+    res.json({ message: 'Schedule cancelled', id: Number(req.params.id), status: 'ready_to_post' });
   } catch (err) {
     next(err);
   }
@@ -470,6 +466,8 @@ async function reschedulePost(req, res, next) {
       return res.status(400).json({ error: 'Please choose a date within the next year.' });
     }
 
+    if (!(await ensureInstagramConnected(req.userId, res, req.params.id))) return;
+
     await scheduleStore.reschedulePost(req.params.id, req.userId, when.toISOString());
     res.json({
       message: 'Schedule updated',
@@ -484,6 +482,8 @@ async function reschedulePost(req, res, next) {
 
 async function retryScheduledPost(req, res, next) {
   try {
+    if (!(await ensureInstagramConnected(req.userId, res, req.params.id))) return;
+
     await postModel.requeueFailedPost(req.params.id, req.userId);
     res.json({ message: 'Queued for retry', id: Number(req.params.id), status: 'scheduled' });
   } catch (err) {
@@ -547,12 +547,15 @@ function escapeHtml(text) {
     .replace(/"/g, '&quot;');
 }
 
-function renderEmailResultPage(res, { success, message }) {
+function renderEmailResultPage(res, { success, message, link }) {
+  const button = link
+    ? `<p><a href="${escapeHtml(link.href)}" style="display:inline-block;background:#f97316;color:#fff;padding:12px 22px;border-radius:10px;font-weight:700;text-decoration:none;">${escapeHtml(link.label)}</a></p>`
+    : '<p>You can close this tab now.</p>';
   res.send(`
     <html><head><meta charset="utf-8"><title>KwikPost</title></head>
     <body style="font-family: Arial, sans-serif; text-align: center; padding: 60px;">
       <h2 style="color: ${success ? '#2ecc71' : '#e74c3c'};">${success ? '✅' : '⚠️'} ${escapeHtml(message)}</h2>
-      <p>You can close this tab now.</p>
+      ${button}
     </body></html>
   `);
 }
@@ -562,6 +565,18 @@ async function approvePostViaEmail(req, res) {
     const { token } = req.query;
     const payload = jwt.verify(token, config.jwtSecret);
     if (payload.action !== 'approve') throw new Error('Invalid token action');
+
+    // No Instagram yet: leave the post as a draft and send the user to connect it.
+    if (!(await userModel.isInstagramConnected(payload.userId))) {
+      return renderEmailResultPage(res, {
+        success: false,
+        message: 'Connect your Instagram account first, then approve this post.',
+        link: {
+          href: `/index.html?needs_instagram=1&postId=${Number(payload.postId)}`,
+          label: 'Open dashboard and connect Instagram'
+        }
+      });
+    }
 
     await postModel.markReadyToPost(payload.postId, payload.userId);
     renderEmailResultPage(res, {

@@ -127,8 +127,17 @@ function campaignPayload(v) {
 })();
 
 // ===== INSTAGRAM =====
-function connectInstagram() {
-  window.location.href = '/api/instagram/auth/start?token=' + encodeURIComponent(getToken());
+async function connectInstagram() {
+  try {
+    const d = await api('/api/instagram/connect-url', {
+      method: 'POST',
+      body: JSON.stringify({ returnTo: '/index.html' })
+    });
+    if (!d || !d.url) throw new Error('No connection link returned');
+    window.location.href = d.url;
+  } catch (err) {
+    alert('Could not start Instagram connection: ' + err.message);
+  }
 }
 
 async function disconnectInstagram() {

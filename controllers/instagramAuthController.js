@@ -5,95 +5,101 @@ const userModel = require('../models/userModel');
 
 const GRAPH_BASE = `https://graph.facebook.com/${config.facebook.graphApiVersion}`;
 
-// Step 1: User clicks "Connect Instagram"
-async function startConnect(req, res) {
+const SCOPES = [
+  'instagram_basic',
+  'instagram_content_publish',
+  'pages_show_list',
+  'pages_read_engagement',
+  'business_management'
+].join(',');
+
+// Only these pages may be returned to after Facebook (prevents open redirects)
+const ALLOWED_RETURN = ['/index.html', '/reels.html'];
+
+function safeReturnPath(value) {
+  return ALLOWED_RETURN.includes(value) ? value : '/index.html';
+}
+
+// Redirect back to the page the user came from, with query params (empty values are skipped)
+function backToDashboard(res, params, base = '/index.html') {
+  const qs = new URLSearchParams(
+    Object.fromEntries(Object.entries(params).filter(([, v]) => v != null && v !== ''))
+  ).toString();
+  return res.redirect(base + '?' + qs);
+}
+
+/**
+ * Step 1: the frontend calls this (POST, logged in) and then sends the browser
+ * to the returned URL. The login token never appears in a URL, and there is
+ * no default-user fallback: only a logged-in user can connect.
+ */
+async function getConnectUrl(req, res, next) {
   try {
-    let userId = null;
+    const postId = req.body && req.body.postId ? Number(req.body.postId) : null;
+    const returnTo = safeReturnPath(req.body && req.body.returnTo);
 
-    // 1. Try token from query parameter
-    if (req.query.token) {
-      try {
-        const decoded = jwt.verify(req.query.token, config.jwtSecret);
-        userId = decoded.userId;
-        console.log(`[instagramAuth] User ${userId} starting Instagram connection via query token`);
-      } catch (err) {
-        console.error('[instagramAuth] Invalid token in query:', err.message);
-      }
-    }
+    // purpose stops a normal login token from being accepted as OAuth state
+    const state = jwt.sign(
+      { userId: req.userId, postId, returnTo, purpose: 'ig_connect' },
+      config.jwtSecret,
+      { expiresIn: '15m' }
+    );
 
-    // 2. Fallback: Authorization header
-    if (!userId && req.headers.authorization?.startsWith('Bearer ')) {
-      try {
-        const token = req.headers.authorization.split(' ')[1];
-        const decoded = jwt.verify(token, config.jwtSecret);
-        userId = decoded.userId;
-        console.log(`[instagramAuth] User ${userId} starting Instagram connection via Bearer token`);
-      } catch (err) {
-        console.error('[instagramAuth] Invalid Bearer token:', err.message);
-      }
-    }
-
-    // 3. Last fallback - default user
-    if (!userId) {
-      const defaultUser = await userModel.getOrCreateDefaultUser();
-      userId = defaultUser.id;
-      console.log(`[instagramAuth] Using default user ${userId} for Instagram connection`);
-    }
-
-    // 4. Create signed state JWT
-    const state = jwt.sign({ userId }, config.jwtSecret, { expiresIn: '15m' });
-
-    // 5. Define permission scopes
-    const scopes = [
-      'instagram_basic',
-      'instagram_content_publish',
-      'pages_show_list',
-      'pages_read_engagement',
-      'business_management'
-    ].join(',');
-
-    // 6. Build Facebook OAuth URL
-    const authUrl = `https://www.facebook.com/${config.facebook.graphApiVersion}/dialog/oauth?` +
+    const url =
+      `https://www.facebook.com/${config.facebook.graphApiVersion}/dialog/oauth?` +
       `client_id=${config.facebook.appId}` +
       `&redirect_uri=${encodeURIComponent(config.facebook.redirectUri)}` +
-      `&scope=${encodeURIComponent(scopes)}` +
+      `&scope=${encodeURIComponent(SCOPES)}` +
       `&state=${state}` +
       `&response_type=code`;
 
-    console.log(`[instagramAuth] Redirecting user ${userId} to Facebook OAuth`);
-    res.redirect(authUrl);
+    console.log(`[instagramAuth] User ${req.userId} starting connection (postId: ${postId})`);
+    res.json({ url });
   } catch (err) {
-    console.error('[instagramAuth] startConnect error:', err.message, err.stack);
-    res.redirect('/index.html?instagram_error=Unable+to+start+connection');
+    console.error('[instagramAuth] getConnectUrl error:', err.message);
+    next(err);
   }
 }
 
 /**
- * Step 2: Facebook redirects back here with authorization code
+ * Step 2: Facebook redirects back here with the authorization code.
+ * There is no login header on this request, so the user is identified
+ * from the signed state.
  */
 async function handleCallback(req, res) {
   const { code, state, error, error_description } = req.query;
 
-  // Handle OAuth errors from Facebook
+  // Verify state first, so we always know the user and the post to return to
+  let userId;
+  let postId;
+  let returnTo = '/index.html';
+  try {
+    const decoded = jwt.verify(state, config.jwtSecret);
+    if (decoded.purpose !== 'ig_connect') throw new Error('Wrong token purpose');
+    userId = decoded.userId;
+    postId = decoded.postId || null;
+    returnTo = safeReturnPath(decoded.returnTo);
+    console.log(`[instagramAuth] State verified for user ${userId}`);
+  } catch (err) {
+    console.error('[instagramAuth] State verification failed:', err.message);
+    return backToDashboard(res, {
+      instagram_error: 'Invalid or expired connection request. Please try again.'
+    });
+  }
+
+  const back = params => backToDashboard(res, params, returnTo);
+
+  // The user pressed Cancel, or Facebook returned an error
   if (error) {
-    const errorMsg = error_description || error;
-    console.error('[instagramAuth] OAuth error from Facebook:', errorMsg);
-    return res.redirect(`/index.html?instagram_error=${encodeURIComponent(errorMsg)}`);
+    console.warn('[instagramAuth] OAuth error from Facebook:', error_description || error);
+    if (error === 'access_denied') {
+      return back({ instagram_cancelled: 1, postId });
+    }
+    return back({ instagram_error: error_description || error, postId });
   }
 
   try {
-    // 1. Verify and decode state token to get userId
-    let userId;
-    try {
-      const decoded = jwt.verify(state, config.jwtSecret);
-      userId = decoded.userId;
-      console.log(`[instagramAuth] State verified for user ${userId}`);
-    } catch (err) {
-      console.error('[instagramAuth] State verification failed:', err.message);
-      return res.redirect('/index.html?instagram_error=Invalid+or+expired+connection+request');
-    }
-
-    // 2. Exchange authorization code for short-lived access token
+    // 1. Authorization code -> short-lived token
     console.log('[instagramAuth] Exchanging code for short-lived token...');
     const shortTokenRes = await axios.get(`${GRAPH_BASE}/oauth/access_token`, {
       params: {
@@ -103,12 +109,11 @@ async function handleCallback(req, res) {
         code
       }
     });
-
     if (!shortTokenRes.data.access_token) {
       throw new Error('No access_token in short-lived token response');
     }
 
-    // 3. Exchange short-lived token for long-lived user token
+    // 2. Short-lived -> long-lived user token
     console.log('[instagramAuth] Exchanging for long-lived token...');
     const longTokenRes = await axios.get(`${GRAPH_BASE}/oauth/access_token`, {
       params: {
@@ -118,16 +123,12 @@ async function handleCallback(req, res) {
         fb_exchange_token: shortTokenRes.data.access_token
       }
     });
-
     if (!longTokenRes.data.access_token) {
       throw new Error('No access_token in long-lived token response');
     }
-
     const longLivedUserToken = longTokenRes.data.access_token;
-    console.log('[instagramAuth] Successfully obtained long-lived user token');
 
-    // 4. Fetch Facebook Pages
-    console.log('[instagramAuth] Fetching Facebook pages...');
+    // 3. Facebook Pages
     let pages = [];
     try {
       const pagesRes = await axios.get(`${GRAPH_BASE}/me/accounts`, {
@@ -142,42 +143,31 @@ async function handleCallback(req, res) {
       console.warn('[instagramAuth] /me/accounts error:', e.response?.data?.error?.message || e.message);
     }
 
-    // 5. Fallback: Try Business Portfolio if no pages found
+    // 4. Fallback: pages from a Business Portfolio
     if (pages.length === 0) {
       console.log('[instagramAuth] Fallback: Checking /me/businesses...');
       try {
         const bizRes = await axios.get(`${GRAPH_BASE}/me/businesses`, {
           params: {
-            fields: 'id,name,owned_pages{id,name,access_token,instagram_business_account},client_pages{id,name,access_token,instagram_business_account}',
+            fields:
+              'id,name,owned_pages{id,name,access_token,instagram_business_account},client_pages{id,name,access_token,instagram_business_account}',
             access_token: longLivedUserToken
           }
         });
-
-        const businesses = bizRes.data.data || [];
-        console.log(`[instagramAuth] Found ${businesses.length} businesses`);
-        
-        for (const biz of businesses) {
-          if (biz.owned_pages?.data) {
-            pages.push(...biz.owned_pages.data);
-            console.log(`[instagramAuth] Added ${biz.owned_pages.data.length} owned pages from business ${biz.name}`);
-          }
-          if (biz.client_pages?.data) {
-            pages.push(...biz.client_pages.data);
-            console.log(`[instagramAuth] Added ${biz.client_pages.data.length} client pages from business ${biz.name}`);
-          }
+        for (const biz of bizRes.data.data || []) {
+          if (biz.owned_pages?.data) pages.push(...biz.owned_pages.data);
+          if (biz.client_pages?.data) pages.push(...biz.client_pages.data);
         }
       } catch (e) {
         console.error('[instagramAuth] /me/businesses error:', e.response?.data || e.message);
       }
     }
 
-    // 6. Find a page with Instagram Business Account
-    console.log('[instagramAuth] Searching for Instagram Business Account...');
+    // 5. Find a page that has an Instagram Business account
     let selectedPage = null;
     let igBusinessAccountId = null;
     let pageAccessToken = null;
 
-    // First try: Check pages that already have instagram_business_account field
     for (const page of pages) {
       if (page.instagram_business_account?.id) {
         selectedPage = page;
@@ -188,9 +178,8 @@ async function handleCallback(req, res) {
       }
     }
 
-    // Fallback: Query each page individually
-    if (!igBusinessAccountId && pages.length > 0) {
-      console.log('[instagramAuth] Fallback: Querying pages individually for IG account...');
+    // Fallback: ask each page individually
+    if (!igBusinessAccountId) {
       for (const page of pages) {
         try {
           const igAccountRes = await axios.get(`${GRAPH_BASE}/${page.id}`, {
@@ -199,12 +188,11 @@ async function handleCallback(req, res) {
               access_token: page.access_token || longLivedUserToken
             }
           });
-
           if (igAccountRes.data.instagram_business_account?.id) {
             selectedPage = page;
             igBusinessAccountId = igAccountRes.data.instagram_business_account.id;
             pageAccessToken = page.access_token || longLivedUserToken;
-            console.log(`[instagramAuth] Found IG account ${igBusinessAccountId} on page "${page.name}" (via individual query)`);
+            console.log(`[instagramAuth] Found IG account ${igBusinessAccountId} on page "${page.name}" (individual query)`);
             break;
           }
         } catch (e) {
@@ -213,50 +201,44 @@ async function handleCallback(req, res) {
       }
     }
 
-    // 7. Verify we found an Instagram Business Account
     if (!igBusinessAccountId || !selectedPage) {
-      console.error('[instagramAuth] No Instagram Business Account found on any page');
-      console.error('[instagramAuth] Pages found:', pages.map(p => ({ id: p.id, name: p.name })));
-      return res.redirect('/index.html?instagram_error=' + encodeURIComponent(
-        'No Instagram Business Account found. Make sure your Facebook Page is linked to an Instagram Business or Creator account.'
-      ));
+      console.error('[instagramAuth] No Instagram Business Account found. Pages:',
+        pages.map(p => ({ id: p.id, name: p.name })));
+      return back({
+        instagram_error:
+          'No Instagram Business Account found. Make sure your Facebook Page is linked to an Instagram Business or Creator account.',
+        postId
+      });
     }
 
-    // 8. Get Instagram page name
+    // 6. Display name
     let igPageName = selectedPage.name || 'Unknown';
     try {
       const igNameRes = await axios.get(`${GRAPH_BASE}/${igBusinessAccountId}`, {
-        params: {
-          fields: 'name',
-          access_token: pageAccessToken
-        }
+        params: { fields: 'name', access_token: pageAccessToken }
       });
-      if (igNameRes.data.name) {
-        igPageName = igNameRes.data.name;
-        console.log(`[instagramAuth] Instagram page name: ${igPageName}`);
-      }
+      if (igNameRes.data.name) igPageName = igNameRes.data.name;
     } catch (e) {
-      console.warn('[instagramAuth] Could not get Instagram page name:', e.message);
+      console.warn('[instagramAuth] Could not get Instagram name:', e.message);
     }
 
-    // 9. Save Instagram connection to database
-    console.log(`[instagramAuth] Saving connection for user ${userId}...`);
-    const connectionData = {
+    // 7. Save the connection for this user
+    await userModel.saveInstagramConnection(userId, {
       accessToken: pageAccessToken,
       businessAccountId: igBusinessAccountId,
       pageName: igPageName
-    };
+    });
+    console.log(`[instagramAuth] ✅ Saved Instagram connection for user ${userId}`);
 
-    await userModel.saveInstagramConnection(userId, connectionData);
-    console.log(`[instagramAuth] ✅ Successfully saved Instagram connection for user ${userId}`);
-
-    // 10. Redirect to dashboard with success
-    res.redirect('/index.html?instagram_connected=1');
+    // 8. Back to the page the user started from, to the same post
+    return back({ instagram_connected: 1, postId });
   } catch (err) {
     const detail = err.response?.data ? JSON.stringify(err.response.data) : err.message;
     console.error('[instagramAuth] Connection failed:', detail);
-    console.error('[instagramAuth] Full error:', err);
-    res.redirect('/index.html?instagram_error=' + encodeURIComponent('Connection failed: ' + err.message));
+    return back({
+      instagram_error: 'Connection failed: ' + (err.response?.data?.error?.message || err.message),
+      postId
+    });
   }
 }
 
@@ -267,7 +249,6 @@ async function disconnect(req, res, next) {
   try {
     console.log(`[instagramAuth] Disconnecting Instagram for user ${req.userId}...`);
     await userModel.disconnectInstagram(req.userId);
-    console.log(`[instagramAuth] ✅ Instagram disconnected for user ${req.userId}`);
     res.json({ message: 'Instagram account disconnected successfully' });
   } catch (err) {
     console.error('[instagramAuth] Disconnect error:', err.message);
@@ -276,19 +257,11 @@ async function disconnect(req, res, next) {
 }
 
 /**
- * Get Instagram connection status
+ * Get Instagram connection status (never returns the token)
  */
 async function getStatus(req, res, next) {
   try {
-    const user = await userModel.getUserById(req.userId);
-    
-    const status = {
-      connected: !!user.instagram_access_token,
-      businessAccountId: user.instagram_business_account_id || null,
-      pageName: user.instagram_page_name || null
-    };
-
-    console.log(`[instagramAuth] Status check for user ${req.userId}:`, status);
+    const status = await userModel.getInstagramStatus(req.userId);
     res.json(status);
   } catch (err) {
     console.error('[instagramAuth] Status check error:', err.message);
@@ -296,4 +269,4 @@ async function getStatus(req, res, next) {
   }
 }
 
-module.exports = { startConnect, handleCallback, disconnect, getStatus };
+module.exports = { getConnectUrl, handleCallback, disconnect, getStatus };
