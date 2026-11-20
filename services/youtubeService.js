@@ -34,8 +34,12 @@ async function uploadShort({ tokens, filePath, title, description, privacy, publ
   client.setCredentials(tokens);
   const youtube = google.youtube({ version: 'v3', auth: client });
 
-  let shortTitle = String(title || 'Short').trim();
-  if (!/#shorts/i.test(shortTitle)) shortTitle += ' #Shorts';
+  // The title stays clean. A hashtag in the title would replace the ones
+  // shown above it, so #Shorts goes into the description instead.
+  const shortTitle = String(title || 'Short').replace(/#shorts/gi, '').replace(/\s+/g, ' ').trim() || 'Short';
+
+  let fullDescription = String(description || '').trim();
+  if (!/#shorts/i.test(fullDescription)) fullDescription += '\n\n#Shorts';
 
   const status = {
     privacyStatus: publishAt ? 'private' : (privacy || 'private'),
@@ -48,7 +52,7 @@ async function uploadShort({ tokens, filePath, title, description, privacy, publ
     requestBody: {
       snippet: {
         title: shortTitle.slice(0, 100),
-        description: String(description || '') + '\n\n#Shorts',
+        description: fullDescription.slice(0, 5000),
         categoryId: '22'
       },
       status: status

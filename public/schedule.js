@@ -100,8 +100,9 @@
     }
   };
 
-  window.schedulePost = function (postId) {
-    openSchedulePopup(postId);
+  // Optional second argument: the day (a Date) the post should go on.
+  window.schedulePost = function (postId, day) {
+    openSchedulePopup(postId, day);
   };
 
   window.unschedulePost = async function (postId) {
@@ -146,6 +147,58 @@
       ':' +
       pad(date.getMinutes())
     );
+  }
+
+  // ── default times ─────────────────────────────────────────────────────────
+  // First post of a day: 11:00 AM. Second: 5:00 PM. After that we ask.
+  const SLOT_HOURS = [11, 17];
+
+  // A stored time with no zone is UTC (same rule as the calendar).
+  function parseStamp(value) {
+    if (!value) return null;
+    let text = String(value).trim().replace(' ', 'T');
+    if (!/(Z|[+-]\d{2}:\d{2})$/i.test(text)) text += 'Z';
+    const d = new Date(text);
+    return Number.isNaN(d.getTime()) ? null : d;
+  }
+
+  function sameDay(a, b) {
+    return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+  }
+
+  // Times (Dates) of everything already scheduled, for all post types.
+  window.kwikLoadScheduledTimes = async function () {
+    const data = await api('/api/posts?_=' + Date.now());
+    const posts = Array.isArray(data) ? data : ((data && data.posts) || []);
+    return posts
+      .filter((p) => p.status === 'scheduled' && p.scheduled_at)
+      .map((p) => parseStamp(p.scheduled_at))
+      .filter(Boolean);
+  };
+
+  // The default time on `day`, or null when 11 AM and 5 PM are taken or past.
+  window.kwikPickSlot = function (day, times) {
+    for (const hour of SLOT_HOURS) {
+      if ((times || []).some((t) => sameDay(t, day) && t.getHours() === hour)) continue;
+      const candidate = new Date(day.getFullYear(), day.getMonth(), day.getDate(), hour, 0, 0, 0);
+      if (candidate.getTime() > Date.now() + 2 * 60000) return candidate;
+    }
+    return null;
+  };
+
+  // The first default time from today on.
+  function pickFirstSlot(times) {
+    for (let offset = 0; offset < 120; offset++) {
+      const day = new Date();
+      day.setDate(day.getDate() + offset);
+      const slot = window.kwikPickSlot(day, times);
+      if (slot) return slot;
+    }
+    return null;
+  }
+
+  function timeLabel(d) {
+    return d.toLocaleString(undefined, { weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' });
   }
 
   // ── popup UI ─────────────────────────────────────────────────────────────
@@ -270,18 +323,46 @@
     return popupEl;
   }
 
-  function openSchedulePopup(postId) {
+  async function openSchedulePopup(postId, day) {
     currentPostId = postId;
     const el = ensurePopup();
     const input = document.getElementById('kwik-sched-input');
     const feedback = el.querySelector('.kwik-sched-feedback');
-    feedback.textContent = '';
     feedback.classList.remove('error');
-    // default: tomorrow 9:00 AM
-    let def = atLocal(9, 0, 1);
-    if (def.getTime() < Date.now()) def = atLocal(9, 0, 2);
-    input.value = toDatetimeLocalValue(def);
+    feedback.textContent = 'Finding a free time…';
+    input.value = '';
     el.classList.add('open');
+
+    let times = [];
+    try { times = await window.kwikLoadScheduledTimes(); } catch (_) {}
+    if (currentPostId !== postId) return; // closed while loading
+
+    // A chosen day in the past is ignored.
+    let chosen = day instanceof Date && !Number.isNaN(day.getTime()) ? day : null;
+    if (chosen) {
+      const endOfDay = new Date(chosen.getFullYear(), chosen.getMonth(), chosen.getDate(), 23, 59, 59);
+      if (endOfDay.getTime() < Date.now()) chosen = null;
+    }
+
+    if (chosen) {
+      const slot = window.kwikPickSlot(chosen, times);
+      if (slot) {
+        input.value = toDatetimeLocalValue(slot);
+        feedback.textContent = 'Default time: ' + timeLabel(slot) + '. You can change it.';
+      } else {
+        // 11 AM and 5 PM are taken (or past): ask for a time.
+        input.value = toDatetimeLocalValue(new Date(chosen.getFullYear(), chosen.getMonth(), chosen.getDate(), 20, 0));
+        feedback.textContent = 'This day already has its 11:00 AM and 5:00 PM posts. Choose a time, then press Schedule.';
+      }
+    } else {
+      const slot = pickFirstSlot(times);
+      if (slot) {
+        input.value = toDatetimeLocalValue(slot);
+        feedback.textContent = 'Default time: ' + timeLabel(slot) + '. You can change it.';
+      } else {
+        feedback.textContent = 'Pick a date and time.';
+      }
+    }
   }
 
   function closePopup() {
