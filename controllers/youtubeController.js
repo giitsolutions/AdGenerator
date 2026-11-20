@@ -26,8 +26,44 @@ function tokensOf(acc) {
   return { access_token: acc.access_token, refresh_token: acc.refresh_token, expiry_date: acc.expiry_date };
 }
 
+// The whole headline: both parts ("Unlock Your" + "Best Workout").
 function titleOf(post) {
-  return (post.headline_main || post.caption || 'Short').split('\n')[0];
+  const main = String(post.headline_main || '').trim();
+  const accent = String(post.headline_accent || '').trim();
+  // Do not repeat the accent if the main part already ends with it.
+  const headline = accent && !main.toLowerCase().endsWith(accent.toLowerCase())
+    ? (main + ' ' + accent).trim()
+    : (main || accent);
+  return (headline || post.caption || 'Short').split('\n')[0];
+}
+
+// The saved hashtags as a clean list like ['#gym', '#treadmill'].
+function hashtagsOf(post) {
+  let raw = post.hashtags;
+  if (typeof raw === 'string') {
+    try { raw = JSON.parse(raw); } catch (_) { raw = raw.split(/[\s,]+/); }
+  }
+  if (!Array.isArray(raw)) raw = [];
+  const seen = new Set();
+  const out = [];
+  raw.forEach((item) => {
+    const word = String(item || '').replace(/[^\p{L}\p{N}_]/gu, '');
+    if (!word || seen.has(word.toLowerCase())) return;
+    seen.add(word.toLowerCase());
+    out.push('#' + word);
+  });
+  return out;
+}
+
+// Caption + hashtags. YouTube ignores ALL hashtags when there are more than 15,
+// so at most 14 are added here and #Shorts is the 15th.
+function descriptionOf(post) {
+  const caption = String(post.caption || '').trim();
+  const inCaption = new Set((caption.match(/#[\p{L}\p{N}_]+/gu) || []).map((t) => t.toLowerCase()));
+  const extra = hashtagsOf(post).filter((tag) => !inCaption.has(tag.toLowerCase()));
+  const room = Math.max(0, 14 - inCaption.size);
+  const tags = extra.slice(0, room);
+  return tags.length ? caption + '\n\n' + tags.join(' ') : caption;
 }
 
 exports.connectUrl = function (req, res) {
@@ -80,7 +116,7 @@ exports.upload = async function (req, res) {
       tokens: tokensOf(found.acc),
       filePath: found.filePath,
       title: titleOf(found.post),
-      description: found.post.caption || '',
+      description: descriptionOf(found.post),
       privacy: NOW_PRIVACY
     });
 
@@ -111,7 +147,7 @@ exports.schedule = async function (req, res) {
       tokens: tokensOf(found.acc),
       filePath: found.filePath,
       title: titleOf(found.post),
-      description: found.post.caption || '',
+      description: descriptionOf(found.post),
       privacy: 'private',
       publishAt: publishAt
     });

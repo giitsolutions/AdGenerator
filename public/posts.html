@@ -211,7 +211,7 @@
 
         <aside class="cal-side" aria-label="Day details and draft posts">
           <div class="tabs" role="tablist">
-            <button type="button" class="on" data-tab-group="calside" data-tab="day" id="calDayTab">Select a day</button>
+            <button type="button" class="on" data-tab-group="calside" data-tab="day" id="calDayTab">Today</button>
             <button type="button" data-tab-group="calside" data-tab="ready">Drafts <span class="count-badge" id="calReadyCount">0</span></button>
           </div>
 
@@ -340,7 +340,17 @@
   var SELECTED_CAMPAIGN_KEY = 'kwik-selected-campaign';
   var LEGACY_REEL_CAMPAIGN_KEY = 'kwik-reel-campaign';
   var MAX_MB = 100; // the server's REEL_MAX_MB default; the server enforces the real limit
-  var SCHEDULE_HOUR = 10; // 10:00 AM in the time zone of this browser
+  var SCHEDULE_HOUR = 11; // first post of a day: 11:00 AM (second 5:00 PM, a third asks for a time)
+  var selectedDay = new Date(); // the day shown in the calendar side tab
+  function sameDayAs(a, b) {
+    return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+  }
+  function setSelectedDay(day) {
+    if (!(day instanceof Date) || Number.isNaN(day.getTime())) return;
+    selectedDay = day;
+    var tab = $('calDayTab');
+    if (tab) tab.textContent = day.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
+  }
   var $ = function (id) { return document.getElementById(id); };
 
   function getToken() { return localStorage.getItem('authToken') || localStorage.getItem('token') || ''; }
@@ -680,7 +690,7 @@
         pendingText: 'Posting to Instagram… this can take a minute. Keep this page open.'
       });
       addVideoAction(card, actions, post, 'Schedule', function () {
-        if (typeof window.schedulePost === 'function') window.schedulePost(post.id);
+        if (typeof window.schedulePost === 'function') window.schedulePost(post.id, selectedDay);
         return Promise.resolve();
       }, { secondary: true, refresh: false });
       addVideoAction(card, actions, post, 'Reject', function () {
@@ -860,7 +870,7 @@
       btn.className = 'secondary';
       btn.textContent = 'Schedule';
       btn.addEventListener('click', function () {
-        if (typeof window.schedulePost === 'function') window.schedulePost(post.id);
+        if (typeof window.schedulePost === 'function') window.schedulePost(post.id, selectedDay);
       });
       copy.appendChild(title); copy.appendChild(meta); copy.appendChild(btn);
       row.appendChild(copy);
@@ -872,26 +882,25 @@
     document.querySelectorAll('.drop-target').forEach(function (n) { n.classList.remove('drop-target'); });
   }
 
-  // 10:00 AM on the dropped day, or the next free hour if that day already has a video.
+  // Dropped on a day: 11:00 AM, then 5:00 PM; if both are taken, the popup asks for a time.
   async function scheduleReadyOnDay(postId, day) {
-    var now = new Date();
     var endOfDay = new Date(day.getFullYear(), day.getMonth(), day.getDate(), 23, 59, 59);
-    if (endOfDay.getTime() < now.getTime()) { readyNote('Choose today or a later day.', true); return; }
+    if (endOfDay.getTime() < Date.now()) { readyNote('Choose today or a later day.', true); return; }
 
-    var usedHours = {};
+    var times = [];
     allPosts.forEach(function (p) {
-      if (p.status === 'scheduled' && p.scheduled_at) {
-        var d = parseStamp(p.scheduled_at);
-        if (d && dayKey(d) === dayKey(day)) usedHours[d.getHours()] = true;
-      }
+      if (p.status === 'scheduled' && p.scheduled_at) { var d = parseStamp(p.scheduled_at); if (d) times.push(d); }
     });
-    var when = null;
-    for (var h = SCHEDULE_HOUR; h < 24 && !when; h++) {
-      if (usedHours[h]) continue;
-      var candidate = new Date(day.getFullYear(), day.getMonth(), day.getDate(), h, 0, 0, 0);
-      if (candidate.getTime() > now.getTime() + 2 * 60000) when = candidate;
+    if (typeof window.kwikLoadScheduledTimes === 'function') {
+      try { times = times.concat(await window.kwikLoadScheduledTimes()); } catch (e) {}
     }
-    if (!when) { readyNote('That day has no free time left. Choose a later day.', true); return; }
+    var when = typeof window.kwikPickSlot === 'function' ? window.kwikPickSlot(day, times) : null;
+    if (!when) {
+      // 11 AM and 5 PM are taken: ask for a time
+      readyNote('');
+      if (typeof window.schedulePost === 'function') window.schedulePost(postId, day);
+      return;
+    }
 
     readyNote('Scheduling…');
     try {
@@ -933,11 +942,18 @@
       activateTab('calside', 'day');
       var q = String(cell.dataset.calendarDay).split('-').map(Number);
       var picked = new Date(q[0], q[1] - 1, q[2]);
-      if (!Number.isNaN(picked.getTime())) {
-        $('calDayTab').textContent = picked.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
-      }
+      setSelectedDay(picked);
     });
+    // the calendar selects today by itself and shows its date in the details title
+    var detailsTitle = calRoot.querySelector('[data-calendar-details-title]');
+    if (detailsTitle) {
+      new MutationObserver(function () {
+        var d = new Date(detailsTitle.textContent);
+        if (!Number.isNaN(d.getTime())) setSelectedDay(d);
+      }).observe(detailsTitle, { childList: true, characterData: true, subtree: true });
+    }
   }
+  setSelectedDay(new Date());
   document.addEventListener('dragend', clearDropMarks);
 
   // ---- load the lists ------------------------------------------------------
