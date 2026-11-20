@@ -109,7 +109,7 @@ GET    /api/library                      list saved photos for slideshow generat
 netstat -ano | findstr :5000
 
 
-taskkill /PID 10660 /F
+taskkill /PID 20512 /F
 npm start
 
    ngrok config add-authtoken <new-token>
@@ -117,6 +117,10 @@ npm start
 https://drowsily-campus-setting.ngrok-free.dev
 https://gizzard-had-reassure.ngrok-free.dev
 SERVER NGROK - ngrok http 5000
+
+
+tailscale funnel 5000
+
 
 
 

@@ -6,6 +6,7 @@ const postModel = require('../models/postModel');
 const campaignModel = require('../models/campaignModel');
 const themeModel = require('../models/themeModel');
 const instagramService = require('../services/instagramService');
+const { publishStoryToInstagram } = require('../services/instagramStoryService');
 const themedPostService = require('../services/themedPostService');
 const config = require('../config/env');
 const userModel = require('../models/userModel');
@@ -442,6 +443,52 @@ async function schedulePost(req, res, next) {
   }
 }
 
+// ---------------------------------------------------------------------
+// Share a post or reel as an Instagram Story (POST /api/posts/:id/story)
+// ---------------------------------------------------------------------
+const postingStory = new Set();
+
+async function postStory(req, res, next) {
+  const key = `${req.userId}:${req.params.id}`;
+  try {
+    const post = await postModel.getPostById(req.params.id, req.userId);
+    if (!post) return res.status(404).json({ error: 'Post not found.' });
+    if (!post.image_url && !post.video_url) {
+      return res.status(400).json({ error: 'This item has no image or video to share as a Story.' });
+    }
+    // Same rule as Approve: no Instagram yet -> 409 so the Connect popup opens.
+    if (!(await ensureInstagramConnected(req.userId, res, post.id, 'share a Story of'))) return;
+
+    if (postingStory.has(key)) {
+      return res.status(409).json({ error: 'This Story is already being shared. Please wait a moment.' });
+    }
+    postingStory.add(key);
+
+    const instagramUser = await userModel.getUserWithInstagramToken(req.userId);
+    if (!instagramUser) {
+      return res.status(409).json({
+        code: 'INSTAGRAM_NOT_CONNECTED',
+        message: 'Connect your Instagram account to share a Story.',
+        postId: Number(post.id)
+      });
+    }
+
+    const isReel = post.content_type === 'reel' || post.media_type === 'reel' || !!post.video_url;
+    const result = await publishStoryToInstagram({
+      imageUrl: isReel ? null : post.image_url,
+      videoUrl: isReel ? post.video_url : null,
+      instagramBusinessAccountId: instagramUser.instagram_business_account_id,
+      accessToken: instagramUser.instagram_access_token
+    });
+    return res.json({ message: 'Shared to your Instagram Story', id: Number(post.id), ...result });
+  } catch (err) {
+    console.error('[postController] Story failed:', err.message);
+    return res.status(err.status || 502).json({ error: `Could not share the Story: ${err.message}` });
+  } finally {
+    postingStory.delete(key);
+  }
+}
+
 async function unschedulePost(req, res, next) {
   try {
     await postModel.unschedulePost(req.params.id, req.userId);
@@ -629,6 +676,7 @@ module.exports = {
   reschedulePost,
   unschedulePost,
   retryScheduledPost,
+  postStory,
   scheduleOverview,
   scheduleCalendar,
   performApproval,

@@ -1,7 +1,8 @@
 /* KwikPost - frontend logic
    Campaigns, posts, onboarding, theme, Edit text (opens edit.html),
    Claim now contact popup
-   + Schedule / auto-publish buttons */
+   + Schedule / auto-publish buttons
+   + Per-post topic (sent with Generate) */
 
 const CAMPAIGNS_API = '/api/campaigns';
 const POSTS_API     = '/api/posts';
@@ -128,6 +129,8 @@ function campaignPayload(v) {
 
 // ===== INSTAGRAM =====
 async function connectInstagram() {
+  window.location.href = '/instagram-setup.html';
+
   try {
     const d = await api('/api/instagram/connect-url', {
       method: 'POST',
@@ -395,16 +398,18 @@ function injectClaimButtons() {
   });
 }
 
-// ===== GENERATE =====
+// ===== GENERATE (with topic) =====
 function generatePost(evt) {
   return withBusy(btnOf(evt), async function () {
     const campaign_id = $('campaignSelect').value;
     if (!campaign_id) throw new Error('Create/select a campaign first');
 
     const photoId = $('genPhoto') ? $('genPhoto').value : '';
+    const topic = $('postTopic') ? $('postTopic').value.trim() : '';
+
     await api(CAMPAIGNS_API + '/' + encodeURIComponent(campaign_id) + '/generate', {
       method: 'POST',
-      body: JSON.stringify({ libraryImageId: photoId || null })
+      body: JSON.stringify({ libraryImageId: photoId || null, topic: topic })
     });
     await loadPosts();
   });
@@ -691,7 +696,8 @@ function scrollToSection(el) {
   el.classList.add('pulse');
   setTimeout(function () { el.classList.remove('pulse'); }, 1800);
 }
-function goToSection(id) {
+function goToSection(id)  {
+  if (id && id.charAt(0) === '/') { window.location.href = id; return; }
   const el = $(id);
   if (!el) return;
   if (typeof currentPage === 'function' && currentPage() !== 'main') {
@@ -712,7 +718,7 @@ function updateOnboarding() {
   const steps = [
     { title: 'Connect your Instagram', desc: 'Use a Business or Creator account linked to a Facebook Page.', done: onboard.connected, target: 'sec-connect', btn: 'Connect' },
     { title: 'Create your first campaign', desc: 'Tell us about your product, audience and tone.', done: onboard.campaigns > 0, target: 'sec-campaign', btn: 'Start' },
-    { title: 'Generate your first post', desc: 'Pick a campaign and let AI write the ad.', done: onboard.posts > 0, target: 'sec-generate', btn: 'Generate' },
+    { title: 'Generate your first post', desc: 'Type a topic and let AI write the ad.', done: onboard.posts > 0, target: 'sec-generate', btn: 'Generate' },
     { title: 'Approve a post', desc: 'Review it, approve it, then schedule publishing.', done: onboard.approved, target: 'sec-review', btn: 'Review' }
   ];
   const doneCount = steps.filter(function (s) { return s.done; }).length;

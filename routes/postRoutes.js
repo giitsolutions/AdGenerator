@@ -26,6 +26,7 @@ router.patch('/:id/schedule', requireAuth, postController.reschedulePost);
 router.post('/:id/unschedule', requireAuth, postController.unschedulePost);
 router.post('/:id/retry', requireAuth, postController.retryScheduledPost);
 router.post('/:id/back-to-generated', requireAuth, postController.movePostToGenerated);
+router.post('/:id/story', requireAuth, postController.postStory);
 router.post('/:id/approve', requireAuth, postController.approvePost);
 router.post('/:id/reject', requireAuth, postController.rejectPost);
 router.post('/:id/edit-link', requireAuth, editPostController.createEditLink);

@@ -1,6 +1,6 @@
 const axios = require('axios');
 const config = require('../config/env');
-const { ensurePublicImageUrl } = require('./imageService');
+const { ensurePublicImageUrl, renderStoryImage } = require('./imageService');
 
 function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
@@ -141,4 +141,69 @@ async function publishReelToInstagram({
   return { ok: true, mediaId: published.id, containerId: container.id };
 }
 
-module.exports = { publishToInstagram, publishReelToInstagram };
+/**
+ * Publishes an Instagram STORY (image or video). Stories take no caption.
+ *   mediaType: 'video' -> mediaUrl is a video (for example a reel, already 9:16)
+ *   mediaType: 'image' -> mediaUrl is any post image; it is turned into a
+ *                         tall 1080x1920 Story picture first.
+ * Only Instagram Business accounts can publish Stories through the API.
+ */
+async function publishStoryToInstagram({
+  mediaType,
+  mediaUrl,
+  instagramBusinessAccountId,
+  accessToken
+}) {
+  if (!instagramBusinessAccountId || !accessToken) {
+    throw new Error('Connect an Instagram Business account before publishing a Story');
+  }
+
+  const graphBase = `https://graph.facebook.com/${config.facebook.graphApiVersion}`;
+  const params = { media_type: 'STORIES', access_token: accessToken };
+
+  if (mediaType === 'video') {
+    params.video_url = publicVideoUrl(mediaUrl);
+  } else {
+    params.image_url = await renderStoryImage(mediaUrl);
+    console.log('[instagram] Story image:', params.image_url);
+  }
+
+  const container = await graphRequest('post', `${graphBase}/${instagramBusinessAccountId}/media`, params);
+  if (!container || !container.id) {
+    throw new Error('Instagram did not return a Story media container ID');
+  }
+
+  const deadline = Date.now() + config.reels.pollTimeoutMs;
+  let status;
+  do {
+    await sleep(config.reels.pollIntervalMs);
+    status = await graphRequest('get', `${graphBase}/${container.id}`, {
+      fields: 'status_code,status',
+      access_token: accessToken
+    });
+
+    if (status.status_code === 'ERROR' || status.status_code === 'EXPIRED') {
+      throw new Error(
+        'Instagram Story processing failed' +
+        (status.status ? ': ' + status.status : ' (' + status.status_code + ')')
+      );
+    }
+    if (status.status_code === 'FINISHED') break;
+  } while (Date.now() < deadline);
+
+  if (!status || status.status_code !== 'FINISHED') {
+    throw new Error('Timed out waiting for Instagram to finish processing the Story');
+  }
+
+  const published = await graphRequest('post', `${graphBase}/${instagramBusinessAccountId}/media_publish`, {
+    creation_id: container.id,
+    access_token: accessToken
+  });
+  if (!published || !published.id) {
+    throw new Error('Instagram did not confirm the Story publication');
+  }
+
+  return { ok: true, mediaId: published.id, containerId: container.id };
+}
+
+module.exports = { publishToInstagram, publishReelToInstagram, publishStoryToInstagram };

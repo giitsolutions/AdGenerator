@@ -3,6 +3,21 @@ const { getDb } = require('../db/connection');
 
 const DEFAULT_USER_EMAIL = 'local@localhost';
 
+// ====================== SCHEMA ======================
+
+/**
+ * Adds users.facebook_page_id once (safe to run on every start).
+ * It stores the Facebook Page that is linked to the Instagram account.
+ */
+async function ensureFacebookColumns() {
+  const db = await getDb();
+  const columns = await db.all('PRAGMA table_info(users)');
+  if (!columns.some(c => c.name === 'facebook_page_id')) {
+    await db.run('ALTER TABLE users ADD COLUMN facebook_page_id TEXT');
+    console.log('[userModel] Added users.facebook_page_id');
+  }
+}
+
 // ====================== USER CREATION & RETRIEVAL ======================
 
 /**
@@ -136,7 +151,7 @@ async function getUserById(id) {
 
 /**
  * Get user with Instagram token (sensitive data - internal use only)
- * Used when publishing posts to Instagram
+ * Used when publishing posts to Instagram (and the linked Facebook Page)
  */
 async function getUserWithInstagramToken(id) {
   try {
@@ -149,7 +164,8 @@ async function getUserWithInstagramToken(id) {
       `SELECT 
         id, 
         instagram_access_token, 
-        instagram_business_account_id 
+        instagram_business_account_id,
+        facebook_page_id
        FROM users 
        WHERE id = ?`,
       [id]
@@ -196,9 +212,9 @@ async function isInstagramConnected(userId) {
 }
 
 /**
- * Save Instagram connection for user
+ * Save Instagram connection for user (and the linked Facebook Page ID)
  */
-async function saveInstagramConnection(userId, { accessToken, businessAccountId, pageName }) {
+async function saveInstagramConnection(userId, { accessToken, businessAccountId, pageName, facebookPageId }) {
   try {
     if (!userId) throw new Error('User ID is required');
     if (!accessToken) throw new Error('Access token is required');
@@ -212,9 +228,10 @@ async function saveInstagramConnection(userId, { accessToken, businessAccountId,
       `UPDATE users
        SET instagram_access_token = ?, 
            instagram_business_account_id = ?, 
-           instagram_page_name = ?
+           instagram_page_name = ?,
+           facebook_page_id = ?
        WHERE id = ?`,
-      [accessToken, businessAccountId, pageName || 'Unknown', userId]
+      [accessToken, businessAccountId, pageName || 'Unknown', facebookPageId || null, userId]
     );
 
     if (result.changes === 0) {
@@ -245,7 +262,8 @@ async function disconnectInstagram(userId) {
       `UPDATE users
        SET instagram_access_token = NULL, 
            instagram_business_account_id = NULL, 
-           instagram_page_name = NULL
+           instagram_page_name = NULL,
+           facebook_page_id = NULL
        WHERE id = ?`,
       [userId]
     );
@@ -492,6 +510,9 @@ async function deleteUser(userId) {
 }
 
 module.exports = {
+  // Schema
+  ensureFacebookColumns,
+
   // User creation & retrieval
   getOrCreateDefaultUser,
   createUser,

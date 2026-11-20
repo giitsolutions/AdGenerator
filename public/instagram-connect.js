@@ -403,7 +403,7 @@
           'Update instagramAuthController.js and instagramAuthRoutes.js.'
         );
         window.location.assign(
-          '/api/instagram/auth/start?token=' + encodeURIComponent(token)
+          window.location.href = '/instagram-setup.html'
         );
         return;
       }
@@ -431,20 +431,34 @@
     startInstagramConnect(pendingPostId);
   });
 
-  // ----------------------------------------
+   // ----------------------------------------
   // Detect Instagram connection errors (409)
   // ----------------------------------------
+  function isInstagramNotConnected(data) {
+    if (!data) return false;
+    var code =
+      data.code ||
+      data.errorCode ||
+      (data.error && (data.error.code || data.error)) ||
+      '';
+    return String(code).toUpperCase() === 'INSTAGRAM_NOT_CONNECTED';
+  }
+
   window.fetch = async function () {
     var response = await originalFetch.apply(null, arguments);
 
     if (response.status === 409) {
       try {
         var data = await response.clone().json();
-        if (data && data.code === 'INSTAGRAM_NOT_CONNECTED') {
-          showConnectModal(data.postId || null);
+        console.log('[Instagram Connect] 409 body:', data); // remove once working
+
+        if (isInstagramNotConnected(data)) {
+          showConnectModal(
+            data.postId || (data.error && data.error.postId) || null
+          );
         }
       } catch (error) {
-        /* not JSON: not our error */
+        console.warn('[Instagram Connect] 409 body was not JSON:', error);
       }
     }
 

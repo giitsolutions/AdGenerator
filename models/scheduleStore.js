@@ -126,6 +126,7 @@ async function getDueScheduledPosts({ maxLateMs = 6 * 60 * 60 * 1000, maxAttempt
     SELECT *
     FROM posts
     WHERE status = 'scheduled'
+      AND (schedule_platform IS NULL OR schedule_platform != 'youtube')
       AND scheduled_at IS NOT NULL
       AND scheduled_at <= ?
       AND scheduled_at >= ?
@@ -150,6 +151,7 @@ async function getExpiredScheduledPosts({ maxLateMs = 6 * 60 * 60 * 1000 } = {})
     SELECT id, scheduled_at
     FROM posts
     WHERE status = 'scheduled'
+      AND (schedule_platform IS NULL OR schedule_platform != 'youtube')
       AND scheduled_at IS NOT NULL
       AND scheduled_at < ?
       AND (publish_lock_until IS NULL OR publish_lock_until <= ?)

@@ -49,7 +49,9 @@
       if (!token()) { location.href = '/login.html'; return; }
       // Existing backend route is GET /api/instagram/auth/start.
       // Some controllers redirect immediately; others return JSON {url}.
-      var url = '/api/instagram/auth/start?token=' + encodeURIComponent(token());
+      var url = '/instagram-setup.html';
+// then something like:
+window.location.href = url;
       var id = postId || pendingPostId;
       if (id != null) url += '&postId=' + encodeURIComponent(id);
       // Navigate to let the OAuth endpoint redirect to Facebook.

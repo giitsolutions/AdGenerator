@@ -1031,6 +1031,52 @@ async function createNewBackground({ photoKeywords, backgroundFile }) {
   await saveBackground(photo, backgroundFile);
 }
 
+// ---- Instagram Stories: a tall 1080x1920 picture made from any post image ----
+async function renderStoryImage(imageUrl) {
+  const url = String(imageUrl || '').trim();
+  if (!url) throw new Error('No image to turn into a Story');
+
+  let source;
+  if (/^https?:\/\//i.test(url)) {
+    const res = await axios.get(url, {
+      responseType: 'arraybuffer',
+      timeout: 60000,
+      headers: { 'ngrok-skip-browser-warning': 'true' }
+    });
+    source = await loadImage(Buffer.from(res.data));
+  } else {
+    const rel = url.replace(/^[\\/]+/, '').replace(/^public[\\/]/, '');
+    const filePath = path.join(__dirname, '../public', rel);
+    if (!fs.existsSync(filePath)) throw new Error('Local image not found: ' + filePath);
+    source = await loadImage(fs.readFileSync(filePath));
+  }
+
+  const W = 1080, H = 1920;
+  const canvas = createCanvas(W, H);
+  const ctx = canvas.getContext('2d');
+
+  // Blurred fill: shrink the picture and stretch it back up
+  const tiny = createCanvas(27, 48);
+  drawImageCover(tiny.getContext('2d'), source, 0, 0, 27, 48);
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(tiny, 0, 0, W, H);
+  ctx.fillStyle = 'rgba(0,0,0,0.35)';
+  ctx.fillRect(0, 0, W, H);
+
+  // The post itself, centred, clear of the Story's top and bottom buttons
+  const scale = Math.min(W / source.width, (H - 440) / source.height);
+  const w = source.width * scale;
+  const h = source.height * scale;
+  ctx.save();
+  ctx.shadowColor = 'rgba(0,0,0,0.5)';
+  ctx.shadowBlur = 30;
+  ctx.drawImage(source, (W - w) / 2, (H - h) / 2, w, h);
+  ctx.restore();
+
+  return uploadImage(canvas.toBuffer('image/jpeg', { quality: 0.92 }));
+}
+
 module.exports = {
   generateAndHostAdImage,
   renderFromBackground,

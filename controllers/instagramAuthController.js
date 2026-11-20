@@ -10,6 +10,7 @@ const SCOPES = [
   'instagram_content_publish',
   'pages_show_list',
   'pages_read_engagement',
+  'pages_manage_posts',
   'business_management'
 ].join(',');
 
@@ -222,13 +223,14 @@ async function handleCallback(req, res) {
       console.warn('[instagramAuth] Could not get Instagram name:', e.message);
     }
 
-    // 7. Save the connection for this user
+    // 7. Save the connection for this user (including the Facebook Page for Facebook posts)
     await userModel.saveInstagramConnection(userId, {
       accessToken: pageAccessToken,
       businessAccountId: igBusinessAccountId,
-      pageName: igPageName
+      pageName: igPageName,
+      facebookPageId: selectedPage.id
     });
-    console.log(`[instagramAuth] ✅ Saved Instagram connection for user ${userId}`);
+    console.log(`[instagramAuth] ✅ Saved Instagram connection for user ${userId} (Facebook Page ${selectedPage.id})`);
 
     // 8. Back to the page the user started from, to the same post
     return back({ instagram_connected: 1, postId });

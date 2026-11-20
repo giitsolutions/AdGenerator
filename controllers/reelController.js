@@ -66,6 +66,31 @@ function getDuration(file) {
 
 const userIdOf = (req) => req.user && (req.user.id || req.user.userId);
 
+// ---------------------------------------------------------------------------
+// Topic helpers: the text the user typed ("idea") drives the reel's wording.
+// ---------------------------------------------------------------------------
+
+/** A short subheadline built from the typed topic (or the campaign when nothing was typed). */
+function topicSubheadline(idea, campaign) {
+  const clip = (text) => (text.length > 60 ? `${text.slice(0, 57).trimEnd()}...` : text);
+  const typed = String(idea || '').replace(/\s+/g, ' ').trim();
+  if (typed) return clip(typed.charAt(0).toUpperCase() + typed.slice(1));
+  const offer = String(campaign.offer_details || '').replace(/\s+/g, ' ').trim();
+  if (offer) return clip(offer);
+  return clip(`Discover ${campaign.product_name}`);
+}
+
+/**
+ * The AI prompt still contains some treadmill examples. If the reel is NOT about
+ * treadmills, drop any treadmill hashtags that slipped in.
+ */
+function dropOffTopicHashtags(hashtags, idea, campaign) {
+  if (!Array.isArray(hashtags)) return hashtags;
+  const context = `${idea || ''} ${campaign.product_name || ''} ${campaign.offer_details || ''}`.toLowerCase();
+  if (context.includes('treadmill')) return hashtags;
+  return hashtags.filter((tag) => !/treadmill/i.test(String(tag)));
+}
+
 // Same AI call the photo generator uses: caption, hashtags, headline, offer, button, photo keywords.
 async function makeGenerated(campaign, idea) {
   const recentReelCopy = await postModel.getRecentReelCopy(campaign.id);
@@ -93,11 +118,13 @@ async function makeGenerated(campaign, idea) {
   }
 
   if (!generated || hasRepeatedHeadline(generated, recentReelCopy)) {
-    const subheadline = 'Treadmill workouts that fit your day';
+    // Was a fixed "Treadmill workouts that fit your day". Now follows the topic.
+    const subheadline = topicSubheadline(idea, campaign);
     const recentWithFallback = [...recentReelCopy, { subheadline }];
     Object.assign(generated || (generated = {}), createFreshHeadline(recentWithFallback), { subheadline });
   }
   Object.assign(generated, ensureDistinctHeadline(generated, recentReelCopy));
+  generated.hashtags = dropOffTopicHashtags(generated.hashtags, idea, campaign);
   // One of the 8 overlay layouts, chosen at random for every new reel.
   generated.layoutIndex = Math.floor(Math.random() * 8);
   return generated;

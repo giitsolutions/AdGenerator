@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>KwikPost — Connect Instagram</title>
+<script>try{document.documentElement.setAttribute('data-theme',localStorage.getItem('theme')||'dark')}catch(e){}</script>
+<style>
+  :root { --bg:#0b0a10; --card:#0f0e15; --soft:#17151f; --line:#2a2634; --text:#f5f2fb; --muted:#a39bbd;
+          --orange:#f97316; --accent:#a855f7; --green:#22c55e; --pink:#e1306c; }
+  :root[data-theme="light"] { --bg:#f6f3fb; --card:#fff; --soft:#f0ecf8; --line:#ded8ea; --text:#1d1a2b; --muted:#6a6483; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font:15px/1.55 system-ui,"Segoe UI",sans-serif; }
+  a { color:#c4b5fd; }
+  .top { display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;
+         padding:12px 18px; border-bottom:1px solid var(--line); }
+  .top h1 { margin:0; font-size:16px; }
+  .nav a { margin-left:8px; padding:6px 12px; border:1px solid var(--line); border-radius:8px; background:var(--soft); color:var(--text); text-decoration:none; font-size:13px; }
+  .wrap { max-width:720px; margin:20px auto 48px; padding:0 16px; }
+  .hero { text-align:center; margin-bottom:22px; }
+  .hero .icon { width:64px; height:64px; margin:0 auto 12px; border-radius:16px;
+    background:linear-gradient(135deg,#feda75,#fa7e1e,#d62976,#962fbf); display:grid; place-items:center; font-size:28px; }
+  .hero h2 { margin:0 0 6px; font-size:22px; }
+  .hero p { margin:0; color:var(--muted); font-size:14px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px; margin-bottom:14px; }
+  .step { display:grid; grid-template-columns:44px 1fr; gap:14px; }
+  .num { width:44px; height:44px; border-radius:12px; background:linear-gradient(135deg,var(--orange),var(--accent));
+         display:grid; place-items:center; font-weight:800; font-size:16px; color:#fff; flex-shrink:0; }
+  .step h3 { margin:0 0 6px; font-size:16px; }
+  .step p, .step li { color:var(--muted); font-size:14px; margin:0 0 8px; }
+  .step ul { margin:0 0 8px; padding-left:18px; }
+  .step li { margin-bottom:4px; }
+  .tip { background:var(--soft); border-left:3px solid var(--accent); padding:10px 12px; border-radius:8px; font-size:13px; color:var(--muted); margin-top:8px; }
+  .ok { border-left-color:var(--green); }
+  .warn { border-left-color:var(--orange); }
+  .btn-row { display:flex; flex-wrap:wrap; gap:10px; margin-top:14px; }
+  button, .btn {
+    display:inline-block; background:linear-gradient(120deg,var(--orange),var(--accent)); color:#fff; border:0;
+    border-radius:10px; padding:12px 18px; font-weight:700; font-size:14px; cursor:pointer; text-decoration:none;
+  }
+  .btn.secondary { background:var(--soft); color:var(--text); border:1px solid var(--line); }
+  code { background:var(--soft); padding:2px 6px; border-radius:4px; font-size:12px; }
+  .checklist label { display:flex; gap:8px; align-items:flex-start; margin:8px 0; font-size:14px; cursor:pointer; }
+  .checklist input { margin-top:3px; }
+  .status { margin-top:12px; padding:12px; border-radius:10px; background:var(--soft); font-size:14px; }
+  .status.connected { border:1px solid var(--green); color:#86efac; }
+  .status.missing { border:1px solid var(--line); color:var(--muted); }
+</style>
+</head>
+<body>
+  <div class="top">
+    <h1>📷 Connect Instagram</h1>
+    <nav class="nav">
+      <a href="/index.html">Dashboard</a>
+      <a href="/posts.html">Posts</a>
+      <a href="/reels.html">Reels</a>
+      <a href="/connect-youtube.html">YouTube setup</a>
+    </nav>
+  </div>
+
+  <div class="wrap">
+    <div class="hero">
+      <div class="icon">📸</div>
+      <h2>Connect Instagram to KwikPost</h2>
+      <p>Follow these steps once. After that you can approve posts and publish from the app.</p>
+    </div>
+
+    <div class="card">
+      <div class="step">
+        <div class="num">1</div>
+        <div>
+          <h3>Use a Business or Creator account</h3>
+          <p>Personal Instagram accounts cannot publish via the API.</p>
+          <ul>
+            <li>Open the Instagram app → Profile → Menu → <strong>Settings and activity</strong></li>
+            <li>Go to <strong>Account type and tools</strong></li>
+            <li>Switch to <strong>Professional</strong> → choose <strong>Business</strong> or <strong>Creator</strong></li>
+          </ul>
+          <div class="tip ok">You keep the same username and posts. Only the account type changes.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="step">
+        <div class="num">2</div>
+        <div>
+          <h3>Create or link a Facebook Page</h3>
+          <p>Instagram publishing needs a Facebook Page linked to that Instagram account.</p>
+          <ul>
+            <li>Go to <a href="https://www.facebook.com/pages/create" target="_blank" rel="noopener">facebook.com/pages/create</a></li>
+            <li>Create a Page for your brand (or use an existing one)</li>
+            <li>On Instagram: Settings → Account → <strong>Linked accounts / Sharing to other apps</strong> → Facebook → link this Page</li>
+            <li>Or from Facebook Page settings → <strong>Linked accounts</strong> → Instagram → connect</li>
+          </ul>
+          <div class="tip warn">The Facebook user who clicks Connect in KwikPost must be an admin of that Page.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="step">
+        <div class="num">3</div>
+        <div>
+          <h3>Checklist before connecting</h3>
+          <div class="checklist">
+            <label><input type="checkbox" /> Instagram is Business or Creator</label>
+            <label><input type="checkbox" /> Facebook Page exists</label>
+            <label><input type="checkbox" /> Instagram is linked to that Page</label>
+            <label><input type="checkbox" /> I am admin of the Facebook Page</label>
+            <label><input type="checkbox" /> I am logged into the correct Facebook account in the browser</label>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="step">
+        <div class="num">4</div>
+        <div>
+          <h3>Connect inside KwikPost</h3>
+          <p>Stay logged into KwikPost, then start Facebook Login. Allow the permissions when asked.</p>
+          <ul>
+            <li>Manage your Page</li>
+            <li>Access Instagram account</li>
+            <li>Publish content to Instagram</li>
+          </ul>
+          <div class="btn-row">
+            <button type="button" id="connectBtn">Connect Instagram with Facebook</button>
+            <a class="btn secondary" href="/posts.html">Back to Posts</a>
+          </div>
+          <div id="igStatus" class="status missing">Checking connection…</div>
+          <div class="tip" style="margin-top:12px;">
+            After success you return to the app with Instagram connected. You only need this again if you disconnect or change accounts.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="step">
+        <div class="num">5</div>
+        <div>
+          <h3>Publish your first post</h3>
+          <ul>
+            <li>Open <strong>Posts</strong> or <strong>Reels</strong></li>
+            <li>Generate or upload content</li>
+            <li>Press <strong>Approve</strong> (or schedule)</li>
+          </ul>
+          <div class="tip ok">If Approve asks you to connect Instagram, finish step 4 first, then approve again.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3 style="margin:0 0 8px;">Common problems</h3>
+      <ul style="margin:0;padding-left:18px;color:var(--muted);font-size:14px;">
+        <li><strong>No Pages found</strong> — Page not linked, or you used a different Facebook login.</li>
+        <li><strong>No Instagram business account</strong> — Link IG ↔ Page again; wait a few minutes and retry.</li>
+        <li><strong>Permission denied</strong> — Accept all requested permissions on the Facebook screen.</li>
+        <li><strong>App in development mode</strong> — Only Facebook app testers/admins can connect until the app is Live (developer setup).</li>
+      </ul>
+    </div>
+  </div>
+
+<script>
+(function () {
+  function token() { return localStorage.getItem('authToken') || localStorage.getItem('token') || ''; }
+  if (!token()) { window.location.href = '/login.html'; return; }
+
+  document.getElementById('connectBtn').onclick = function () {
+    window.location.href = '/api/instagram/auth/start?token=' + encodeURIComponent(token());
+  };
+
+  fetch('/api/auth/me', {
+    headers: { 'Authorization': 'Bearer ' + token(), 'ngrok-skip-browser-warning': 'true' }
+  }).then(function (r) { return r.json(); }).then(function (user) {
+    var el = document.getElementById('igStatus');
+    if (user && user.instagram_business_account_id) {
+      el.className = 'status connected';
+      el.innerHTML = '✅ Connected' + (user.instagram_page_name ? ' to <strong>' + user.instagram_page_name + '</strong>' : '');
+      document.getElementById('connectBtn').textContent = 'Reconnect Instagram';
+    } else {
+      el.className = 'status missing';
+      el.textContent = '❌ Not connected yet — complete the steps above, then press the button.';
+    }
+  }).catch(function () {
+    document.getElementById('igStatus').textContent = 'Could not check status. Make sure you are logged in.';
+  });
+})();
+</script>
+</body>
+</html>

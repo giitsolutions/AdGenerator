@@ -82,7 +82,7 @@
 .schedule-calendar-day.is-today .schedule-calendar-day-number { color: var(--calendar-accent); }
 .schedule-calendar-day-number { display: block; margin-bottom: 4px; font-size: .85rem; font-weight: 800; }
 
-/* Day cell list: thumbs only, no scrollbar arrows */
+/* Day cell list: original width, shorter height */
 .schedule-calendar-day-items {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(48px, 1fr));
@@ -101,13 +101,13 @@
 
 .schedule-calendar-item {
   display: block;
+  height: 60px;                    /* change this to adjust the height */
   padding: 0;
   border: 0;
   border-left: 3px solid #fb923c;
   border-radius: 6px;
   background: transparent;
   overflow: hidden;
-  aspect-ratio: 1;
 }
 .schedule-calendar-item.is-posted { border-left-color: #22c55e; }
 .schedule-calendar-item[draggable="true"] { cursor: grab; }
@@ -230,6 +230,7 @@
     max-height: 62px;
     grid-template-columns: repeat(auto-fill, minmax(36px, 1fr));
   }
+  .schedule-calendar-item { height: 44px; }
   .schedule-calendar-weekdays { gap: 2px; }
   .schedule-calendar-grid { gap: 2px; }
 }
@@ -242,3 +243,82 @@
   .schedule-calendar-detail { grid-template-columns: 1fr; }
   .schedule-calendar-detail-media { max-height: 220px; aspect-ratio: 16 / 9; }
 }
+
+/* ================= Calendar polish: past days, today, hover ================= */
+.schedule-calendar-day {
+  position: relative;
+  transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease;
+}
+.schedule-calendar-day:not(.is-past):hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 22px rgba(168, 85, 247, .18);
+}
+
+/* Past days: smooth, darker card with a faint violet tint (no stripes) */
+.schedule-calendar-day.is-past {
+  background: linear-gradient(180deg, rgba(20, 18, 32, .92), rgba(12, 11, 20, .92));
+  border: 1px solid rgba(168, 85, 247, .14);
+  box-shadow: inset 0 0 24px rgba(0, 0, 0, .35);
+}
+:root[data-theme="light"] .schedule-calendar-day.is-past {
+  background: linear-gradient(180deg, #ece8f6, #e3deef);
+  border-color: rgba(120, 100, 170, .22);
+  box-shadow: none;
+}
+.schedule-calendar-day.is-past .schedule-calendar-day-number {
+  color: var(--calendar-muted);
+  opacity: .75;
+  text-decoration: line-through;
+  text-decoration-thickness: 2px;
+  text-decoration-color: rgba(168, 85, 247, .6);
+}
+.schedule-calendar-day.is-past .schedule-calendar-thumb {
+  filter: grayscale(.85) brightness(.85);
+  opacity: .7;
+  transition: filter .2s ease, opacity .2s ease;
+}
+.schedule-calendar-day.is-past:hover .schedule-calendar-thumb,
+.schedule-calendar-day.is-past.is-selected .schedule-calendar-thumb {
+  filter: none;
+  opacity: 1;
+}
+.schedule-calendar-day.is-past .schedule-calendar-day-empty { opacity: .35; }
+.schedule-calendar-day.is-past:hover,
+.schedule-calendar-day.is-past.is-selected {
+  border-color: var(--calendar-accent);
+}
+
+/* Green check badge on posted reels in past days */
+.schedule-calendar-day.is-past .schedule-calendar-item.is-posted { position: relative; }
+.schedule-calendar-day.is-past .schedule-calendar-item.is-posted::after {
+  content: "\2713";
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 16px;
+  height: 16px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: #22c55e;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 800;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, .4);
+}
+
+/* Today: glowing card with a gradient date pill */
+.schedule-calendar-day.is-today {
+  border-color: var(--calendar-accent);
+  background:
+    linear-gradient(160deg, rgba(168, 85, 247, .20), rgba(249, 115, 22, .08)),
+    var(--calendar-card);
+  box-shadow: 0 0 0 1px var(--calendar-accent), 0 0 22px rgba(168, 85, 247, .30);
+}
+.schedule-calendar-day.is-today .schedule-calendar-day-number {
+  display: inline-block;
+  padding: 1px 10px;
+  border-radius: 99px;
+  background: linear-gradient(120deg, #f97316, #a855f7);
+  color: #fff;
+} 

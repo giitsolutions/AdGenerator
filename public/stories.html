@@ -1,0 +1,1030 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="stylesheet" href="/schedule-calendar.css" />
+<link rel="icon" href="data:,">
+<title>KwikPost — Stories</title>
+<script>try{document.documentElement.setAttribute('data-theme',localStorage.getItem('theme')||'dark')}catch(e){}</script>
+<style>
+  :root {
+    --bg:#0b0a10; --card:#0f0e15; --soft:#17151f; --line:#2a2634; --text:#f5f2fb; --muted:#a39bbd;
+    --accent:#a855f7; --orange:#f97316; --red:#dc2626;
+  }
+  :root[data-theme="light"] {
+    --bg:#f6f3fb; --card:#ffffff; --soft:#f0ecf8; --line:#ded8ea; --text:#1d1a2b; --muted:#6a6483;
+  }
+  * { box-sizing:border-box; }
+  [hidden] { display:none !important; }
+  body { margin:0; overflow-x:hidden; background:var(--bg); color:var(--text);
+         font:14px/1.45 system-ui,"Segoe UI",sans-serif; }
+  a { color:#c4b5fd; text-decoration:none; }
+  :root[data-theme="light"] a { color:#6d28d9; }
+
+  /* header */
+  .top { display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;
+         padding:10px 18px; border-bottom:1px solid var(--line); }
+  .top h1 { margin:0; font-size:16px; }
+  .page-nav { display:flex; gap:6px; flex-wrap:wrap; }
+  .page-nav a { padding:5px 10px; border:1px solid var(--line); border-radius:8px; background:var(--soft); font-size:13px; }
+  .page-nav a.active { background:linear-gradient(120deg,var(--orange),var(--accent)); color:#fff; border-color:transparent; }
+
+  .wrap { width:100%; max-width:1100px; margin:14px auto 40px; padding:0 14px; display:grid; gap:14px; }
+  .card { min-width:0; background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px; }
+  .card h2 { margin:0; font-size:15px; }
+  .card-head { display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; margin-bottom:10px; }
+  .note { color:var(--muted); font-size:12px; margin:6px 0 0; }
+
+  /* campaign strip */
+  .campaign-strip { display:flex; align-items:center; gap:12px; flex-wrap:wrap; padding:10px 14px; }
+  .campaign-strip label { margin:0; font-weight:700; font-size:13px; }
+  .campaign-strip select { width:auto; min-width:200px; flex:0 1 280px; }
+  .brand-preview { display:flex; align-items:center; gap:8px; color:var(--muted); font-size:12px; }
+  .brand-preview img { width:30px; height:30px; object-fit:contain; border:1px solid var(--line); border-radius:6px; background:var(--soft); }
+  #campaignMsg { margin:0; }
+
+  /* forms */
+  label { display:block; margin:0 0 3px; font-size:12px; color:var(--muted); }
+  select, input[type=file], input[type=text], textarea {
+    width:100%; padding:8px 10px; border-radius:8px; border:1px solid var(--line);
+    background:var(--soft); color:var(--text); font:inherit; color-scheme:dark;
+  }
+  :root[data-theme="light"] select, :root[data-theme="light"] input[type=file], :root[data-theme="light"] input[type=text], :root[data-theme="light"] textarea { color-scheme:light; }
+  textarea { min-height:52px; resize:vertical; }
+  .row3 { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; }
+  .row2 { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .field { margin-bottom:10px; min-width:0; }
+  button { background:linear-gradient(120deg,var(--orange),var(--accent)); color:#fff; border:0; border-radius:9px;
+           padding:8px 14px; cursor:pointer; font-weight:700; font-size:13px; }
+  button.secondary { background:var(--soft); color:var(--text); border:1px solid var(--line); font-weight:600; }
+  button:disabled { opacity:.55; cursor:not-allowed; }
+  .actions { display:flex; gap:6px; flex-wrap:wrap; margin-top:8px; }
+  .form-foot { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+  details { margin:0 0 10px; font-size:12px; color:var(--muted); }
+  details summary { cursor:pointer; color:var(--text); font-weight:600; }
+  details p { margin:6px 0 0; }
+  .bar { height:6px; background:var(--soft); border-radius:99px; overflow:hidden; margin-top:10px; display:none; }
+  .bar i { display:block; height:100%; width:0; background:linear-gradient(120deg,var(--orange),var(--accent)); transition:width .2s; }
+  .bar.indeterminate i { width:40%; animation:slide 1.2s infinite ease-in-out; }
+  @keyframes slide { 0% { margin-left:-40%; } 100% { margin-left:100%; } }
+  .status { font-size:12px; color:var(--muted); min-height:16px; }
+  .error, .action-feedback.error { color:#fca5a5; }
+  :root[data-theme="light"] .error, :root[data-theme="light"] .action-feedback.error { color:var(--red); }
+
+  /* friendly create form */
+  textarea#genIdea { min-height:84px; font-size:15px; }
+  .chips { display:flex; flex-wrap:wrap; align-items:center; gap:6px; margin-top:8px; }
+  .chips-label { font-size:12px; color:var(--muted); }
+  button.chip { background:var(--soft); color:var(--text); border:1px solid var(--line); border-radius:99px;
+                padding:5px 12px; font-size:12px; font-weight:600; }
+  button.chip:hover { border-color:var(--orange); }
+  .hint { font-size:11px; color:var(--muted); margin:4px 0 0; }
+  details.more { border:1px solid var(--line); border-radius:10px; padding:10px 12px; margin:2px 0 14px; }
+  details.more summary { font-size:13px; }
+  .more-body { margin-top:12px; }
+  .more-body .field:last-child { margin-bottom:0; }
+
+  /* tabs */
+  .tabs { display:flex; gap:4px; flex-wrap:wrap; border-bottom:1px solid var(--line); }
+  .card-head .tabs { flex:1 1 100%; }
+  .tabs button { background:var(--soft); color:var(--muted); border:1px solid var(--line); border-bottom:0;
+                 border-radius:10px 10px 0 0; padding:8px 16px; font-weight:600; margin-bottom:-1px; position:relative; }
+  .tabs button:hover { color:var(--text); }
+  .tabs button.on { background:var(--card); color:var(--text); border-top:3px solid var(--orange); padding-top:6px; }
+  .count-badge { display:inline-flex; min-width:20px; height:20px; align-items:center; justify-content:center; padding:0 6px;
+                 border-radius:99px; background:rgba(127,127,127,.25); font-size:11px; margin-left:4px; }
+
+  /* video list */
+  #scheduleAllBtn { padding:6px 12px; font-size:12px; }
+  #scheduleAllStatus { margin:0 0 10px; }
+  .action-feedback:empty { display:none; }
+  .reels { display:grid; grid-template-columns:repeat(auto-fill,minmax(190px,1fr)); gap:10px; }
+  .reel { background:var(--soft); border:1px solid var(--line); border-radius:10px; padding:7px; min-width:0; }
+  .reel video { width:100%; aspect-ratio:9/16; max-height:240px; object-fit:cover; background:#000; border-radius:7px; }
+  .reel p { margin:5px 0 0; font-size:11px; color:var(--muted); overflow:hidden; display:-webkit-box;
+            -webkit-line-clamp:2; line-clamp:2; -webkit-box-orient:vertical; }
+  .reel p.reel-caption { -webkit-line-clamp:2; line-clamp:2; cursor:pointer; line-height:1.35; }
+  .reel p.reel-caption.open { display:block; overflow:visible; white-space:pre-wrap; }
+  .reel-title { font-weight:700; color:var(--text) !important; font-size:12px !important; }
+  .reel-head { display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-top:6px; }
+  .reel-date { font-size:10px; color:var(--muted); }
+  .reel .action-feedback:empty { display:none; }
+  .reel .actions { flex-wrap:nowrap; gap:4px; }
+  .reel .actions button { flex:1 1 auto; min-width:0; padding:5px 4px; font-size:11px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .badge { display:inline-block; font-size:10px; font-weight:800; border-radius:99px; padding:1px 8px; color:#000; text-transform:capitalize; }
+  .b-generated { background:#a39bbd; } .b-edited { background:#38bdf8; }
+  .b-scheduled { background:#fdba74; } .b-posted { background:#4ade80; }
+  .reel-empty, .reel-loading, .action-feedback { color:var(--muted); font-size:12px; margin:0; }
+
+  /* calendar + side panel */
+  .cal-layout { display:grid; grid-template-columns:minmax(0,1.7fr) minmax(260px,1fr); gap:14px; align-items:start; margin-top:10px; }
+  .cal-main, .cal-side { min-width:0; }
+  .cal-side { border:1px solid var(--line); border-radius:12px; padding:10px; background:var(--soft); max-height:640px; overflow:auto; }
+  .cal-side .tabs { margin-bottom:10px; }
+  .cal-side .tabs button { background:var(--card); }
+  .cal-side .tabs button.on { background:var(--soft); }
+  .cal-side .schedule-calendar-details { margin:0; border:0; padding:0; background:none; }
+  .cal-side .schedule-calendar-detail { display:grid; grid-template-columns:1fr; }
+  .cal-side .schedule-calendar-detail-media { width:100%; max-height:220px; object-fit:cover; }
+  .ready-list { display:grid; gap:8px; margin-top:8px; }
+  .ready-item { display:flex; gap:10px; align-items:center; background:var(--card); border:1px solid var(--line);
+                border-radius:10px; padding:6px; cursor:grab; }
+  .ready-item:active { cursor:grabbing; }
+  .ready-item video { width:48px; aspect-ratio:9/16; object-fit:cover; background:#000; border-radius:6px; pointer-events:none; flex:none; }
+  .ri-copy { min-width:0; flex:1; }
+  .ri-title { font-weight:700; font-size:12px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .ri-meta { font-size:10px; color:var(--muted); margin-bottom:4px; }
+  .ready-item button { padding:4px 9px; font-size:11px; }
+  .drop-target { outline:2px dashed var(--orange); outline-offset:-2px; }
+
+  /* brief drag hint above the calendar (space is reserved so nothing jumps) */
+  .drag-hint { height:30px; margin-top:10px; display:flex; align-items:center; justify-content:center; pointer-events:none; }
+  .drag-hint span { padding:5px 16px; border:1px dashed var(--orange); border-radius:99px; background:rgba(249,115,22,.1);
+                    font-size:12px; font-weight:600; opacity:0; transition:opacity .3s; }
+  .drag-hint.show span { opacity:1; }
+
+  @media (max-width:860px) { .cal-layout { grid-template-columns:1fr; } .cal-side { max-height:none; } }
+
+  @media (max-width:640px) {
+    .top { padding:10px 12px; }
+    .wrap { padding:0 10px; gap:10px; }
+    .row3, .row2 { grid-template-columns:1fr; }
+    .campaign-strip select { flex:1 1 100%; }
+    .reels { grid-template-columns:repeat(2,minmax(0,1fr)); }
+    select, input[type=file], input[type=text], textarea { font-size:16px; }
+  }
+
+  /* image posts */
+  .reel img.post-img { width:100%; border-radius:7px; background:#000; object-fit:contain; max-height:320px; display:block; }
+  .ready-item img { width:48px; height:48px; object-fit:cover; background:#000; border-radius:6px; pointer-events:none; flex:none; }
+  .reels { grid-template-columns:repeat(auto-fill,minmax(230px,1fr)); }
+  .reel .actions { flex-wrap:wrap; }
+  @media (max-width:640px) { .reels { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+
+  /* tall Story previews */
+  .reel img.post-img { max-height:420px; object-fit:contain; }
+  .reels { grid-template-columns:repeat(auto-fill,minmax(190px,1fr)); }
+
+  /* Delete (trash) button: round icon in the top-right corner, beside the date and time */
+  .reject-corner {
+    margin-left:auto; flex:0 0 auto; width:28px; height:28px; padding:0 !important;
+    display:inline-flex; align-items:center; justify-content:center;
+    border-radius:50% !important; background:transparent !important; color:var(--muted) !important;
+    border:1px solid var(--line) !important; cursor:pointer; transition:background .15s,color .15s,border-color .15s;
+  }
+  .reject-corner svg { display:block; pointer-events:none; }
+  .reject-corner:hover:not(:disabled) { color:#fff !important; background:var(--red) !important; border-color:var(--red) !important; }
+  .reject-corner:disabled { opacity:.5; cursor:wait; }
+</style>
+</head>
+<body>
+  <!-- 1. HEADER -->
+  <div class="top">
+    <h1>📱 Stories</h1>
+    <nav class="page-nav" aria-label="Content pages">
+      <a href="/index.html?section=sec-campaign">Campaigns &amp; branding</a>
+      <a href="/posts.html">🖼️ Posts / Images</a>
+      <a href="/reels.html">🎬 Reels / Videos</a>
+      <a class="active" href="/stories.html" aria-current="page">📱 Stories</a>
+    </nav>
+  </div>
+
+  <div class="wrap">
+    <!-- 2. CAMPAIGN -->
+    <div class="card campaign-strip">
+      <label for="campaign">Campaign</label>
+      <select id="campaign"><option value="">Loading…</option></select>
+      <div id="campaignBranding" class="brand-preview" style="display:none">
+        <img id="campaignLogo" alt="Selected campaign logo" />
+        <span id="campaignBrandingText"></span>
+      </div>
+      <span id="campaignMsg" class="status" role="alert"></span>
+    </div>
+
+    <!-- 3. CALENDAR -->
+    <section class="card schedule-calendar" id="sec-schedule-calendar"
+      data-schedule-calendar data-content-type="story" aria-labelledby="reelScheduleTitle">
+      <div class="schedule-calendar-header">
+        <div>
+          <h2 class="schedule-calendar-heading" id="reelScheduleTitle">Schedule</h2>
+          <p class="schedule-calendar-note">Scheduled and posted Stories, shown in your local timezone.</p>
+        </div>
+        <div class="schedule-calendar-controls" aria-label="Calendar navigation">
+          <button type="button" data-calendar-prev aria-label="Previous month">‹</button>
+          <p class="schedule-calendar-month" data-calendar-month aria-live="polite"></p>
+          <button type="button" data-calendar-next aria-label="Next month">›</button>
+        </div>
+      </div>
+      <div class="drag-hint" id="dragHint" role="status" aria-live="polite"><span>✋ Drag to schedule / reschedule</span></div>
+      <div class="cal-layout">
+        <div class="cal-main">
+          <p class="schedule-calendar-status" data-calendar-status role="status" aria-live="polite">Loading calendar…</p>
+          <div class="schedule-calendar-weekdays" data-calendar-weekdays aria-hidden="true"></div>
+          <div class="schedule-calendar-grid" data-calendar-grid aria-label="Monthly Story schedule"></div>
+        </div>
+
+        <aside class="cal-side" aria-label="Day details and draft Stories">
+          <div class="tabs" role="tablist">
+            <button type="button" class="on" data-tab-group="calside" data-tab="day" id="calDayTab">Select a day</button>
+            <button type="button" data-tab-group="calside" data-tab="ready">Drafts <span class="count-badge" id="calReadyCount">0</span></button>
+          </div>
+
+          <div data-panel-group="calside" data-panel="day">
+            <section class="schedule-calendar-details" data-calendar-details hidden aria-live="polite">
+              <h3 data-calendar-details-title></h3>
+              <div class="schedule-calendar-detail-list" data-calendar-detail-list></div>
+            </section>
+          </div>
+
+          <div data-panel-group="calside" data-panel="ready" hidden>
+            <p class="action-feedback" id="calReadyStatus" role="status" aria-live="polite"></p>
+            <div class="ready-list" id="calReadyList"></div>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <!-- 4. CREATE (Generate / Upload / My photos in one card) -->
+    <div class="card" id="sec-create">
+      <div class="card-head">
+        <h2>Create a Story</h2>
+        <div class="tabs" role="tablist">
+          <button type="button" class="on" data-tab-group="create" data-tab="gen">✨ Generate</button>
+          <button type="button" data-tab-group="create" data-tab="photos">📷 My photos</button>
+        </div>
+      </div>
+
+      <div data-panel-group="create" data-panel="gen">
+        <div class="field">
+          <label for="postTopic">What should the Story be about?</label>
+          <textarea id="postTopic" maxlength="400" placeholder="e.g. Yoga class offer, cooking tips, salon offer, new gym opening"></textarea>
+          <p class="hint">AI creates a tall Story picture from your topic, with the headline and offer on it. Leave it empty to use your uploaded photos.</p>
+        </div>
+        <div class="row2">
+          <div class="field">
+            <label for="imageSource">Picture for this Story</label>
+            <select id="imageSource">
+              <option value="auto">Automatic (topic if typed, otherwise my photos)</option>
+              <option value="topic">Create from my topic</option>
+              <option value="library">Use my uploaded photos (rotation)</option>
+              <option value="photo">Choose a specific photo</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="postCount">How many Stories?</label>
+            <select id="postCount">
+              <option value="1">1 Story</option>
+              <option value="2">2 Stories</option>
+              <option value="4">4 Stories</option>
+              <option value="8">8 Stories</option>
+            </select>
+          </div>
+        </div>
+        <div class="field" id="photoPickWrap" hidden>
+          <label for="genPhoto">Choose a photo</label>
+          <select id="genPhoto"></select>
+        </div>
+        <div class="form-foot">
+          <button type="button" id="genBtn">✨ Generate Stories</button>
+          <span class="status" id="genStatus" role="status" aria-live="polite"></span>
+        </div>
+        <div class="bar" id="genBar"><i></i></div>
+      </div>
+
+      <div data-panel-group="create" data-panel="photos" hidden>
+        <p class="note">Photos you add here are used by AI when a Story is made from your photos.</p>
+        <iframe id="photosFrame" title="My photos" data-src="/upload.html"
+          style="width:100%;height:560px;border:1px solid var(--line);border-radius:10px;background:var(--soft)"></iframe>
+      </div>
+    </div>
+
+    <!-- 5. YOUR STORIES (one status tab at a time) -->
+    <div class="card" id="sec-videos">
+      <div class="card-head">
+        <h2>Your Stories</h2>
+        <button type="button" id="scheduleAllBtn" hidden title="Schedules every draft, one per day at 10:00 AM, on days with nothing scheduled. It does not post them right now.">Schedule all drafts</button>
+        <div class="tabs" role="tablist">
+          <button type="button" class="on" data-tab-group="vid" data-tab="generated">Drafts <span class="count-badge" id="reelCountGenerated">0</span></button>
+          <button type="button" data-tab-group="vid" data-tab="scheduled">Scheduled <span class="count-badge" id="reelCountScheduled">0</span></button>
+          <button type="button" data-tab-group="vid" data-tab="posted">Posted <span class="count-badge" id="reelCountPosted">0</span></button>
+        </div>
+      </div>
+
+      <div data-panel-group="vid" data-panel="generated">
+        <p class="action-feedback" id="scheduleAllStatus" role="status" aria-live="polite"></p>
+        <div id="reelGenerated" class="reel-loading">Loading drafts…</div>
+      </div>
+      <div data-panel-group="vid" data-panel="scheduled" hidden><div id="reelScheduled" class="reel-loading">Loading scheduled Stories…</div></div>
+      <div data-panel-group="vid" data-panel="posted" hidden><div id="reelPosted" class="reel-loading">Loading posted Stories…</div></div>
+    </div>
+  </div>
+
+<script src="/instagram-connect.js"></script>
+<script src="/schedule.js"></script>
+<script src="/schedule-calendar.js"></script>
+<script>
+// Marks past days and today in the calendar so the CSS can style them
+(function () {
+  var grid = document.querySelector('[data-calendar-grid]');
+  if (!grid) return;
+
+  function markDays() {
+    var now = new Date();
+    var today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    grid.querySelectorAll('[data-calendar-day]').forEach(function (cell) {
+      var p = String(cell.dataset.calendarDay).split('-').map(Number);
+      var d = new Date(p[0], p[1] - 1, p[2]);
+      var valid = !Number.isNaN(d.getTime());
+      cell.classList.toggle('is-past', valid && d < today);
+      cell.classList.toggle('is-today', valid && d.getTime() === today.getTime());
+    });
+  }
+
+  // The calendar redraws its cells when you change month or refresh, so mark them again each time
+  new MutationObserver(markDays).observe(grid, { childList: true, subtree: true });
+  markDays();
+  setInterval(markDays, 60 * 60 * 1000); // also updates after midnight
+})();
+</script>
+<script>
+(function () {
+  var API = '/api/posts';
+  var LIBRARY_API = '/api/library';
+  var CAMPAIGNS_API = '/api/campaigns';
+  var SELECTED_CAMPAIGN_KEY = 'kwik-selected-campaign';
+  var LEGACY_REEL_CAMPAIGN_KEY = 'kwik-reel-campaign';
+  var MAX_MB = 100; // the server's REEL_MAX_MB default; the server enforces the real limit
+  var SCHEDULE_HOUR = 10; // 10:00 AM in the time zone of this browser
+  var $ = function (id) { return document.getElementById(id); };
+
+  function getToken() { return localStorage.getItem('authToken') || localStorage.getItem('token') || ''; }
+  if (!getToken()) { window.location.href = '/login.html'; return; }
+
+  // ---- tabs ----------------------------------------------------------
+  function activateTab(group, name) {
+    document.querySelectorAll('[data-tab-group="' + group + '"]').forEach(function (b) {
+      b.classList.toggle('on', b.dataset.tab === name);
+    });
+    document.querySelectorAll('[data-panel-group="' + group + '"]').forEach(function (p) {
+      p.hidden = p.dataset.panel !== name;
+    });
+  }
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-tab-group]');
+    if (!b) return;
+    activateTab(b.dataset.tabGroup, b.dataset.tab);
+    if (b.dataset.tabGroup === 'create') {
+      if (b.dataset.tab === 'photos') {
+        var frame = $('photosFrame');
+        if (!frame.getAttribute('src')) frame.setAttribute('src', frame.dataset.src);
+      }
+      if (b.dataset.tab === 'gen') loadPhotos();
+    }
+  });
+  function revealGenerated() {
+    activateTab('vid', 'generated');
+    $('sec-videos').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  // ---- requests ---------------------------------------------------------
+  function authHeaders(extra) {
+    var h = Object.assign({ 'ngrok-skip-browser-warning': 'true' }, extra || {});
+    h['Authorization'] = 'Bearer ' + getToken();
+    return h;
+  }
+  async function request(url, options) {
+    options = options || {};
+    var extra = Object.assign({}, options.headers || {});
+    if (options.body && !extra['Content-Type']) extra['Content-Type'] = 'application/json';
+    var res = await fetch(url, Object.assign({}, options, { headers: authHeaders(extra) }));
+    if (res.status === 401) { window.location.href = '/login.html'; throw new Error('Session expired'); }
+    var data = null;
+    try { data = await res.json(); } catch (e) {}
+
+    // Instagram not connected: open the connect popup directly
+    if (res.status === 409 && data) {
+      var code = data.code || data.errorCode || (data.error && (data.error.code || data.error)) || '';
+      if (String(code).toUpperCase() === 'INSTAGRAM_NOT_CONNECTED') {
+        if (typeof window.showConnectModal === 'function') {
+          window.showConnectModal(data.postId || null);
+        }
+        var err = new Error('Connect Instagram, then press Approve again.');
+        err.code = 'INSTAGRAM_NOT_CONNECTED';
+        throw err;
+      }
+    }
+
+    if (!res.ok || (data && data.error)) throw new Error((data && (data.error || data.message)) || 'Request failed (' + res.status + ')');
+    return data;
+  }
+
+  function say(id, text, isError) {
+    var el = $(id); el.textContent = text || ''; el.className = 'status' + (isError ? ' error' : '');
+  }
+
+  // ---- campaigns --------------------------------------------------------
+  var campaignSel = $('campaign');
+  var campaigns = [];
+  function updateCampaignBranding() {
+    var campaign = campaigns.find(function (item) { return String(item.id) === String(campaignSel.value); });
+    var preview = $('campaignBranding');
+    var logo = $('campaignLogo');
+    var label = $('campaignBrandingText');
+    if (!campaign) { preview.style.display = 'none'; logo.removeAttribute('src'); label.textContent = ''; return; }
+    var logoUrl = campaign.logo_url || campaign.logoUrl;
+    preview.style.display = 'flex';
+    if (logoUrl) {
+      logo.src = logoUrl; logo.style.display = '';
+      label.textContent = 'Using ' + (campaign.product_name || 'selected campaign') + ' branding';
+    } else {
+      logo.style.display = 'none';
+      label.textContent = 'No logo set for ' + (campaign.product_name || 'this campaign');
+    }
+  }
+  async function loadCampaigns() {
+    try {
+      var list = await request(CAMPAIGNS_API);
+      campaigns = Array.isArray(list) ? list : ((list && list.campaigns) || []);
+      if (!campaigns.length) {
+        campaignSel.innerHTML = '<option value="">No campaigns yet</option>';
+        $('campaignMsg').innerHTML = 'Create a campaign on the <a href="/index.html?section=sec-campaign">Posts / Images page</a> first.';
+        setEnabled(false);
+        return;
+      }
+      campaignSel.innerHTML = '';
+      campaigns.forEach(function (c) {
+        var o = document.createElement('option');
+        o.value = c.id; o.textContent = c.product_name || ('Campaign #' + c.id);
+        campaignSel.appendChild(o);
+      });
+      var saved = localStorage.getItem(SELECTED_CAMPAIGN_KEY) || localStorage.getItem(LEGACY_REEL_CAMPAIGN_KEY);
+      if (saved && campaigns.some(function (c) { return String(c.id) === saved; })) campaignSel.value = saved;
+      localStorage.setItem(SELECTED_CAMPAIGN_KEY, campaignSel.value);
+      localStorage.setItem(LEGACY_REEL_CAMPAIGN_KEY, campaignSel.value);
+      updateCampaignBranding();
+      $('campaignMsg').textContent = '';
+      setEnabled(true);
+    } catch (e) {
+      campaignSel.innerHTML = '<option value="">Could not load</option>';
+      $('campaignMsg').textContent = 'Could not load your campaigns: ' + e.message;
+      $('campaignMsg').className = 'status error';
+      setEnabled(false);
+    }
+  }
+  campaignSel.addEventListener('change', function () {
+    localStorage.setItem(SELECTED_CAMPAIGN_KEY, campaignSel.value);
+    localStorage.setItem(LEGACY_REEL_CAMPAIGN_KEY, campaignSel.value);
+    updateCampaignBranding();
+  });
+
+  var busy = false;
+  function setEnabled(on) { $('genBtn').disabled = !on || busy; }
+  function setBusy(v) { busy = v; setEnabled(!!campaignSel.value); }
+
+  // ---- photos for "choose a specific photo" ------------------------------
+  async function loadPhotos() {
+    var sel = $('genPhoto');
+    var keep = sel.value;
+    sel.textContent = '';
+    sel.add(new Option('Choose a photo', ''));
+    try {
+      var rows = await request(LIBRARY_API);
+      (Array.isArray(rows) ? rows : []).forEach(function (r) {
+        sel.add(new Option(r.title || ('Photo #' + r.id), r.id));
+      });
+      if (keep) sel.value = keep;
+    } catch (e) { /* the list stays empty */ }
+  }
+  $('imageSource').addEventListener('change', function () {
+    $('photoPickWrap').hidden = this.value !== 'photo';
+  });
+
+  // ---- generate ---------------------------------------------------------
+  var timer = null;
+  var batchProgress = '';
+  function startTimer() {
+    var t0 = Date.now(); $('genBar').style.display = 'block'; $('genBar').className = 'bar indeterminate';
+    function tick() {
+      var s = Math.floor((Date.now() - t0) / 1000);
+      say('genStatus', batchProgress + ' · ' + Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0') + ' elapsed (keep this page open)');
+    }
+    timer = setInterval(tick, 1000); tick();
+  }
+  function stopTimer() { clearInterval(timer); $('genBar').style.display = 'none'; $('genBar').className = 'bar'; }
+
+  $('genBtn').addEventListener('click', async function () {
+    if (!campaignSel.value) { say('genStatus', 'Choose a campaign first.', true); return; }
+    var count = Number($('postCount').value);
+    if ([1, 2, 4, 8].indexOf(count) === -1) { say('genStatus', 'Choose 1, 2, 4 or 8 Stories.', true); return; }
+    var topic = $('postTopic').value.trim();
+    var mode = $('imageSource').value;
+    var imageSource = 'library';
+    var libraryImageId = null;
+    if (mode === 'topic' || (mode === 'auto' && topic)) {
+      imageSource = 'topic';
+    } else if (mode === 'photo') {
+      libraryImageId = $('genPhoto').value;
+      if (!libraryImageId) { say('genStatus', 'Choose a photo, or pick another image option.', true); return; }
+      imageSource = 'photo';
+    }
+    var label = imageSource === 'topic' ? 'Creating from your topic' : 'Using your photos';
+    var created = 0;
+    var failures = [];
+    setBusy(true); startTimer();
+    try {
+      for (var index = 0; index < count; index++) {
+        batchProgress = label + ': Story ' + (index + 1) + ' of ' + count;
+        try {
+          await request(CAMPAIGNS_API + '/' + encodeURIComponent(campaignSel.value) + '/generate', {
+            method: 'POST',
+            body: JSON.stringify({ libraryImageId: libraryImageId, topic: topic, imageSource: imageSource, format: 'story' })
+          });
+          created++;
+          await loadReels();
+        } catch (error) {
+          failures.push('Story ' + (index + 1) + ': ' + error.message);
+        }
+      }
+      stopTimer(); batchProgress = '';
+      if (created) revealGenerated();
+      if (failures.length) {
+        say('genStatus', 'Created ' + created + ' of ' + count + '. ' + failures.join(' '), true);
+      } else {
+        say('genStatus', 'Done! Created ' + created + (created === 1 ? ' Story' : ' Stories') + ' — see Drafts below.');
+      }
+    } catch (e) {
+      stopTimer(); batchProgress = ''; say('genStatus', e.message, true);
+    } finally {
+      stopTimer(); batchProgress = ''; setBusy(false);
+      await loadReels();
+    }
+  });
+
+  // ---- video cards -------------------------------------------------------
+  function formatDate(value) {
+    var date = parseStamp(value);
+    if (!date) return 'Date unavailable';
+    return date.toLocaleString(undefined, { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' });
+  }
+
+  function addVideoAction(card, actions, post, label, action, options) {
+    options = options || {};
+    var button = document.createElement('button');
+    button.type = 'button';
+    button.textContent = label;
+    if (options.title) button.title = options.title;
+    if (options.secondary) button.className = 'secondary';
+    var feedback = card.querySelector('.action-feedback');
+    button.addEventListener('click', async function () {
+      if (options.confirm && !confirm(options.confirm)) return;
+      button.disabled = true;
+      button.textContent = options.busyLabel || 'Working…';
+      if (feedback) { feedback.classList.remove('error'); feedback.textContent = options.pendingText || 'Working…'; }
+      try {
+        await action();
+        if (options.refresh === false) {
+          button.disabled = false; button.textContent = label;
+          if (feedback) feedback.textContent = options.pendingText || '';
+          return;
+        }
+        if (feedback) feedback.textContent = 'Saved. Refreshing…';
+        await loadReels();
+        if (typeof window.refreshScheduleCalendar === 'function') window.refreshScheduleCalendar();
+      } catch (error) {
+        if (feedback) { feedback.classList.add('error'); feedback.textContent = 'Could not ' + label.toLowerCase() + ': ' + error.message; }
+        button.disabled = false; button.textContent = label;
+      }
+    });
+    actions.appendChild(button);
+  }
+
+  function renderPostCard(post) {
+    var card = document.createElement('article');
+    card.className = 'reel';
+    card.dataset.postId = post.id;
+
+    if (post.image_url) {
+      var img = document.createElement('img');
+      img.className = 'post-img';
+      img.alt = 'Story preview';
+      img.src = post.image_url + (post.image_url.indexOf('?') >= 0 ? '&' : '?') + 't=' + Date.now();
+      img.addEventListener('error', function () {
+        var unavailable = document.createElement('p');
+        unavailable.className = 'reel-empty error';
+        unavailable.textContent = 'Story preview unavailable. The file may have been removed from the server.';
+        img.replaceWith(unavailable);
+      }, { once: true });
+      card.appendChild(img);
+    } else {
+      var noPreview = document.createElement('p');
+      noPreview.className = 'reel-empty error';
+      noPreview.textContent = 'Image preview unavailable.';
+      card.appendChild(noPreview);
+    }
+
+    var status = (post.status === 'ready_to_post' || !post.status) ? 'generated' : post.status;
+    var head = document.createElement('div');
+    head.className = 'reel-head';
+    var isEdited = status === 'generated' && Number(post.edited) === 1;
+    var badge = document.createElement('span');
+    badge.className = 'badge b-' + (isEdited ? 'edited' : status);
+    badge.textContent = isEdited ? 'edited' : (status === 'generated' ? 'draft' : status.replace(/_/g, ' '));
+    var when = document.createElement('span');
+    when.className = 'reel-date';
+    var whenLabel = status === 'posted' ? 'Posted' : (status === 'scheduled' ? 'Scheduled for' : 'Created');
+    when.textContent = formatDate(status === 'posted' ? (post.posted_at || post.created_at)
+      : (status === 'scheduled' ? post.scheduled_at : post.created_at));
+    when.title = whenLabel + ' ' + when.textContent;
+    head.appendChild(badge);
+    head.appendChild(when);
+    card.appendChild(head);
+
+    var fullTitle = [post.headline_main, post.headline_accent].filter(Boolean).join(' ').trim();
+    var titleElement = document.createElement('p');
+    titleElement.className = 'reel-title';
+    titleElement.textContent = fullTitle || (post.caption || '').split('\n')[0] || ('Story #' + post.id);
+    card.appendChild(titleElement);
+
+    if (post.caption) {
+      var caption = document.createElement('p');
+      caption.className = 'reel-caption';
+      var shortText = post.caption.replace(/#[^\s#]+/g, '').replace(/\s+/g, ' ').trim() || post.caption;
+      caption.textContent = shortText;
+      caption.title = 'Click to show the full caption';
+      caption.addEventListener('click', function () {
+        var open = caption.classList.toggle('open');
+        caption.textContent = open ? post.caption : shortText;
+        caption.title = open ? 'Click to collapse' : 'Click to show the full caption';
+      });
+      card.appendChild(caption);
+    }
+    if ((status === 'scheduled' || status === 'generated') && post.last_error) {
+      var error = document.createElement('p');
+      error.className = 'status error';
+      error.setAttribute('role', 'alert');
+      error.textContent = 'Publish failed: ' + post.last_error;
+      card.appendChild(error);
+    }
+
+    var feedback = document.createElement('p');
+    feedback.className = 'action-feedback';
+    feedback.setAttribute('aria-live', 'polite');
+    card.appendChild(feedback);
+
+    var actions = document.createElement('div');
+    actions.className = 'actions';
+    var id = encodeURIComponent(post.id);
+    if (status === 'generated') {
+      addVideoAction(card, actions, post, 'Post now', function () {
+        return request(API + '/' + id + '/approve', { method: 'POST', body: '{}' });
+      }, {
+        title: 'Post this Story to Instagram now',
+        confirm: 'Post this Story to Instagram now? It disappears after 24 hours.',
+        busyLabel: 'Posting…',
+        pendingText: 'Posting your Story… this can take a minute. Keep this page open.'
+      });
+      addVideoAction(card, actions, post, 'Schedule', function () {
+        if (typeof window.schedulePost === 'function') window.schedulePost(post.id);
+        return Promise.resolve();
+      }, { secondary: true, refresh: false });
+      addVideoAction(card, actions, post, 'Reject', function () {
+        return request(API + '/' + id + '/reject', { method: 'POST', body: '{}' }).then(function (result) {
+          card.remove();
+          return result;
+        });
+      }, { secondary: true, confirm: 'Delete this Story? This cannot be undone.' });
+    } else if (status === 'scheduled') {
+      addVideoAction(card, actions, post, 'Unschedule', function () {
+        return request(API + '/' + id + '/unschedule', { method: 'POST', body: '{}' });
+      }, { secondary: true });
+      if (post.last_error) {
+        addVideoAction(card, actions, post, 'Retry', function () {
+          return request(API + '/' + id + '/retry', { method: 'POST', body: '{}' });
+        });
+      }
+    }
+    if (actions.childNodes.length) card.appendChild(actions);
+    return card;
+  }
+
+  // ---- schedule all drafts onto days that have no scheduled video --------
+  var allPosts = [];
+
+  // Same rule the calendar uses: a stored time with no zone is treated as UTC.
+  function parseStamp(value) {
+    if (!value) return null;
+    var text = String(value).trim().replace(' ', 'T');
+    if (!/(Z|[+-]\d{2}:\d{2})$/i.test(text)) text += 'Z';
+    var d = new Date(text);
+    return Number.isNaN(d.getTime()) ? null : d;
+  }
+  function dayKey(d) { return d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate(); }
+
+  // The next `count` days after today that are not in `taken`, each at SCHEDULE_HOUR.
+  function pickFreeDays(count, taken, now) {
+    var cursor = new Date(now.getTime());
+    cursor.setHours(SCHEDULE_HOUR, 0, 0, 0);
+    var out = [];
+    while (out.length < count) {
+      cursor.setDate(cursor.getDate() + 1);
+      if (!taken[dayKey(cursor)]) out.push(new Date(cursor.getTime()));
+    }
+    return out;
+  }
+
+  function isDraft(p) { return p.status === 'generated' || p.status === 'ready_to_post'; }
+
+  function updateScheduleAllBar() {
+    var n = allPosts.filter(isDraft).length;
+    $('scheduleAllBtn').hidden = !n;
+    $('scheduleAllBtn').textContent = 'Schedule all drafts (' + n + ')';
+  }
+
+  $('scheduleAllBtn').addEventListener('click', async function () {
+    var btn = $('scheduleAllBtn');
+    var out = $('scheduleAllStatus');
+    function note(text, isError) { out.textContent = text; out.className = 'action-feedback' + (isError ? ' error' : ''); }
+    btn.disabled = true;
+    try {
+      note('Checking your calendar…');
+      var data = await request(API + '?content_type=story&_=' + Date.now(), { cache: 'no-store' });
+      var posts = Array.isArray(data) ? data : ((data && data.posts) || []);
+      var drafts = posts.filter(isDraft)
+        .sort(function (a, b) { return String(a.created_at).localeCompare(String(b.created_at)) || a.id - b.id; });
+      if (!drafts.length) { note('There are no drafts to schedule.'); return; }
+
+      var taken = {};
+      posts.forEach(function (p) {
+        if (p.status === 'scheduled' && p.scheduled_at) {
+          var d = parseStamp(p.scheduled_at);
+          if (d) taken[dayKey(d)] = true;
+        }
+      });
+      var days = pickFreeDays(drafts.length, taken, new Date());
+      var fmt = { day: 'numeric', month: 'short', year: 'numeric' };
+      var first = days[0].toLocaleDateString(undefined, fmt);
+      var last = days[days.length - 1].toLocaleDateString(undefined, fmt);
+      if (!confirm('Schedule ' + drafts.length + (drafts.length === 1 ? ' Story' : ' Stories') +
+          ', one per day at ' + SCHEDULE_HOUR + ':00 AM, from ' + first + ' to ' + last +
+          '?\n\nDays that already have a scheduled Story are skipped. They are posted to Instagram automatically at that time.')) {
+        note('Cancelled. Nothing was scheduled.');
+        return;
+      }
+
+      var done = 0;
+      var failures = [];
+      for (var i = 0; i < drafts.length; i++) {
+        note('Scheduling ' + (i + 1) + ' of ' + drafts.length + '…');
+        var id = encodeURIComponent(drafts[i].id);
+        try {
+          await request(API + '/' + id + '/schedule', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ scheduledAt: days[i].toISOString() })
+          });
+          done++;
+        } catch (error) {
+          failures.push('Story #' + drafts[i].id + ': ' + error.message);
+        }
+      }
+      await loadReels();
+      if (typeof window.refreshScheduleCalendar === 'function') await window.refreshScheduleCalendar();
+      if (failures.length) {
+        note('Scheduled ' + done + ' of ' + drafts.length + '. ' + failures.join(' ') +
+          ' Failed Stories stay in Drafts, so you can schedule them by hand.', true);
+      } else {
+        note('Done! Scheduled ' + done + (done === 1 ? ' Story' : ' Stories') + ' from ' + first + ' to ' + last + '.');
+      }
+    } catch (error) {
+      note('Could not schedule: ' + error.message, true);
+    } finally {
+      btn.disabled = false;
+      updateScheduleAllBar();
+    }
+  });
+
+  // ---- ready-to-post videos beside the calendar (drag onto a day) --------
+  var READY_TYPE = 'application/x-kwik-ready';
+  var calRoot = document.querySelector('[data-schedule-calendar]');
+
+  // Brief hint (2 seconds) once per page load, when there is something to drag.
+  var hintShown = false;
+  function showHint() {
+    if (hintShown) return;
+    hintShown = true;
+    var el = $('dragHint');
+    el.classList.add('show');
+    setTimeout(function () { el.classList.remove('show'); }, 2000);
+  }
+
+  function readyNote(text, isError) {
+    var el = $('calReadyStatus');
+    el.textContent = text || '';
+    el.className = 'action-feedback' + (isError ? ' error' : '');
+  }
+
+  function renderReadyPanel(posts) {
+    var items = posts.filter(isDraft);
+    $('calReadyCount').textContent = String(items.length);
+    var box = $('calReadyList');
+    box.textContent = '';
+    if (!items.length) {
+      var none = document.createElement('p');
+      none.className = 'reel-empty';
+      none.textContent = 'No drafts yet. Generate a Story to get started.';
+      box.appendChild(none);
+      return;
+    }
+    items.forEach(function (post) {
+      var row = document.createElement('div');
+      row.className = 'ready-item';
+      row.draggable = true;
+      row.dataset.postId = post.id;
+      row.addEventListener('dragstart', function (ev) {
+        ev.dataTransfer.setData(READY_TYPE, String(post.id));
+        ev.dataTransfer.setData('text/plain', 'ready:' + post.id); // not a calendar item id
+        ev.dataTransfer.effectAllowed = 'move';
+      });
+
+      if (post.image_url) {
+        var v = document.createElement('img');
+        v.src = post.image_url; v.alt = ''; v.draggable = false;
+        row.appendChild(v);
+      }
+      var copy = document.createElement('div');
+      copy.className = 'ri-copy';
+      var title = document.createElement('div');
+      title.className = 'ri-title';
+      title.textContent = [post.headline_main, post.headline_accent].filter(Boolean).join(' ').trim() || (post.caption || ('Story #' + post.id)).split('\n')[0];
+      var meta = document.createElement('div');
+      meta.className = 'ri-meta';
+      meta.textContent = (Number(post.edited) === 1 ? 'Edited · ' : '') + 'Created ' + formatDate(post.created_at);
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'secondary';
+      btn.textContent = 'Schedule';
+      btn.addEventListener('click', function () {
+        if (typeof window.schedulePost === 'function') window.schedulePost(post.id);
+      });
+      copy.appendChild(title); copy.appendChild(meta); copy.appendChild(btn);
+      row.appendChild(copy);
+      box.appendChild(row);
+    });
+  }
+
+  function clearDropMarks() {
+    document.querySelectorAll('.drop-target').forEach(function (n) { n.classList.remove('drop-target'); });
+  }
+
+  // 10:00 AM on the dropped day, or the next free hour if that day already has a video.
+  async function scheduleReadyOnDay(postId, day) {
+    var now = new Date();
+    var endOfDay = new Date(day.getFullYear(), day.getMonth(), day.getDate(), 23, 59, 59);
+    if (endOfDay.getTime() < now.getTime()) { readyNote('Choose today or a later day.', true); return; }
+
+    var usedHours = {};
+    allPosts.forEach(function (p) {
+      if (p.status === 'scheduled' && p.scheduled_at) {
+        var d = parseStamp(p.scheduled_at);
+        if (d && dayKey(d) === dayKey(day)) usedHours[d.getHours()] = true;
+      }
+    });
+    var when = null;
+    for (var h = SCHEDULE_HOUR; h < 24 && !when; h++) {
+      if (usedHours[h]) continue;
+      var candidate = new Date(day.getFullYear(), day.getMonth(), day.getDate(), h, 0, 0, 0);
+      if (candidate.getTime() > now.getTime() + 2 * 60000) when = candidate;
+    }
+    if (!when) { readyNote('That day has no free time left. Choose a later day.', true); return; }
+
+    readyNote('Scheduling…');
+    try {
+      await request(API + '/' + encodeURIComponent(postId) + '/schedule', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ scheduledAt: when.toISOString() })
+      });
+      await loadReels();
+      if (typeof window.refreshScheduleCalendar === 'function') await window.refreshScheduleCalendar();
+      readyNote('Scheduled for ' + when.toLocaleString(undefined, { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' }) + '.');
+    } catch (error) {
+      readyNote('Could not schedule: ' + error.message, true);
+    }
+  }
+
+  if (calRoot) {
+    calRoot.addEventListener('dragover', function (ev) {
+      if (!ev.dataTransfer || Array.prototype.indexOf.call(ev.dataTransfer.types, READY_TYPE) === -1) return;
+      var day = ev.target.closest('[data-calendar-day]');
+      clearDropMarks();
+      if (day) { ev.preventDefault(); ev.dataTransfer.dropEffect = 'move'; day.classList.add('drop-target'); }
+    });
+    calRoot.addEventListener('drop', function (ev) {
+      if (!ev.dataTransfer) return;
+      var postId = ev.dataTransfer.getData(READY_TYPE);
+      clearDropMarks();
+      if (!postId) return;
+      var day = ev.target.closest('[data-calendar-day]');
+      if (!day) return;
+      ev.preventDefault();
+      var parts = day.dataset.calendarDay.split('-').map(Number);
+      scheduleReadyOnDay(postId, new Date(parts[0], parts[1] - 1, parts[2]));
+    });
+    // clicking a day shows that day's details, and the tab shows that day's date
+    calRoot.addEventListener('click', function (ev) {
+      var cell = ev.target.closest('[data-calendar-day]');
+      if (!cell) return;
+      activateTab('calside', 'day');
+      var q = String(cell.dataset.calendarDay).split('-').map(Number);
+      var picked = new Date(q[0], q[1] - 1, q[2]);
+      if (!Number.isNaN(picked.getTime())) {
+        $('calDayTab').textContent = picked.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
+      }
+    });
+  }
+  document.addEventListener('dragend', clearDropMarks);
+
+  // ---- load the lists ------------------------------------------------------
+  async function loadReels() {
+    var groups = {
+      generated: { list: $('reelGenerated'), count: $('reelCountGenerated'), empty: 'No drafts yet. Generate a Story to get started.' },
+      scheduled: { list: $('reelScheduled'), count: $('reelCountScheduled'), empty: 'Nothing is scheduled yet.' },
+      posted: { list: $('reelPosted'), count: $('reelCountPosted'), empty: 'No Stories have been published yet.' }
+    };
+    Object.keys(groups).forEach(function (status) {
+      groups[status].count.textContent = '…';
+      groups[status].list.className = 'reel-loading';
+      groups[status].list.textContent = 'Loading…';
+    });
+    try {
+      var data = await request(API + '?content_type=story&_=' + Date.now(), { cache: 'no-store' });
+      var posts = Array.isArray(data) ? data : ((data && data.posts) || []);
+      allPosts = posts;
+      updateScheduleAllBar();
+      renderReadyPanel(posts);
+      if (posts.some(function (p) { return isDraft(p) || p.status === 'scheduled'; })) showHint();
+      Object.keys(groups).forEach(function (status) {
+        var group = groups[status];
+        var items = posts.filter(function (post) {
+          return status === 'generated' ? isDraft(post) : post.status === status;
+        });
+        group.count.textContent = String(items.length);
+        group.list.className = '';
+        group.list.textContent = '';
+        if (!items.length) {
+          var empty = document.createElement('p');
+          empty.className = 'reel-empty';
+          empty.textContent = group.empty;
+          group.list.appendChild(empty);
+          return;
+        }
+        var grid = document.createElement('div');
+        grid.className = 'reels';
+        items.forEach(function (post) { grid.appendChild(renderPostCard(post)); });
+        group.list.appendChild(grid);
+      });
+    } catch (error) {
+      Object.keys(groups).forEach(function (status) {
+        groups[status].count.textContent = '!';
+        groups[status].list.className = 'reel-empty error';
+        groups[status].list.textContent = 'Could not load Stories: ' + error.message;
+      });
+    }
+  }
+
+  window.loadPosts = loadReels;
+  window.onScheduleChanged = loadReels;
+  window.addEventListener('focus', loadReels);
+  loadCampaigns().then(loadReels);
+})();
+</script>
+<script>
+// Turns each card's Reject button into a trash-can icon in the top row (next to the date and time)
+(function () {
+  var TRASH = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>';
+  function fixCards() {
+    document.querySelectorAll('.reel, .post').forEach(function (card) {
+      var head = card.querySelector('.reel-head, .head');
+      if (!head) return;
+      var del = card.querySelector('.reject-corner');
+      if (!del) {
+        var buttons = card.querySelectorAll('.actions button');
+        for (var i = 0; i < buttons.length; i++) {
+          if (buttons[i].textContent.trim().toLowerCase() === 'reject') { del = buttons[i]; break; }
+        }
+        if (!del) return;
+        del.classList.add('reject-corner');
+        head.appendChild(del);
+      }
+      if (!del.querySelector('svg')) { del.innerHTML = TRASH; del.setAttribute('aria-label', 'Delete'); del.title = 'Delete'; }
+    });
+  }
+  var queued = false;
+  function schedule() { if (queued) return; queued = true; requestAnimationFrame(function () { queued = false; fixCards(); }); }
+  new MutationObserver(schedule).observe(document.body, { childList: true, subtree: true });
+  fixCards();
+})();
+</script>
+</body>
+</html>

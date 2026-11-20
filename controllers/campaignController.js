@@ -43,16 +43,48 @@ async function listCampaigns(req, res, next) {
   }
 }
 
+// "Summer yoga class, 30% off!" -> "summer yoga class"  (a short phrase for the photo search)
+function searchPhrase(topic) {
+  return String(topic || '')
+    .replace(/\d+\s*%\s*(off)?/gi, ' ')
+    .replace(/[^\p{L}\p{N}\s]/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .split(' ')
+    .slice(0, 6)
+    .join(' ');
+}
+
+// When the user typed a topic, the photo must show that topic (never an old fixed subject).
+// aiService already writes the scene from the topic; this only fixes a leftover wrong subject.
+function keywordsForTopic(topic, generatedKeywords) {
+  const phrase = searchPhrase(topic);
+  if (!phrase) return generatedKeywords;
+  const wrong = (k) => /treadmill/i.test(String(k)) && !/treadmill/i.test(topic);
+  if (Array.isArray(generatedKeywords)) {
+    const rest = generatedKeywords.filter((k) => !wrong(k));
+    return rest.length ? rest : [phrase];
+  }
+  return !generatedKeywords || wrong(generatedKeywords) ? phrase : generatedKeywords;
+}
+
 async function generateForCampaign(req, res, next) {
   try {
     const campaign = await campaignModel.getCampaignById(req.params.id, req.userId);
     if (!campaign) return res.status(404).json({ error: 'Campaign not found' });
 
+    const body = req.body || {};
+    const topic = typeof body.topic === 'string' ? body.topic.trim().replace(/\s+/g, ' ').slice(0, 400) : '';
+    // 'topic' = create the image from the user's topic, 'library' = rotate uploaded photos,
+    // 'photo' = one chosen photo. No value = old behaviour (library photo if there is one).
+    const imageSource = ['topic', 'library', 'photo'].includes(body.imageSource) ? body.imageSource : (topic ? 'topic' : 'library');
+
     const generated = await aiService.generateAdContent({
       productName: campaign.product_name,
       audience: campaign.audience,
       tone: campaign.tone,
-      offerDetails: campaign.offer_details
+      offerDetails: campaign.offer_details,
+      topic // what this post must be about (empty = use the campaign as before)
     });
 
     const ctaLabel = generated.ctaButtonLabel || generated.cta || 'Learn more';
@@ -60,9 +92,16 @@ async function generateForCampaign(req, res, next) {
     // Random layout every generate (one of the 8 templates)
     const layoutIndex = Math.floor(Math.random() * (imageService.LAYOUT_COUNT || 8));
 
-    const chosenId = req.body && req.body.libraryImageId ? Number(req.body.libraryImageId) : null;
-    const libraryPhoto = await libraryPhotoService.pickLibraryPhoto(req.userId, chosenId);
+    let libraryPhoto = null;
+    if (imageSource !== 'topic') {
+      const chosenId = body.libraryImageId ? Number(body.libraryImageId) : null;
+      libraryPhoto = await libraryPhotoService.pickLibraryPhoto(req.userId, chosenId);
+    }
     const backgroundFile = libraryPhotoService.newBackgroundFile();
+
+    const photoKeywords = imageSource === 'topic'
+      ? keywordsForTopic(topic, generated.photoKeywords)
+      : generated.photoKeywords;
 
     const imageUrl = await imageService.generateAndHostAdImage({
       productName: campaign.product_name,
@@ -74,7 +113,8 @@ async function generateForCampaign(req, res, next) {
       offerText: generated.offerText,
       ctaButtonLabel: ctaLabel,
       cta: generated.cta,
-      photoKeywords: generated.photoKeywords,
+      photoKeywords,
+      topic,
       logoUrl: campaign.logo_url,
       layoutIndex,
       backgroundFile,

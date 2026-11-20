@@ -1,6 +1,6 @@
 const STATUS_TRANSITIONS = {
   generated: ['ready_to_post'],
-  ready_to_post: ['generated', 'scheduled'],
+  ready_to_post: ['ready_to_post', 'generated', 'scheduled', 'posted'],
   scheduled: ['ready_to_post', 'posted'],
   posted: []
 };

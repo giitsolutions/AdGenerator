@@ -1,4 +1,5 @@
 // POST /api/posts/reel-generate  { campaign_id, duration (15-30), idea?, mode?: 'auto'|'stock'|'slideshow' }
+// The video is searched for, and the text is written, from the user's idea.
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -37,7 +38,7 @@ async function generateReel(req, res, next) {
   const {
     campaign_id: campaignIdInput,
     duration: durationInput,
-    idea,
+    idea: ideaInput,
     mode: modeInput
   } = req.body || {};
   const campaignId = Number(campaignIdInput);
@@ -50,7 +51,7 @@ async function generateReel(req, res, next) {
   if (!Number.isInteger(duration) || duration < 15 || duration > 30) {
     return res.status(400).json({ error: 'duration must be a whole number between 15 and 30 seconds' });
   }
-  if (idea != null && typeof idea !== 'string') {
+  if (ideaInput != null && typeof ideaInput !== 'string') {
     return res.status(400).json({ error: 'idea must be a string' });
   }
   if (!['auto', 'stock', 'slideshow'].includes(mode)) {
@@ -63,6 +64,8 @@ async function generateReel(req, res, next) {
     return res.status(409).json({ error: 'A reel is already being generated for this account' });
   }
 
+  const idea = (ideaInput || '').trim().replace(/\s+/g, ' ').slice(0, 400);
+
   busy.add(userId);
   let tmpDir;
   let outPath;
@@ -74,6 +77,9 @@ async function generateReel(req, res, next) {
     if (!campaign) {
       return res.status(404).json({ error: 'Campaign not found' });
     }
+
+    // What the video search looks for: the user's idea, or the campaign product if no idea.
+    const topic = idea || campaign.product_name || '';
 
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'kwikreel-'));
     const generated = await makeGenerated(campaign, idea);
@@ -104,14 +110,16 @@ async function generateReel(req, res, next) {
           ...overlay,
           duration,
           outPath,
-          sourceOutPath: sourcePath
+          sourceOutPath: sourcePath,
+          topic,   // what the video must be about (the user's idea)
+          idea
         });
         source = 'stock';
       } catch (error) {
         fs.rmSync(sourcePath, { force: true });
         console.warn('[reels] Stock video generation failed:', error.message);
         return res.status(502).json({
-          error: `Could not find a new, unused video focused on a treadmill. Unrelated exercise footage and clips with only an incidental treadmill are not used. Please try again later or choose the slideshow option with treadmill-related photos. ${error.message}`
+          error: `Could not find a new, unused video about "${topic}". Try describing it in other words, or try again later. ${error.message}`
         });
       }
     }

@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>KwikPost — Connect YouTube</title>
+<script>try{document.documentElement.setAttribute('data-theme',localStorage.getItem('theme')||'dark')}catch(e){}</script>
+<style>
+  :root { --bg:#0b0a10; --card:#0f0e15; --soft:#17151f; --line:#2a2634; --text:#f5f2fb; --muted:#a39bbd;
+          --orange:#f97316; --accent:#a855f7; --green:#22c55e; --yt:#ff0000; }
+  :root[data-theme="light"] { --bg:#f6f3fb; --card:#fff; --soft:#f0ecf8; --line:#ded8ea; --text:#1d1a2b; --muted:#6a6483; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font:15px/1.55 system-ui,"Segoe UI",sans-serif; }
+  a { color:#c4b5fd; }
+  .top { display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;
+         padding:12px 18px; border-bottom:1px solid var(--line); }
+  .top h1 { margin:0; font-size:16px; }
+  .nav a { margin-left:8px; padding:6px 12px; border:1px solid var(--line); border-radius:8px; background:var(--soft); color:var(--text); text-decoration:none; font-size:13px; }
+  .wrap { max-width:720px; margin:20px auto 48px; padding:0 16px; }
+  .hero { text-align:center; margin-bottom:22px; }
+  .hero .icon { width:64px; height:64px; margin:0 auto 12px; border-radius:16px; background:#ff0000;
+    display:grid; place-items:center; font-size:28px; color:#fff; }
+  .hero h2 { margin:0 0 6px; font-size:22px; }
+  .hero p { margin:0; color:var(--muted); font-size:14px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px; margin-bottom:14px; }
+  .step { display:grid; grid-template-columns:44px 1fr; gap:14px; }
+  .num { width:44px; height:44px; border-radius:12px; background:linear-gradient(135deg,#ff0000,#ff6b6b);
+         display:grid; place-items:center; font-weight:800; font-size:16px; color:#fff; }
+  .step h3 { margin:0 0 6px; font-size:16px; }
+  .step p, .step li { color:var(--muted); font-size:14px; margin:0 0 8px; }
+  .step ul { margin:0 0 8px; padding-left:18px; }
+  .tip { background:var(--soft); border-left:3px solid var(--accent); padding:10px 12px; border-radius:8px; font-size:13px; color:var(--muted); margin-top:8px; }
+  .ok { border-left-color:var(--green); }
+  .warn { border-left-color:var(--orange); }
+  .btn-row { display:flex; flex-wrap:wrap; gap:10px; margin-top:14px; }
+  button, .btn {
+    display:inline-block; background:linear-gradient(120deg,#ff0000,#cc0000); color:#fff; border:0;
+    border-radius:10px; padding:12px 18px; font-weight:700; font-size:14px; cursor:pointer; text-decoration:none;
+  }
+  .btn.secondary { background:var(--soft); color:var(--text); border:1px solid var(--line); }
+  code { background:var(--soft); padding:2px 6px; border-radius:4px; font-size:12px; }
+  .checklist label { display:flex; gap:8px; align-items:flex-start; margin:8px 0; font-size:14px; cursor:pointer; }
+  .env { font-family:ui-monospace,monospace; font-size:12px; background:var(--soft); padding:12px; border-radius:8px; overflow:auto; white-space:pre; }
+</style>
+</head>
+<body>
+  <div class="top">
+    <h1>▶️ Connect YouTube</h1>
+    <nav class="nav">
+      <a href="/index.html">Dashboard</a>
+      <a href="/posts.html">Posts</a>
+      <a href="/reels.html">Reels</a>
+      <a href="/connect-instagram.html">Instagram setup</a>
+    </nav>
+  </div>
+
+  <div class="wrap">
+    <div class="hero">
+      <div class="icon">▶</div>
+      <h2>Connect YouTube to KwikPost</h2>
+      <p>Separate from Instagram. Use these steps to allow uploads to your YouTube channel.</p>
+    </div>
+
+    <div class="card">
+      <div class="step">
+        <div class="num">1</div>
+        <div>
+          <h3>You need a YouTube channel</h3>
+          <ul>
+            <li>Sign in at <a href="https://www.youtube.com" target="_blank" rel="noopener">youtube.com</a> with the Google account you want to use</li>
+            <li>If you have no channel: your avatar → <strong>Create a channel</strong></li>
+            <li>Prefer a <strong>Brand Account</strong> channel if a team will manage uploads</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="step">
+        <div class="num">2</div>
+        <div>
+          <h3>Create a Google Cloud project</h3>
+          <ul>
+            <li>Open <a href="https://console.cloud.google.com/" target="_blank" rel="noopener">Google Cloud Console</a></li>
+            <li><strong>Select a project</strong> → <strong>New project</strong> → name it e.g. <code>KwikPost</code></li>
+            <li>Open that project</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="step">
+        <div class="num">3</div>
+        <div>
+          <h3>Enable YouTube Data API</h3>
+          <ul>
+            <li>Menu → <strong>APIs &amp; Services</strong> → <strong>Library</strong></li>
+            <li>Search <strong>YouTube Data API v3</strong> → <strong>Enable</strong></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="step">
+        <div class="num">4</div>
+        <div>
+          <h3>Configure OAuth consent screen</h3>
+          <ul>
+            <li>APIs &amp; Services → <strong>OAuth consent screen</strong></li>
+            <li>User type: <strong>External</strong> (or Internal if Google Workspace only)</li>
+            <li>App name: KwikPost · support email: yours</li>
+            <li>Scopes → add <code>https://www.googleapis.com/auth/youtube.upload</code> and <code>youtube.readonly</code></li>
+            <li>Test users: add your Gmail while the app is in <strong>Testing</strong></li>
+          </ul>
+          <div class="tip warn">In Testing mode only listed test users can connect. Publish the app later for all users.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="step">
+        <div class="num">5</div>
+        <div>
+          <h3>Create OAuth client ID</h3>
+          <ul>
+            <li>APIs &amp; Services → <strong>Credentials</strong> → <strong>Create credentials</strong> → <strong>OAuth client ID</strong></li>
+            <li>Type: <strong>Web application</strong></li>
+            <li>Authorized redirect URI (local):<br /><code>http://localhost:5000/api/youtube/callback</code></li>
+            <li>If you use a public HTTPS URL, add that callback too</li>
+            <li>Copy <strong>Client ID</strong> and <strong>Client secret</strong></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="step">
+        <div class="num">6</div>
+        <div>
+          <h3>Add keys to KwikPost <code>.env</code></h3>
+          <div class="env">YOUTUBE_CLIENT_ID=your_client_id.apps.googleusercontent.com
+YOUTUBE_CLIENT_SECRET=your_client_secret
+YOUTUBE_REDIRECT_URI=http://localhost:5000/api/youtube/callback
+APP_BASE_URL=http://localhost:5000</div>
+          <p style="margin-top:10px;color:var(--muted);font-size:14px;">Restart the server after saving <code>.env</code> (<code>npm start</code>).</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="step">
+        <div class="num">7</div>
+        <div>
+          <h3>Connect your channel in the app</h3>
+          <div class="checklist">
+            <label><input type="checkbox" /> YouTube channel ready</label>
+            <label><input type="checkbox" /> YouTube Data API enabled</label>
+            <label><input type="checkbox" /> OAuth client + redirect URI set</label>
+            <label><input type="checkbox" /> <code>.env</code> updated and server restarted</label>
+            <label><input type="checkbox" /> My Google account is a test user (if app is in Testing)</label>
+          </div>
+          <div class="btn-row">
+            <button type="button" id="ytConnectBtn">Connect YouTube with Google</button>
+            <a class="btn secondary" href="/connect-instagram.html">Instagram setup</a>
+          </div>
+          <div class="tip ok" style="margin-top:12px;">
+            You will see Google’s permission screen. Choose the account that owns the channel, then Allow.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3 style="margin:0 0 8px;">Common problems</h3>
+      <ul style="margin:0;padding-left:18px;color:var(--muted);font-size:14px;">
+        <li><strong>redirect_uri_mismatch</strong> — URI in Google Cloud must match <code>YOUTUBE_REDIRECT_URI</code> exactly.</li>
+        <li><strong>Access blocked / app not verified</strong> — Add yourself as a test user, or publish the OAuth app.</li>
+        <li><strong>No channel</strong> — Create a channel on YouTube with the same Google account.</li>
+        <li><strong>Upload quota</strong> — New projects have limited daily upload quota; check Google Cloud quotas.</li>
+      </ul>
+    </div>
+  </div>
+
+<script>
+(function () {
+  function token() { return localStorage.getItem('authToken') || localStorage.getItem('token') || ''; }
+  if (!token()) { window.location.href = '/login.html'; return; }
+
+  document.getElementById('ytConnectBtn').onclick = function () {
+    // Same pattern as Instagram when you add the route:
+    window.location.href = '/api/youtube/auth/start?token=' + encodeURIComponent(token());
+  };
+})();
+</script>
+</body>
+</html>
