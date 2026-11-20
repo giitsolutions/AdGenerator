@@ -87,11 +87,11 @@
         <div>
           <h3>Create or link a Facebook Page</h3>
           <p>Instagram publishing needs a Facebook Page linked to that Instagram account.</p>
-                    <ul>
-            <li><a href="https://www.facebook.com/pages/create" target="_blank" rel="noopener">Create a Facebook Page</a> (skip this if you already have one)</li>
-            <li>Then link it to Instagram from Accounts Center: <a href="https://accountscenter.facebook.com/" target="_blank" rel="noopener">Open Accounts Center</a>, choose <strong>Add accounts</strong> or <strong>Connected experiences</strong>, and add the Instagram account to the Page.</li>
-            <li>Or link it from Instagram: <a href="https://www.instagram.com/accounts/manage_access/" target="_blank" rel="noopener">Open Instagram account settings</a>, then <strong>Accounts Center</strong>, then <strong>Add Facebook Page</strong>, and pick your Page.</li>
-            <li>Need help? <a href="https://www.facebook.com/help/1462241137382862" target="_blank" rel="noopener">Facebook Help: link Instagram to a Page</a>.</li>
+          <ul>
+            <li>Go to <a href="https://www.facebook.com/pages/create" target="_blank" rel="noopener">facebook.com/pages/create</a></li>
+            <li>Create a Page for your brand (or use an existing one)</li>
+            <li>On Instagram: Settings → Account → <strong>Linked accounts / Sharing to other apps</strong> → Facebook → link this Page</li>
+            <li>Or from Facebook Page settings → <strong>Linked accounts</strong> → Instagram → connect</li>
           </ul>
           <div class="tip warn">The Facebook user who clicks Connect in KwikPost must be an admin of that Page.</div>
         </div>
@@ -168,18 +168,9 @@
   function token() { return localStorage.getItem('authToken') || localStorage.getItem('token') || ''; }
   if (!token()) { window.location.href = '/login.html'; return; }
 
-  document.getElementById('connectBtn').onclick = async function () {
-  try {
-    var res = await fetch('/api/instagram/connect-url', {
-      method: 'POST',
-      headers: { 'Authorization': 'Bearer ' + token(), 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
-      body: JSON.stringify({ returnTo: '/connect-instagram.html' })
-    });
-    var data = await res.json();
-    if (!res.ok || !data.url) throw new Error(data.error || 'Could not start connection');
-    window.location.href = data.url;
-  } catch (e) { alert(e.message); }
-};
+  document.getElementById('connectBtn').onclick = function () {
+    window.location.href = '/api/instagram/auth/start?token=' + encodeURIComponent(token());
+  };
 
   fetch('/api/auth/me', {
     headers: { 'Authorization': 'Bearer ' + token(), 'ngrok-skip-browser-warning': 'true' }

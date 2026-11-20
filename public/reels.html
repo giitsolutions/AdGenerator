@@ -4,12 +4,14 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <link rel="stylesheet" href="/schedule-calendar.css" />
+<link rel="stylesheet" href="/calendar-fix.css" />
+<link rel="icon" href="data:," />
 <title>KwikPost — Reels</title>
 <script>try{document.documentElement.setAttribute('data-theme',localStorage.getItem('theme')||'dark')}catch(e){}</script>
 <style>
   :root {
     --bg:#0b0a10; --card:#0f0e15; --soft:#17151f; --line:#2a2634; --text:#f5f2fb; --muted:#a39bbd;
-    --accent:#a855f7; --orange:#f97316; --red:#dc2626;
+    --accent:#a855f7; --orange:#f97316; --red:#dc2626; --green:#22c55e;
   }
   :root[data-theme="light"] {
     --bg:#f6f3fb; --card:#ffffff; --soft:#f0ecf8; --line:#ded8ea; --text:#1d1a2b; --muted:#6a6483;
@@ -26,14 +28,13 @@
          padding:10px 18px; border-bottom:1px solid var(--line); }
   .top h1 { margin:0; font-size:16px; }
   .page-nav { display:flex; gap:6px; flex-wrap:wrap; }
-  .page-nav a { padding:5px 10px; border:1px solid var(--line); border-radius:8px; background:var(--soft); font-size:13px; }
+  .page-nav a { padding:5px 10px; border:1px solid var(--line); border-radius:8px; background:var(--soft); font-size:13px; color:var(--text); }
   .page-nav a.active { background:linear-gradient(120deg,var(--orange),var(--accent)); color:#fff; border-color:transparent; }
 
   .wrap { width:100%; max-width:1100px; margin:14px auto 40px; padding:0 14px; display:grid; gap:14px; }
   .card { min-width:0; background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px; }
   .card h2 { margin:0; font-size:15px; }
   .card-head { display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; margin-bottom:10px; }
-  .note { color:var(--muted); font-size:12px; margin:6px 0 0; }
 
   /* campaign strip */
   .campaign-strip { display:flex; align-items:center; gap:12px; flex-wrap:wrap; padding:10px 14px; }
@@ -42,10 +43,20 @@
   .brand-preview { display:flex; align-items:center; gap:8px; color:var(--muted); font-size:12px; }
   .brand-preview img { width:30px; height:30px; object-fit:contain; border:1px solid var(--line); border-radius:6px; background:var(--soft); }
   #campaignMsg { margin:0; }
+  .campaign-strip .conn-group { margin-left:auto; display:flex; align-items:center; gap:8px; }
+
+  /* connection logo buttons */
+  button.conn-btn { display:inline-flex; align-items:center; justify-content:center; width:38px; height:38px; padding:0;
+                    border-radius:10px; border:1px solid var(--line); background:var(--soft); cursor:pointer; box-shadow:none; }
+  button.conn-btn:hover { border-color:var(--orange); }
+  button.conn-btn.is-on { border-color:var(--green); box-shadow:0 0 0 2px rgba(34,197,94,.25); }
+  button.conn-btn:disabled { opacity:.6; cursor:wait; }
+  button.conn-btn svg { width:22px; height:22px; flex:none; }
+  .conn-label { display:none; }
 
   /* forms */
   label { display:block; margin:0 0 3px; font-size:12px; color:var(--muted); }
-  select, input[type=file], textarea {
+  select, input[type=file], input[type=text], input[type=datetime-local], textarea {
     width:100%; padding:8px 10px; border-radius:8px; border:1px solid var(--line);
     background:var(--soft); color:var(--text); font:inherit; color-scheme:dark;
   }
@@ -70,6 +81,8 @@
   .status { font-size:12px; color:var(--muted); min-height:16px; }
   .error, .action-feedback.error { color:#fca5a5; }
   :root[data-theme="light"] .error, :root[data-theme="light"] .action-feedback.error { color:var(--red); }
+  textarea#genIdea { min-height:84px; font-size:15px; }
+  .hint { font-size:11px; color:var(--muted); margin:4px 0 0; }
 
   /* tabs */
   .tabs { display:flex; gap:4px; flex-wrap:wrap; border-bottom:1px solid var(--line); }
@@ -96,7 +109,7 @@
   .reel-head { display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-top:6px; }
   .reel-date { font-size:10px; color:var(--muted); }
   .reel .action-feedback:empty { display:none; }
-  .reel .actions { flex-wrap:nowrap; gap:4px; }
+  .reel .actions { flex-wrap:wrap; gap:4px; }
   .reel .actions button { flex:1 1 auto; min-width:0; padding:5px 4px; font-size:11px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .badge { display:inline-block; font-size:10px; font-weight:800; border-radius:99px; padding:1px 8px; color:#000; text-transform:capitalize; }
   .b-generated { background:#a39bbd; } .b-edited { background:#38bdf8; }
@@ -124,11 +137,25 @@
   .ready-item button { padding:4px 9px; font-size:11px; }
   .drop-target { outline:2px dashed var(--orange); outline-offset:-2px; }
 
-  /* brief drag hint above the calendar (space is reserved so nothing jumps) */
   .drag-hint { height:30px; margin-top:10px; display:flex; align-items:center; justify-content:center; pointer-events:none; }
   .drag-hint span { padding:5px 16px; border:1px dashed var(--orange); border-radius:99px; background:rgba(249,115,22,.1);
                     font-size:12px; font-weight:600; opacity:0; transition:opacity .3s; }
   .drag-hint.show span { opacity:1; }
+
+  /* popup for posting and scheduling */
+  .pm-overlay { position:fixed; inset:0; background:rgba(0,0,0,.6); display:flex; align-items:center; justify-content:center;
+                padding:16px; z-index:9000; }
+  .pm-overlay[hidden] { display:none; }
+  .pm-card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px; width:100%; max-width:440px; }
+  .pm-card h3 { margin:0 0 10px; font-size:17px; }
+  .pm-note { color:var(--muted); font-size:13px; margin:0 0 12px; }
+  .pm-row { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:10px 12px;
+            border:1px solid var(--line); border-radius:10px; margin-bottom:8px; background:var(--soft); font-size:13px; }
+  .pm-choice { display:block; width:100%; margin-bottom:8px; text-align:left; padding:12px 14px; }
+  .pm-card input[type=datetime-local] { margin:4px 0 14px; padding:9px 10px; }
+  .pm-foot { display:flex; justify-content:flex-end; gap:8px; margin-top:12px; flex-wrap:wrap; }
+  .pm-result p { margin:0 0 8px; font-size:13px; word-break:break-word; }
+  .pm-result a { color:#c4b5fd; }
 
   @media (max-width:860px) { .cal-layout { grid-template-columns:1fr; } .cal-side { max-height:none; } }
 
@@ -137,8 +164,9 @@
     .wrap { padding:0 10px; gap:10px; }
     .row3, .row2 { grid-template-columns:1fr; }
     .campaign-strip select { flex:1 1 100%; }
+    .campaign-strip .conn-group { margin-left:0; }
     .reels { grid-template-columns:repeat(2,minmax(0,1fr)); }
-    select, input[type=file], textarea { font-size:16px; }
+    select, input[type=file], input[type=text], textarea { font-size:16px; }
   }
 </style>
 </head>
@@ -147,14 +175,14 @@
   <div class="top">
     <h1>🎬 Reels / Videos</h1>
     <nav class="page-nav" aria-label="Content pages">
-      <a href="/index.html">🖼️ Posts / Images</a>
+      <a href="/posts.html">🖼️ Posts / Images</a>
       <a class="active" href="/reels.html" aria-current="page">🎬 Reels / Videos</a>
       <a href="/index.html?section=sec-campaign">Campaigns &amp; branding</a>
     </nav>
   </div>
 
   <div class="wrap">
-    <!-- 2. CAMPAIGN -->
+    <!-- 2. CAMPAIGN (with connection logos) -->
     <div class="card campaign-strip">
       <label for="campaign">Campaign</label>
       <select id="campaign"><option value="">Loading…</option></select>
@@ -163,6 +191,26 @@
         <span id="campaignBrandingText"></span>
       </div>
       <span id="campaignMsg" class="status" role="alert"></span>
+      <div class="conn-group">
+        <button type="button" id="ytConnectBtn" class="conn-btn" title="Connect YouTube">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="1" y="4" width="22" height="16" rx="4" fill="#FF0000"/><path d="M10 9l6 3-6 3z" fill="#fff"/></svg>
+          <span class="conn-label">Connect YouTube</span>
+        </button>
+        <button type="button" id="igConnectBtn" class="conn-btn" title="Connect Instagram">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <defs>
+              <linearGradient id="igGrad" x1="0" y1="1" x2="1" y2="0">
+                <stop offset="0" stop-color="#fdc468"/><stop offset=".35" stop-color="#f58529"/>
+                <stop offset=".6" stop-color="#dd2a7b"/><stop offset="1" stop-color="#8134af"/>
+              </linearGradient>
+            </defs>
+            <rect x="2" y="2" width="20" height="20" rx="6" fill="url(#igGrad)"/>
+            <circle cx="12" cy="12" r="4.2" fill="none" stroke="#fff" stroke-width="2"/>
+            <circle cx="17.4" cy="6.6" r="1.2" fill="#fff"/>
+          </svg>
+          <span class="conn-label">Connect Instagram</span>
+        </button>
+      </div>
     </div>
 
     <!-- 3. CALENDAR -->
@@ -219,6 +267,11 @@
       </div>
 
       <div data-panel-group="create" data-panel="gen">
+        <div class="field">
+          <label for="genIdea">Video topic</label>
+          <textarea id="genIdea" maxlength="400" placeholder="e.g. yoga class, cooking tips, salon offer, new gym opening, home treadmill walking plan"></textarea>
+          <p class="hint">Type any topic. The video, headline and caption are built from it. Leave it empty and a topic is chosen for you.</p>
+        </div>
         <div class="row3">
           <div class="field">
             <label for="genDuration">Length</label>
@@ -241,23 +294,19 @@
           <div class="field">
             <label for="genMode">Video source</label>
             <select id="genMode">
-              <option value="auto">Automatic — treadmill search</option>
-              <option value="stock">Stock — treadmill videos</option>
-              <option value="slideshow">Slideshow — my photo library</option>
+              <option value="auto">Automatic (stock video from my topic)</option>
+              <option value="stock">Stock video only</option>
+              <option value="slideshow">Slideshow from my photo library</option>
             </select>
           </div>
-        </div>
-        <div class="field">
-          <label for="genIdea">Idea (optional)</label>
-          <textarea id="genIdea" placeholder="e.g. home treadmill walking plan, 30% off equipment"></textarea>
         </div>
         <details>
           <summary>About the video source</summary>
           <p id="videoSourceHelp" role="status" aria-live="polite"></p>
-          <p>Only new videos focused on a treadmill (in use or as equipment, any setting) are accepted. Clips where a treadmill is only in the background and unrelated exercise footage are rejected. Stock clips are never reused. For a slideshow, choose treadmill-related photos from your library.</p>
+          <p>Only new stock clips that clearly show your topic are used. Stock clips are never reused. For a slideshow, the video is built from photos already in your photo library.</p>
         </details>
         <div class="form-foot">
-          <button type="button" id="genBtn">Generate video</button>
+          <button type="button" id="genBtn">✨ Generate video</button>
           <span class="status" id="genStatus" role="status" aria-live="polite"></span>
         </div>
         <div class="bar" id="genBar"><i></i></div>
@@ -271,7 +320,7 @@
           </div>
           <div class="field">
             <label for="upIdea">What is this video about? (optional)</label>
-            <textarea id="upIdea" placeholder="e.g. New treadmill arrivals, free trial this week"></textarea>
+            <textarea id="upIdea" placeholder="e.g. new arrivals, free trial this week"></textarea>
           </div>
         </div>
         <details>
@@ -286,11 +335,11 @@
       </div>
     </div>
 
-    <!-- 5. YOUR VIDEOS (one status tab at a time) -->
+    <!-- 5. YOUR VIDEOS -->
     <div class="card" id="sec-videos">
       <div class="card-head">
         <h2>Your videos</h2>
-        <button type="button" id="scheduleAllBtn" hidden title="Schedules every draft, one per day at 11:00 AM, on days with nothing scheduled. It does not post them right now.">Schedule all drafts</button>
+        <button type="button" id="scheduleAllBtn" hidden title="Schedules every draft, one per free day at 11:00 AM, to the platforms you choose.">Schedule all drafts</button>
         <div class="tabs" role="tablist">
           <button type="button" class="on" data-tab-group="vid" data-tab="generated">Drafts <span class="count-badge" id="reelCountGenerated">0</span></button>
           <button type="button" data-tab-group="vid" data-tab="scheduled">Scheduled <span class="count-badge" id="reelCountScheduled">0</span></button>
@@ -307,16 +356,56 @@
     </div>
   </div>
 
+  <!-- POPUP: post and schedule steps -->
+  <div id="postModal" class="pm-overlay" hidden>
+    <div class="pm-card" role="dialog" aria-modal="true" aria-labelledby="pmTitle">
+      <h3 id="pmTitle"></h3>
+      <div id="pmBody"></div>
+    </div>
+  </div>
+
+<script src="/instagram-connect.js"></script>
 <script src="/schedule.js"></script>
 <script src="/schedule-calendar.js"></script>
 <script>
+// Marks past days and today in the calendar so the CSS can style them
+(function () {
+  var grid = document.querySelector('[data-calendar-grid]');
+  if (!grid) return;
+
+  function markDays() {
+    var now = new Date();
+    var today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    grid.querySelectorAll('[data-calendar-day]').forEach(function (cell) {
+      var p = String(cell.dataset.calendarDay).split('-').map(Number);
+      var d = new Date(p[0], p[1] - 1, p[2]);
+      var valid = !Number.isNaN(d.getTime());
+      cell.classList.toggle('is-past', valid && d < today);
+      cell.classList.toggle('is-today', valid && d.getTime() === today.getTime());
+    });
+  }
+
+  new MutationObserver(markDays).observe(grid, { childList: true, subtree: true });
+  markDays();
+  setInterval(markDays, 60 * 60 * 1000);
+})();
+</script>
+<script>
 (function () {
   var API = '/api/posts';
+  var YT_API = '/api/youtube';
+  var ME_API = '/api/auth/me';
   var CAMPAIGNS_API = '/api/campaigns';
   var SELECTED_CAMPAIGN_KEY = 'kwik-selected-campaign';
   var LEGACY_REEL_CAMPAIGN_KEY = 'kwik-reel-campaign';
-  var MAX_MB = 100; // the server's REEL_MAX_MB default; the server enforces the real limit
+  var PENDING_KEY = 'kwik-pending-reel-action';
+  var MAX_MB = 100;
   var SCHEDULE_HOUR = 11; // 11:00 AM in the time zone of this browser
+  var PLATFORM_CHOICES = [
+    { label: 'Instagram only', platforms: ['instagram'] },
+    { label: 'YouTube Shorts only', platforms: ['youtube'] },
+    { label: 'Both Instagram and YouTube', platforms: ['instagram', 'youtube'] }
+  ];
   var $ = function (id) { return document.getElementById(id); };
 
   function getToken() { return localStorage.getItem('authToken') || localStorage.getItem('token') || ''; }
@@ -343,9 +432,9 @@
 
   // ---- video source help ----------------------------------------------
   var sourceHelp = {
-    auto: 'Automatic: searches for new treadmill videos. It does not switch to a slideshow by itself. Common failures: missing PEXELS_API_KEY or GEMINI_API_KEY, provider/network errors, or no unused matching clip.',
-    stock: 'Stock: searches Pexels for new treadmill videos. Common failures: missing PEXELS_API_KEY or GEMINI_API_KEY, provider/network errors, or no unused matching clip.',
-    slideshow: 'Slideshow: builds a video from photos already in your photo library. Add at least one photo using Upload images first. Common failures: empty or unreadable library photos, or video rendering unavailable.'
+    auto: 'Automatic: finds new stock videos that clearly show your topic. If the topic has no good match, the reel may fail; try a simpler topic word.',
+    stock: 'Stock only: searches Pexels for new videos that clearly show your topic. Common failures: missing PEXELS_API_KEY or GEMINI_API_KEY, network errors, or no unused matching clip.',
+    slideshow: 'Slideshow: builds a video from photos already in your photo library. Add photos using Upload images first. Common failures: empty or unreadable library photos.'
   };
   function updateSourceHelp() { $('videoSourceHelp').textContent = sourceHelp[$('genMode').value] || sourceHelp.auto; }
   $('genMode').addEventListener('change', updateSourceHelp);
@@ -359,13 +448,34 @@
   }
   async function request(url, options) {
     options = options || {};
+    var method = String(options.method || 'GET').toUpperCase();
     var res = await fetch(url, Object.assign({}, options, { headers: authHeaders(options.headers) }));
     if (res.status === 401) { window.location.href = '/login.html'; throw new Error('Session expired'); }
+    var raw = await res.text();
     var data = null;
-    try { data = await res.json(); } catch (e) {}
-    if (!res.ok || (data && data.error)) throw new Error((data && (data.error || data.message)) || 'Request failed (' + res.status + ')');
+    if (raw) { try { data = JSON.parse(raw); } catch (e) { data = raw; } }
+
+    if (res.status === 409 && data && typeof data === 'object') {
+      var code = data.code || data.errorCode || '';
+      if (String(code).toUpperCase() === 'INSTAGRAM_NOT_CONNECTED') {
+        var err409 = new Error('Connect Instagram, then try again.');
+        err409.code = 'INSTAGRAM_NOT_CONNECTED';
+        throw err409;
+      }
+    }
+    if (!res.ok || (data && typeof data === 'object' && data.error)) {
+      var message = (data && typeof data === 'object' && (data.error || data.message)) ||
+        (typeof data === 'string' && data.trim() ? data.trim().slice(0, 300) : '') ||
+        ('Request failed (HTTP ' + res.status + ')');
+      console.error('KwikPost API error', { method: method, url: url, status: res.status, response: data });
+      var err = new Error(String(message));
+      err.status = res.status;
+      err.response = data;
+      throw err;
+    }
     return data;
   }
+
   function say(id, text, isError) {
     var el = $(id); el.textContent = text || ''; el.className = 'status' + (isError ? ' error' : '');
   }
@@ -395,7 +505,7 @@
       campaigns = Array.isArray(list) ? list : ((list && list.campaigns) || []);
       if (!campaigns.length) {
         campaignSel.innerHTML = '<option value="">No campaigns yet</option>';
-        $('campaignMsg').innerHTML = 'Create a campaign on the <a href="/index.html?section=sec-campaign">Posts / Images page</a> first.';
+        $('campaignMsg').innerHTML = 'Create a campaign on the <a href="/index.html?section=sec-campaign">Campaigns page</a> first.';
         setEnabled(false);
         return;
       }
@@ -495,7 +605,7 @@
     var fd = new FormData();
     fd.append('campaign_id', campaignSel.value);
     fd.append('idea', $('upIdea').value.trim());
-    fd.append('video', file); // the server expects the field name "video"
+    fd.append('video', file);
 
     var xhr = new XMLHttpRequest();
     xhr.open('POST', API + '/reel-upload');
@@ -527,6 +637,351 @@
     };
     xhr.send(fd);
   });
+
+  // ---- time helpers ----------------------------------------------------------
+  // A stored time with no zone is treated as UTC.
+  function parseStamp(value) {
+    if (!value) return null;
+    var text = String(value).trim().replace(' ', 'T');
+    if (!/(Z|[+-]\d{2}:\d{2})$/i.test(text)) text += 'Z';
+    var d = new Date(text);
+    return Number.isNaN(d.getTime()) ? null : d;
+  }
+  function dayKey(d) { return d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate(); }
+  function pickFreeDays(count, taken, now) {
+    var cursor = new Date(now.getTime());
+    cursor.setHours(SCHEDULE_HOUR, 0, 0, 0);
+    var out = [];
+    while (out.length < count) {
+      cursor.setDate(cursor.getDate() + 1);
+      if (!taken[dayKey(cursor)]) out.push(new Date(cursor.getTime()));
+    }
+    return out;
+  }
+  function takenDays() {
+    var taken = {};
+    allPosts.forEach(function (p) {
+      if (p.status === 'scheduled' && p.scheduled_at) {
+        var d = parseStamp(p.scheduled_at);
+        if (d) taken[dayKey(d)] = true;
+      }
+    });
+    return taken;
+  }
+  function suggestWhen() { return pickFreeDays(1, takenDays(), new Date())[0]; }
+  function toLocalInput(d) {
+    var p = function (n) { return String(n).padStart(2, '0'); };
+    return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + 'T' + p(d.getHours()) + ':' + p(d.getMinutes());
+  }
+  function prettyWhen(iso) {
+    return new Date(iso).toLocaleString(undefined, { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' });
+  }
+  function platformNames(list) {
+    return list.map(function (p) { return p === 'instagram' ? 'Instagram' : 'YouTube Shorts'; }).join(' and ');
+  }
+  function isDraft(p) { return p.status === 'generated' || p.status === 'ready_to_post'; }
+  function wants(st, platform) { return !st.platforms || st.platforms.indexOf(platform) !== -1; }
+
+  // ---- popup helpers -------------------------------------------------------
+  function modalOpen(title) {
+    $('pmTitle').textContent = title;
+    var body = $('pmBody');
+    body.textContent = '';
+    $('postModal').hidden = false;
+    return body;
+  }
+  function modalClose() {
+    $('postModal').hidden = true;
+    clearPending();
+  }
+  function addNote(body, text) {
+    var p = document.createElement('p');
+    p.className = 'pm-note';
+    p.textContent = text;
+    body.appendChild(p);
+  }
+  function addChoice(body, label, onClick) {
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'pm-choice';
+    b.textContent = label;
+    b.addEventListener('click', onClick);
+    body.appendChild(b);
+  }
+  function addRow(body, label, buttonText, onClick) {
+    var row = document.createElement('div');
+    row.className = 'pm-row';
+    var span = document.createElement('span');
+    span.textContent = label;
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = buttonText;
+    b.addEventListener('click', onClick);
+    row.appendChild(span);
+    row.appendChild(b);
+    body.appendChild(row);
+  }
+  function addFooter(body) {
+    var f = document.createElement('div');
+    f.className = 'pm-foot';
+    var c = document.createElement('button');
+    c.type = 'button';
+    c.className = 'secondary';
+    c.textContent = 'Cancel';
+    c.addEventListener('click', modalClose);
+    f.appendChild(c);
+    body.appendChild(f);
+  }
+  function showResult(title, lines) {
+    var body = modalOpen(title);
+    var box = document.createElement('div');
+    box.className = 'pm-result';
+    lines.forEach(function (line) {
+      var p = document.createElement('p');
+      p.textContent = line.text;
+      if (line.error) p.style.color = '#fca5a5';
+      box.appendChild(p);
+      if (line.url) {
+        var a = document.createElement('a');
+        a.href = line.url;
+        a.target = '_blank';
+        a.rel = 'noopener';
+        a.textContent = line.url;
+        var wrap = document.createElement('p');
+        wrap.appendChild(a);
+        box.appendChild(wrap);
+      }
+    });
+    body.appendChild(box);
+    var f = document.createElement('div');
+    f.className = 'pm-foot';
+    var close = document.createElement('button');
+    close.type = 'button';
+    close.textContent = 'Close';
+    close.addEventListener('click', modalClose);
+    f.appendChild(close);
+    body.appendChild(f);
+  }
+
+  // ---- pending state (survives the Instagram and YouTube sign-in redirects)
+  function savePending(st) { sessionStorage.setItem(PENDING_KEY, JSON.stringify(st)); }
+  function readPending() {
+    try { return JSON.parse(sessionStorage.getItem(PENDING_KEY) || 'null'); } catch (e) { return null; }
+  }
+  function clearPending() { sessionStorage.removeItem(PENDING_KEY); }
+
+  // ---- connections -------------------------------------------------------
+  async function getConnectionState() {
+    var state = { instagram: false, youtube: false };
+    try {
+      var s = await request(YT_API + '/status');
+      state.youtube = !!(s && s.connected);
+    } catch (e) {}
+    try {
+      var me = await request(ME_API);
+      state.instagram = !!(me && me.instagram_business_account_id);
+    } catch (e) {}
+    return state;
+  }
+  function renderConnectRows(body, state, st) {
+    if (wants(st, 'instagram') && !state.instagram) {
+      addRow(body, 'Instagram: not connected', 'Connect Instagram', function () {
+        savePending(st);
+        if (typeof window.startInstagramConnect === 'function') window.startInstagramConnect(null);
+        else alert('Instagram connect is not loaded. Refresh the page.');
+      });
+    }
+    if (wants(st, 'youtube') && !state.youtube) {
+      addRow(body, 'YouTube: not connected', 'Connect YouTube', async function () {
+        savePending(st);
+        try {
+          var d = await request(YT_API + '/connect-url', { method: 'POST', body: '{}' });
+          window.location.href = d.url;
+        } catch (e) { alert(e.message); }
+      });
+    }
+  }
+
+  // ---- Post now ----------------------------------------------------------
+  async function flowPost(postId) {
+    var st = { postId: String(postId), action: 'post', platforms: null, when: null };
+    modalOpen('Checking your accounts…');
+    var state = await getConnectionState();
+    var body = modalOpen('Post this reel');
+    if (!state.instagram || !state.youtube) {
+      $('pmTitle').textContent = 'Connect your accounts first';
+      addNote(body, 'Connect both accounts, then choose where to post. You will return here automatically.');
+      renderConnectRows(body, state, st);
+      addFooter(body);
+      return;
+    }
+    renderPostChoice(st.postId);
+  }
+  function renderPostChoice(postId) {
+    var body = modalOpen('Where should this reel be posted now?');
+    addNote(body, 'Both accounts are connected. Choose one option.');
+    PLATFORM_CHOICES.forEach(function (opt) {
+      addChoice(body, opt.label, function () { postNow(postId, opt.platforms); });
+    });
+    addFooter(body);
+  }
+  async function postNow(postId, platforms) {
+    var id = encodeURIComponent(postId);
+    var body = modalOpen('Posting…');
+    addNote(body, 'Keep this page open. This can take a minute.');
+    var lines = [];
+    if (platforms.indexOf('instagram') !== -1) {
+      try {
+        await request(API + '/' + id + '/approve', { method: 'POST', body: '{}' });
+        lines.push({ text: 'Instagram: posted' });
+      } catch (e) {
+        lines.push({ text: 'Instagram: ' + e.message, error: true });
+      }
+    }
+    if (platforms.indexOf('youtube') !== -1) {
+      try {
+        var r = await request(YT_API + '/upload/' + id, { method: 'POST', body: '{}' });
+        lines.push({ text: 'YouTube: uploaded as a Short', url: r && r.url ? r.url : null });
+      } catch (e) {
+        lines.push({ text: 'YouTube: ' + e.message, error: true });
+      }
+    }
+    clearPending();
+    showResult('Result', lines);
+    loadReels();
+  }
+
+  // ---- Schedule ----------------------------------------------------------
+  // dayHint: a Date (the day the user picked); whenIso: a ready time, if one is known.
+  function openScheduleFlow(postId, dayHint, whenIso) {
+    renderScheduleChoice({
+      postId: String(postId),
+      action: 'schedule',
+      platforms: null,
+      when: whenIso || null,
+      dayHint: dayHint ? dayHint.toISOString() : null
+    });
+  }
+  function renderScheduleChoice(st) {
+    var body = modalOpen('Schedule where?');
+    addNote(body, 'Choose the platforms for this reel. Any account that is not connected will be connected first.');
+    PLATFORM_CHOICES.forEach(function (opt) {
+      addChoice(body, opt.label, function () {
+        st.platforms = opt.platforms.slice();
+        continueSchedule(st);
+      });
+    });
+    addFooter(body);
+  }
+  async function continueSchedule(st) {
+    modalOpen('Checking your accounts…');
+    var state = await getConnectionState();
+    var missing = st.platforms.filter(function (p) { return !state[p]; });
+    var body = modalOpen(missing.length ? 'Connect your accounts first' : 'Pick a date and time');
+    if (missing.length) {
+      addNote(body, 'This reel will be scheduled to ' + platformNames(st.platforms) + '. Connect the missing account, then you will pick the date and time.');
+      renderConnectRows(body, state, st);
+      addFooter(body);
+      return;
+    }
+    if (!st.when) return renderTimeStep(st);
+    return runSchedule(st);
+  }
+  function renderTimeStep(st) {
+    var body = modalOpen('Pick a date and time');
+    addNote(body, 'Posting to ' + platformNames(st.platforms) + '. Choose when it should go live.');
+
+    var base = st.dayHint ? new Date(st.dayHint) : suggestWhen();
+    if (st.dayHint) base = new Date(base.getFullYear(), base.getMonth(), base.getDate(), SCHEDULE_HOUR, 0, 0);
+
+    var input = document.createElement('input');
+    input.type = 'datetime-local';
+    input.value = toLocalInput(base);
+    body.appendChild(input);
+
+    var f = document.createElement('div');
+    f.className = 'pm-foot';
+    var cancel = document.createElement('button');
+    cancel.type = 'button';
+    cancel.className = 'secondary';
+    cancel.textContent = 'Cancel';
+    cancel.addEventListener('click', modalClose);
+    var go = document.createElement('button');
+    go.type = 'button';
+    go.textContent = 'Schedule';
+    go.addEventListener('click', function () {
+      var d = new Date(input.value);
+      if (Number.isNaN(d.getTime()) || d.getTime() < Date.now() + 2 * 60 * 1000) {
+        alert('Choose a time at least 2 minutes from now.');
+        return;
+      }
+      st.when = d.toISOString();
+      runSchedule(st);
+    });
+    f.appendChild(cancel);
+    f.appendChild(go);
+    body.appendChild(f);
+  }
+  async function runSchedule(st) {
+    var body = modalOpen('Scheduling…');
+    addNote(body, 'Keep this page open. YouTube uploads can take a minute.');
+    var lines;
+    try {
+      lines = await scheduleOne(st.postId, st.when, st.platforms);
+    } catch (e) {
+      lines = [{ text: 'Could not schedule: ' + e.message, error: true }];
+    }
+    clearPending();
+    showResult('Scheduled', lines);
+    loadReels();
+  }
+
+  // Schedules one post to the chosen platforms. Returns a list of result lines.
+  async function scheduleOne(postId, whenIso, platforms) {
+    var id = encodeURIComponent(postId);
+    var json = { 'Content-Type': 'application/json' };
+    var when = prettyWhen(whenIso);
+    var lines = [];
+
+    if (platforms.indexOf('instagram') !== -1) {
+      try {
+        await request(API + '/' + id + '/schedule', {
+          method: 'POST', headers: json, body: JSON.stringify({ scheduledAt: whenIso })
+        });
+        lines.push({ text: 'Instagram: scheduled for ' + when });
+      } catch (e) {
+        lines.push({ text: 'Instagram: ' + e.message, error: true });
+        return lines; // do not schedule YouTube if Instagram failed
+      }
+    }
+
+    if (platforms.indexOf('youtube') !== -1) {
+      var mode = platforms.length > 1 ? 'both' : 'youtube';
+      try {
+        var r = await request(YT_API + '/schedule/' + id, {
+          method: 'POST', headers: json, body: JSON.stringify({ scheduledAt: whenIso, platform: mode })
+        });
+        lines.push({ text: 'YouTube Shorts: scheduled for ' + when, url: r && r.url ? r.url : null });
+      } catch (e) {
+        lines.push({ text: 'YouTube: ' + e.message, error: true });
+      }
+    }
+    return lines;
+  }
+
+  // Lets the calendar's own scheduling code open this popup too
+  window.schedulePost = function (postId, day) { openScheduleFlow(postId, day instanceof Date ? day : null, null); };
+
+  // ---- card buttons -----------------------------------------------------
+  function plainButton(label, cls, title, onClick) {
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = label;
+    if (cls) b.className = cls;
+    if (title) b.title = title;
+    b.addEventListener('click', onClick);
+    return b;
+  }
 
   // ---- video cards -------------------------------------------------------
   function formatDate(value) {
@@ -660,15 +1115,15 @@
           if (editWindow) editWindow.close();
           throw err;
         }
-      }, { secondary: true, refresh: false, pendingText: 'Edit opened. "Save changes" keeps it here as an edited draft; "Save & approve + post" posts it.' });
-      addVideoAction(card, actions, post, 'Approve', function () {
-        return request(API + '/' + id + '/approve', { method: 'POST' });
-      }, {
-        title: 'Approve and post to Instagram now',
-        confirm: 'Post this reel to Instagram now?',
-        busyLabel: 'Posting…',
-        pendingText: 'Posting to Instagram… this can take a minute. Keep this page open.'
-      });
+      }, { secondary: true, refresh: false, pendingText: 'Edit opened. "Save changes" keeps it here as an edited draft.' });
+
+      actions.appendChild(plainButton('Post', '', 'Post now to Instagram, YouTube, or both', function () {
+        renderScheduleFreeStart(post.id, 'post');
+      }));
+      actions.appendChild(plainButton('Schedule', 'secondary', 'Schedule to Instagram, YouTube, or both', function () {
+        openScheduleFlow(post.id, null, null);
+      }));
+
       addVideoAction(card, actions, post, 'Reject', function () {
         return request(API + '/' + id + '/reject', { method: 'POST' }).then(function (result) {
           card.remove();
@@ -690,32 +1145,13 @@
     return card;
   }
 
-  // ---- schedule all drafts onto days that have no scheduled video --------
+  function renderScheduleFreeStart(postId, action) {
+    if (action === 'post') return flowPost(postId);
+    return openScheduleFlow(postId, null, null);
+  }
+
+  // ---- Schedule all drafts -----------------------------------------------
   var allPosts = [];
-
-  // Same rule the calendar uses: a stored time with no zone is treated as UTC.
-  function parseStamp(value) {
-    if (!value) return null;
-    var text = String(value).trim().replace(' ', 'T');
-    if (!/(Z|[+-]\d{2}:\d{2})$/i.test(text)) text += 'Z';
-    var d = new Date(text);
-    return Number.isNaN(d.getTime()) ? null : d;
-  }
-  function dayKey(d) { return d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate(); }
-
-  // The next `count` days after today that are not in `taken`, each at SCHEDULE_HOUR.
-  function pickFreeDays(count, taken, now) {
-    var cursor = new Date(now.getTime());
-    cursor.setHours(SCHEDULE_HOUR, 0, 0, 0);
-    var out = [];
-    while (out.length < count) {
-      cursor.setDate(cursor.getDate() + 1);
-      if (!taken[dayKey(cursor)]) out.push(new Date(cursor.getTime()));
-    }
-    return out;
-  }
-
-  function isDraft(p) { return p.status === 'generated' || p.status === 'ready_to_post'; }
 
   function updateScheduleAllBar() {
     var n = allPosts.filter(isDraft).length;
@@ -723,71 +1159,56 @@
     $('scheduleAllBtn').textContent = 'Schedule all drafts (' + n + ')';
   }
 
-  $('scheduleAllBtn').addEventListener('click', async function () {
-    var btn = $('scheduleAllBtn');
-    var out = $('scheduleAllStatus');
-    function note(text, isError) { out.textContent = text; out.className = 'action-feedback' + (isError ? ' error' : ''); }
-    btn.disabled = true;
-    try {
-      note('Checking your calendar…');
-      var data = await request(API + '?content_type=reel&_=' + Date.now(), { cache: 'no-store' });
-      var posts = Array.isArray(data) ? data : ((data && data.posts) || []);
-      var drafts = posts.filter(isDraft)
-        .sort(function (a, b) { return String(a.created_at).localeCompare(String(b.created_at)) || a.id - b.id; });
-      if (!drafts.length) { note('There are no drafts to schedule.'); return; }
+  function askPlatforms(title, text, onChoose) {
+    var body = modalOpen(title);
+    addNote(body, text);
+    PLATFORM_CHOICES.forEach(function (opt) {
+      addChoice(body, opt.label, function () { onChoose(opt.platforms.slice()); });
+    });
+    addFooter(body);
+  }
 
-      var taken = {};
-      posts.forEach(function (p) {
-        if (p.status === 'scheduled' && p.scheduled_at) {
-          var d = parseStamp(p.scheduled_at);
-          if (d) taken[dayKey(d)] = true;
-        }
-      });
-      var days = pickFreeDays(drafts.length, taken, new Date());
-      var fmt = { day: 'numeric', month: 'short', year: 'numeric' };
-      var first = days[0].toLocaleDateString(undefined, fmt);
-      var last = days[days.length - 1].toLocaleDateString(undefined, fmt);
-      if (!confirm('Schedule ' + drafts.length + ' video' + (drafts.length === 1 ? '' : 's') +
-          ', one per day at ' + SCHEDULE_HOUR + ':00 AM, from ' + first + ' to ' + last +
-          '?\n\nDays that already have a scheduled video are skipped. They are posted to Instagram automatically at that time.')) {
-        note('Cancelled. Nothing was scheduled.');
-        return;
-      }
-
-      var done = 0;
-      var failures = [];
-      for (var i = 0; i < drafts.length; i++) {
-        note('Scheduling ' + (i + 1) + ' of ' + drafts.length + '…');
-        var id = encodeURIComponent(drafts[i].id);
-        try {
-          await request(API + '/' + id + '/schedule', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ scheduledAt: days[i].toISOString() })
-          });
-          done++;
-        } catch (error) {
-          failures.push('Video #' + drafts[i].id + ': ' + error.message);
-        }
-      }
-      await loadReels();
-      if (typeof window.refreshScheduleCalendar === 'function') await window.refreshScheduleCalendar();
-      if (failures.length) {
-        note('Scheduled ' + done + ' of ' + drafts.length + '. ' + failures.join(' ') +
-          ' Failed videos stay in Drafts, so you can schedule them by hand.', true);
-      } else {
-        note('Done! Scheduled ' + done + ' video' + (done === 1 ? '' : 's') + ' from ' + first + ' to ' + last + '.');
-      }
-    } catch (error) {
-      note('Could not schedule: ' + error.message, true);
-    } finally {
-      btn.disabled = false;
-      updateScheduleAllBar();
-    }
+  $('scheduleAllBtn').addEventListener('click', function () {
+    var drafts = allPosts.filter(isDraft)
+      .sort(function (a, b) { return String(a.created_at).localeCompare(String(b.created_at)) || a.id - b.id; });
+    if (!drafts.length) { alert('There are no drafts to schedule.'); return; }
+    askPlatforms('Schedule all drafts where?',
+      'One draft goes out per free day at ' + SCHEDULE_HOUR + ':00 AM, starting tomorrow.',
+      function (platforms) { runScheduleAll(drafts, platforms); });
   });
+
+  async function runScheduleAll(drafts, platforms) {
+    modalOpen('Checking your accounts…');
+    var state = await getConnectionState();
+    var missing = platforms.filter(function (p) { return !state[p]; });
+    if (missing.length) {
+      var b = modalOpen('Connect first');
+      addNote(b, 'Connect ' + platformNames(missing) + ' using the logos at the top of this page, then run Schedule all drafts again.');
+      addFooter(b);
+      return;
+    }
+
+    var days = pickFreeDays(drafts.length, takenDays(), new Date());
+    var body = modalOpen('Scheduling ' + drafts.length + ' drafts…');
+    var progress = document.createElement('p');
+    progress.className = 'pm-note';
+    body.appendChild(progress);
+
+    var all = [];
+    for (var i = 0; i < drafts.length; i++) {
+      progress.textContent = 'Scheduling ' + (i + 1) + ' of ' + drafts.length + '…';
+      var lines = await scheduleOne(drafts[i].id, days[i].toISOString(), platforms);
+      lines.forEach(function (l) { l.text = 'Video #' + drafts[i].id + ' · ' + l.text; });
+      all = all.concat(lines);
+    }
+    clearPending();
+    showResult('Schedule all: done', all);
+    loadReels();
+  }
 
   // ---- ready-to-post videos beside the calendar (drag onto a day) --------
   var READY_TYPE = 'application/x-kwik-ready';
+  var calRoot = document.querySelector('[data-schedule-calendar]');
 
   // The day shown in the side panel. It starts as today.
   var selectedDay = new Date();
@@ -796,9 +1217,7 @@
     $('calDayTab').textContent = selectedDay.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
   }
   setSelectedDay(new Date());
-  var calRoot = document.querySelector('[data-schedule-calendar]');
 
-  // Brief hint (2 seconds) once per page load, when there is something to drag.
   var hintShown = false;
   function showHint() {
     if (hintShown) return;
@@ -833,7 +1252,7 @@
       row.dataset.postId = post.id;
       row.addEventListener('dragstart', function (ev) {
         ev.dataTransfer.setData(READY_TYPE, String(post.id));
-        ev.dataTransfer.setData('text/plain', 'ready:' + post.id); // not a calendar item id
+        ev.dataTransfer.setData('text/plain', 'ready:' + post.id);
         ev.dataTransfer.effectAllowed = 'move';
       });
 
@@ -854,9 +1273,7 @@
       btn.type = 'button';
       btn.className = 'secondary';
       btn.textContent = 'Schedule';
-      btn.addEventListener('click', function () {
-        if (typeof window.schedulePost === 'function') window.schedulePost(post.id, selectedDay);
-      });
+      btn.addEventListener('click', function () { openScheduleFlow(post.id, selectedDay, null); });
       copy.appendChild(title); copy.appendChild(meta); copy.appendChild(btn);
       row.appendChild(copy);
       box.appendChild(row);
@@ -867,39 +1284,26 @@
     document.querySelectorAll('.drop-target').forEach(function (n) { n.classList.remove('drop-target'); });
   }
 
-  // 11:00 AM for the first post on the dropped day, 5:00 PM for the second.
-  // A third one asks for a time.
+  // Dropping a draft on a day: use the teammate's free-slot picker when it is loaded,
+  // then choose the platforms in the popup. Without a free slot, the popup asks for the time.
   async function scheduleReadyOnDay(postId, day) {
     var now = new Date();
     var endOfDay = new Date(day.getFullYear(), day.getMonth(), day.getDate(), 23, 59, 59);
     if (endOfDay.getTime() < now.getTime()) { readyNote('Choose today or a later day.', true); return; }
 
-    readyNote('Scheduling…');
     var when = null;
-    try {
-      var times = await window.kwikLoadScheduledTimes();
-      when = window.kwikPickSlot(day, times);
-    } catch (error) {
-      readyNote('Could not check the day: ' + error.message, true);
-      return;
+    if (typeof window.kwikLoadScheduledTimes === 'function' && typeof window.kwikPickSlot === 'function') {
+      readyNote('Checking the day…');
+      try {
+        var times = await window.kwikLoadScheduledTimes();
+        when = window.kwikPickSlot(day, times);
+      } catch (error) {
+        readyNote('Could not check the day: ' + error.message, true);
+        return;
+      }
     }
-    if (!when) {
-      readyNote('');
-      window.schedulePost(postId, day); // asks for the time
-      return;
-    }
-    try {
-      await request(API + '/' + encodeURIComponent(postId) + '/schedule', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ scheduledAt: when.toISOString() })
-      });
-      await loadReels();
-      if (typeof window.refreshScheduleCalendar === 'function') await window.refreshScheduleCalendar();
-      readyNote('Scheduled for ' + when.toLocaleString(undefined, { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' }) + '.');
-    } catch (error) {
-      readyNote('Could not schedule: ' + error.message, true);
-    }
+    readyNote('');
+    openScheduleFlow(postId, day, when ? when.toISOString() : null);
   }
 
   if (calRoot) {
@@ -928,8 +1332,7 @@
       var q = String(cell.dataset.calendarDay).split('-').map(Number);
       setSelectedDay(new Date(q[0], q[1] - 1, q[2]));
     });
-    // The calendar picks today by itself on load; keep the tab in step with the
-    // title of the details panel ("Friday, November 20, 2026").
+    // Keep the tab in step with the calendar's details title ("Friday, November 20, 2026")
     var detailsTitle = calRoot.querySelector('[data-calendar-details-title]');
     if (detailsTitle) {
       new MutationObserver(function () {
@@ -940,7 +1343,7 @@
   }
   document.addEventListener('dragend', clearDropMarks);
 
-  // ---- load the lists ------------------------------------------------------
+  // ---- load the lists ----------------------------------------------------
   async function loadReels() {
     var groups = {
       generated: { list: $('reelGenerated'), count: $('reelCountGenerated'), empty: 'No drafts yet. Generate or upload a video to get started.' },
@@ -988,10 +1391,99 @@
     }
   }
 
+  // ---- connection logos --------------------------------------------------
+  var ytBtn = $('ytConnectBtn');
+  var igBtn = $('igConnectBtn');
+
+  function setConnBtn(btn, label, connected) {
+    btn.querySelector('.conn-label').textContent = label;
+    btn.title = label;
+    btn.classList.toggle('is-on', !!connected);
+  }
+
+  async function refreshConnections() {
+    try {
+      var s = await request(YT_API + '/status');
+      ytBtn.dataset.connected = s.connected ? '1' : '';
+      setConnBtn(ytBtn, s.connected ? 'YouTube connected' : 'Connect YouTube', s.connected);
+    } catch (e) {
+      ytBtn.dataset.connected = '';
+      setConnBtn(ytBtn, 'Connect YouTube', false);
+    }
+    try {
+      var me = await request(ME_API);
+      var igOn = !!(me && me.instagram_business_account_id);
+      igBtn.dataset.connected = igOn ? '1' : '';
+      setConnBtn(igBtn, igOn ? 'Instagram connected' : 'Connect Instagram', igOn);
+    } catch (e) {
+      igBtn.dataset.connected = '';
+      setConnBtn(igBtn, 'Connect Instagram', false);
+    }
+  }
+
+  ytBtn.addEventListener('click', async function () {
+    if (ytBtn.dataset.connected === '1') {
+      if (!confirm('Disconnect YouTube from KwikPost?')) return;
+      try {
+        await request(YT_API + '/disconnect', { method: 'POST', body: '{}' });
+        refreshConnections();
+      } catch (e) { alert(e.message); }
+      return;
+    }
+    try {
+      var d = await request(YT_API + '/connect-url', { method: 'POST', body: '{}' });
+      window.location.href = d.url;
+    } catch (e) { alert(e.message); }
+  });
+
+  igBtn.addEventListener('click', async function () {
+    if (igBtn.dataset.connected === '1') {
+      if (!confirm('Disconnect Instagram from KwikPost?')) return;
+      try {
+        await request('/api/instagram/disconnect', { method: 'POST', body: '{}' });
+        refreshConnections();
+      } catch (e) { alert(e.message); }
+      return;
+    }
+    if (typeof window.startInstagramConnect === 'function') {
+      window.startInstagramConnect(null);
+    } else {
+      alert('Instagram connect is not loaded. Refresh the page.');
+    }
+  });
+
+  // ---- resume after a sign-in redirect ----------------------------------
+  function resumePending() {
+    var st = readPending();
+    if (!st) return;
+    if (st.action === 'post') return flowPost(st.postId);
+    if (!st.platforms) return renderScheduleChoice(st);
+    return continueSchedule(st);
+  }
+
+  // Show the YouTube result after Google redirects back, then clean the address bar
+  (function showYouTubeReturn() {
+    var q = new URLSearchParams(window.location.search);
+    if (!q.get('youtube_connected') && !q.get('youtube_error')) return;
+    if (q.get('youtube_connected')) {
+      say('genStatus', 'YouTube connected. Reels can now be uploaded as Shorts.');
+    } else {
+      say('genStatus', 'YouTube connection failed: ' + q.get('youtube_error'), true);
+    }
+    window.history.replaceState({}, document.title, '/reels.html');
+  })();
+
+  $('postModal').addEventListener('click', function (e) {
+    if (e.target === this) modalClose();
+  });
+
   window.loadPosts = loadReels;
   window.onScheduleChanged = loadReels;
-  window.addEventListener('focus', loadReels);
-  loadCampaigns().then(loadReels);
+  window.addEventListener('focus', function () { loadReels(); refreshConnections(); });
+  refreshConnections();
+  loadCampaigns()
+    .then(loadReels)
+    .then(resumePending);
 })();
 </script>
 </body>

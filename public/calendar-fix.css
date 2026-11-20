@@ -1,0 +1,17 @@
+/* Calendar: the day number always sits in the top-left corner of its cell,
+ * whether the day is empty or has videos. Load AFTER schedule-calendar.css:
+ *   <link rel="stylesheet" href="/calendar-fix.css" />                       */
+.schedule-calendar-grid [data-calendar-day] {
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: flex-start !important;
+  align-items: stretch !important;
+  align-content: flex-start !important;
+  text-align: left !important;
+}
+/* the day number (first element in the cell) */
+.schedule-calendar-grid [data-calendar-day] > :first-child {
+  align-self: flex-start !important;
+  margin: 0 0 6px 0 !important;
+  text-align: left !important;
+}
