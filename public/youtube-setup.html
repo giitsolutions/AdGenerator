@@ -3,195 +3,359 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>KwikPost — Connect YouTube</title>
+<title>KwikPost: Connect YouTube</title>
+<link rel="icon" href="data:," />
 <script>try{document.documentElement.setAttribute('data-theme',localStorage.getItem('theme')||'dark')}catch(e){}</script>
 <style>
   :root { --bg:#0b0a10; --card:#0f0e15; --soft:#17151f; --line:#2a2634; --text:#f5f2fb; --muted:#a39bbd;
-          --orange:#f97316; --accent:#a855f7; --green:#22c55e; --yt:#ff0000; }
+          --yt:#ff0000; --yt2:#b91c1c; --ok:#22c55e; --bad:#f87171; }
   :root[data-theme="light"] { --bg:#f6f3fb; --card:#fff; --soft:#f0ecf8; --line:#ded8ea; --text:#1d1a2b; --muted:#6a6483; }
   * { box-sizing:border-box; }
-  body { margin:0; background:var(--bg); color:var(--text); font:15px/1.55 system-ui,"Segoe UI",sans-serif; }
-  a { color:#c4b5fd; }
-  .top { display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;
+  [hidden] { display:none !important; }
+  body { margin:0; background:var(--bg); color:var(--text); font:16px/1.55 system-ui,"Segoe UI",sans-serif; }
+  a { color:#fca5a5; }
+  .top { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;
          padding:12px 18px; border-bottom:1px solid var(--line); }
-  .top h1 { margin:0; font-size:16px; }
-  .nav a { margin-left:8px; padding:6px 12px; border:1px solid var(--line); border-radius:8px; background:var(--soft); color:var(--text); text-decoration:none; font-size:13px; }
-  .wrap { max-width:720px; margin:20px auto 48px; padding:0 16px; }
-  .hero { text-align:center; margin-bottom:22px; }
-  .hero .icon { width:64px; height:64px; margin:0 auto 12px; border-radius:16px; background:#ff0000;
-    display:grid; place-items:center; font-size:28px; color:#fff; }
-  .hero h2 { margin:0 0 6px; font-size:22px; }
-  .hero p { margin:0; color:var(--muted); font-size:14px; }
-  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px; margin-bottom:14px; }
-  .step { display:grid; grid-template-columns:44px 1fr; gap:14px; }
-  .num { width:44px; height:44px; border-radius:12px; background:linear-gradient(135deg,#ff0000,#ff6b6b);
-         display:grid; place-items:center; font-weight:800; font-size:16px; color:#fff; }
-  .step h3 { margin:0 0 6px; font-size:16px; }
-  .step p, .step li { color:var(--muted); font-size:14px; margin:0 0 8px; }
-  .step ul { margin:0 0 8px; padding-left:18px; }
-  .tip { background:var(--soft); border-left:3px solid var(--accent); padding:10px 12px; border-radius:8px; font-size:13px; color:var(--muted); margin-top:8px; }
-  .ok { border-left-color:var(--green); }
-  .warn { border-left-color:var(--orange); }
-  .btn-row { display:flex; flex-wrap:wrap; gap:10px; margin-top:14px; }
-  button, .btn {
-    display:inline-block; background:linear-gradient(120deg,#ff0000,#cc0000); color:#fff; border:0;
-    border-radius:10px; padding:12px 18px; font-weight:700; font-size:14px; cursor:pointer; text-decoration:none;
-  }
-  .btn.secondary { background:var(--soft); color:var(--text); border:1px solid var(--line); }
-  code { background:var(--soft); padding:2px 6px; border-radius:4px; font-size:12px; }
-  .checklist label { display:flex; gap:8px; align-items:flex-start; margin:8px 0; font-size:14px; cursor:pointer; }
-  .env { font-family:ui-monospace,monospace; font-size:12px; background:var(--soft); padding:12px; border-radius:8px; overflow:auto; white-space:pre; }
+  .top nav a { color:var(--muted); text-decoration:none; font-size:13px; border:1px solid var(--line);
+               border-radius:8px; padding:6px 10px; background:var(--soft); margin-left:6px; }
+  .wrap { max-width:760px; margin:22px auto 60px; padding:0 16px; }
+  .hero { background:linear-gradient(135deg,var(--yt),var(--yt2)); color:#fff; border-radius:18px; padding:22px 24px; }
+  .hero h1 { margin:0 0 6px; font-size:24px; }
+  .hero p { margin:0; opacity:.95; }
+  .progress { margin:20px 0 6px; font-size:14px; color:var(--muted); }
+  .bar { height:8px; background:var(--soft); border-radius:99px; overflow:hidden; }
+  .bar i { display:block; height:100%; width:0; background:linear-gradient(90deg,var(--yt),#f87171); transition:width .4s; }
+  .before { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px 18px; margin-top:16px; font-size:14px; color:var(--muted); }
+  .before b { color:var(--text); }
+  .step { background:var(--card); border:2px solid var(--line); border-radius:16px; padding:18px 20px; margin-top:14px; }
+  .step.now { border-color:var(--yt); }
+  .step.done { border-color:var(--ok); }
+  .head { display:flex; align-items:center; gap:12px; }
+  .num { flex:none; width:38px; height:38px; border-radius:50%; background:var(--soft); border:2px solid var(--line);
+         display:flex; align-items:center; justify-content:center; font-weight:800; }
+  .step.now .num { background:var(--yt); border-color:var(--yt); color:#fff; }
+  .step.done .num { background:var(--ok); border-color:var(--ok); color:#052e1f; }
+  .step h2 { font-size:18px; margin:0; }
+  .step p { color:var(--muted); margin:10px 0; font-size:15px; }
+  .step ol { color:var(--muted); margin:8px 0 10px 22px; padding:0; font-size:15px; }
+  .step li { margin-bottom:8px; }
+  .step li b { color:var(--text); }
+  .btn { display:inline-block; border:0; border-radius:12px; padding:12px 18px; font-weight:700; font-size:15px;
+         color:#fff; cursor:pointer; text-decoration:none; background:linear-gradient(135deg,var(--yt),var(--yt2)); margin:6px 8px 6px 0; }
+  .btn.ghost { background:var(--soft); color:var(--text); border:1px solid var(--line); }
+  .btn:disabled { opacity:.45; cursor:not-allowed; }
+  .links { display:flex; flex-wrap:wrap; gap:4px 0; }
+  .done-row { margin-top:12px; }
+  .done-row label { display:flex; align-items:center; gap:10px; font-size:16px; cursor:pointer; }
+  .done-row input { width:20px; height:20px; }
+  .tip { background:var(--soft); border-left:4px solid var(--yt); border-radius:8px; padding:10px 12px; font-size:14px; color:var(--muted); margin-top:10px; }
+  .tip.warn { border-left-color:#f59e0b; }
+  .copy { display:flex; gap:8px; align-items:center; flex-wrap:wrap; background:var(--soft); border:1px solid var(--line);
+          border-radius:10px; padding:10px 12px; margin:8px 0; font-family:ui-monospace,monospace; font-size:13px; word-break:break-all; }
+  .copy span { flex:1; min-width:200px; }
+  .copy button { padding:8px 12px; font-size:13px; border:1px solid var(--line); border-radius:8px; background:var(--soft); color:var(--text); cursor:pointer; font-weight:700; }
+  table { width:100%; border-collapse:collapse; font-size:14px; margin-top:8px; }
+  th, td { text-align:left; padding:8px 6px; border-bottom:1px solid var(--line); vertical-align:top; }
+  th { color:var(--text); }
+  td { color:var(--muted); }
+  .msg { margin-top:14px; font-size:15px; min-height:22px; }
+  .msg.err { color:var(--bad); }
+  .msg.ok { color:var(--ok); }
+  .final { margin-top:18px; background:var(--card); border:2px solid var(--ok); border-radius:16px; padding:18px 20px; }
+  .final h2 { margin:0 0 6px; font-size:20px; }
+  .final p { margin:0 0 10px; color:var(--muted); }
+  details { margin-top:18px; background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px 18px; font-size:15px; color:var(--muted); }
+  details summary { cursor:pointer; color:var(--text); font-weight:700; }
+  details p { margin:8px 0; }
+  .gmail-input { display:block; width:100%; margin-top:6px; padding:10px 12px; border-radius:10px; border:1px solid var(--line);
+                 background:var(--soft); color:var(--text); font:inherit; }
 </style>
 </head>
 <body>
   <div class="top">
-    <h1>▶️ Connect YouTube</h1>
-    <nav class="nav">
-      <a href="/index.html">Dashboard</a>
-      <a href="/posts.html">Posts</a>
+    <strong>▶ Connect YouTube</strong>
+    <nav>
       <a href="/reels.html">Reels</a>
-      <a href="/connect-instagram.html">Instagram setup</a>
+      <a href="/posts.html">Posts</a>
+      <a href="/instagram-setup.html">Instagram setup</a>
     </nav>
   </div>
 
   <div class="wrap">
     <div class="hero">
-      <div class="icon">▶</div>
-      <h2>Connect YouTube to KwikPost</h2>
-      <p>Separate from Instagram. Use these steps to allow uploads to your YouTube channel.</p>
+      <h1>Connect your YouTube in 5 steps</h1>
+      <p>Your reels are uploaded to your channel as YouTube Shorts. Each step has the links you need. It takes about 10 minutes.</p>
     </div>
 
-    <div class="card">
-      <div class="step">
-        <div class="num">1</div>
-        <div>
-          <h3>You need a YouTube channel</h3>
-          <ul>
-            <li>Sign in at <a href="https://www.youtube.com" target="_blank" rel="noopener">youtube.com</a> with the Google account you want to use</li>
-            <li>If you have no channel: your avatar → <strong>Create a channel</strong></li>
-            <li>Prefer a <strong>Brand Account</strong> channel if a team will manage uploads</li>
-          </ul>
-        </div>
-      </div>
-    </div>
-
-    <div class="card">
-      <div class="step">
-        <div class="num">2</div>
-        <div>
-          <h3>Create a Google Cloud project</h3>
-          <ul>
-            <li>Open <a href="https://console.cloud.google.com/" target="_blank" rel="noopener">Google Cloud Console</a></li>
-            <li><strong>Select a project</strong> → <strong>New project</strong> → name it e.g. <code>KwikPost</code></li>
-            <li>Open that project</li>
-          </ul>
-        </div>
-      </div>
-    </div>
-
-    <div class="card">
-      <div class="step">
-        <div class="num">3</div>
-        <div>
-          <h3>Enable YouTube Data API</h3>
-          <ul>
-            <li>Menu → <strong>APIs &amp; Services</strong> → <strong>Library</strong></li>
-            <li>Search <strong>YouTube Data API v3</strong> → <strong>Enable</strong></li>
-          </ul>
-        </div>
-      </div>
-    </div>
-
-    <div class="card">
-      <div class="step">
-        <div class="num">4</div>
-        <div>
-          <h3>Configure OAuth consent screen</h3>
-          <ul>
-            <li>APIs &amp; Services → <strong>OAuth consent screen</strong></li>
-            <li>User type: <strong>External</strong> (or Internal if Google Workspace only)</li>
-            <li>App name: KwikPost · support email: yours</li>
-            <li>Scopes → add <code>https://www.googleapis.com/auth/youtube.upload</code> and <code>youtube.readonly</code></li>
-            <li>Test users: add your Gmail while the app is in <strong>Testing</strong></li>
-          </ul>
-          <div class="tip warn">In Testing mode only listed test users can connect. Publish the app later for all users.</div>
-        </div>
-      </div>
-    </div>
-
-    <div class="card">
-      <div class="step">
-        <div class="num">5</div>
-        <div>
-          <h3>Create OAuth client ID</h3>
-          <ul>
-            <li>APIs &amp; Services → <strong>Credentials</strong> → <strong>Create credentials</strong> → <strong>OAuth client ID</strong></li>
-            <li>Type: <strong>Web application</strong></li>
-            <li>Authorized redirect URI (local):<br /><code>http://localhost:5000/api/youtube/callback</code></li>
-            <li>If you use a public HTTPS URL, add that callback too</li>
-            <li>Copy <strong>Client ID</strong> and <strong>Client secret</strong></li>
-          </ul>
-        </div>
-      </div>
-    </div>
-
-    <div class="card">
-      <div class="step">
-        <div class="num">6</div>
-        <div>
-          <h3>Add keys to KwikPost <code>.env</code></h3>
-          <div class="env">YOUTUBE_CLIENT_ID=your_client_id.apps.googleusercontent.com
-YOUTUBE_CLIENT_SECRET=your_client_secret
-YOUTUBE_REDIRECT_URI=http://localhost:5000/api/youtube/callback
-APP_BASE_URL=http://localhost:5000</div>
-          <p style="margin-top:10px;color:var(--muted);font-size:14px;">Restart the server after saving <code>.env</code> (<code>npm start</code>).</p>
-        </div>
-      </div>
-    </div>
-
-    <div class="card">
-      <div class="step">
-        <div class="num">7</div>
-        <div>
-          <h3>Connect your channel in the app</h3>
-          <div class="checklist">
-            <label><input type="checkbox" /> YouTube channel ready</label>
-            <label><input type="checkbox" /> YouTube Data API enabled</label>
-            <label><input type="checkbox" /> OAuth client + redirect URI set</label>
-            <label><input type="checkbox" /> <code>.env</code> updated and server restarted</label>
-            <label><input type="checkbox" /> My Google account is a test user (if app is in Testing)</label>
-          </div>
-          <div class="btn-row">
-            <button type="button" id="ytConnectBtn">Connect YouTube with Google</button>
-            <a class="btn secondary" href="/connect-instagram.html">Instagram setup</a>
-          </div>
-          <div class="tip ok" style="margin-top:12px;">
-            You will see Google’s permission screen. Choose the account that owns the channel, then Allow.
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div class="card">
-      <h3 style="margin:0 0 8px;">Common problems</h3>
-      <ul style="margin:0;padding-left:18px;color:var(--muted);font-size:14px;">
-        <li><strong>redirect_uri_mismatch</strong> — URI in Google Cloud must match <code>YOUTUBE_REDIRECT_URI</code> exactly.</li>
-        <li><strong>Access blocked / app not verified</strong> — Add yourself as a test user, or publish the OAuth app.</li>
-        <li><strong>No channel</strong> — Create a channel on YouTube with the same Google account.</li>
-        <li><strong>Upload quota</strong> — New projects have limited daily upload quota; check Google Cloud quotas.</li>
+    <div class="before">
+      <b>Before you start, you need:</b>
+      <ul>
+        <li>A Google (Gmail) account that owns the YouTube channel</li>
+        <li>A YouTube channel on that account (step 1 shows how)</li>
+        <li>The app owner to add your Gmail as a tester (step 2). This is needed while the app is in testing.</li>
       </ul>
     </div>
+
+    <div class="progress" id="count">0 of 5 steps done</div>
+    <div class="bar"><i id="bar"></i></div>
+
+    <!-- STEP 1 -->
+    <section class="step" id="s1">
+      <div class="head"><div class="num">1</div><h2>Make sure you have a YouTube channel</h2></div>
+      <p>The channel must exist on the Google account you will connect.</p>
+      <ol>
+        <li>Click <b>Open YouTube</b> below and sign in with your Gmail.</li>
+        <li>Click your profile picture (top right). If you see <b>Create a channel</b>, click it and follow the steps.</li>
+        <li>Choose a channel name and handle, then click <b>Create channel</b>.</li>
+        <li>Your channel page should open. You are done with this step.</li>
+      </ol>
+      <div class="links">
+        <a class="btn" href="https://www.youtube.com/" target="_blank" rel="noopener">Open YouTube</a>
+        <a class="btn ghost" href="https://www.youtube.com/create_channel" target="_blank" rel="noopener">Create a channel</a>
+        <a class="btn ghost" href="https://support.google.com/youtube/answer/1646861" target="_blank" rel="noopener">YouTube help: create a channel</a>
+      </div>
+      <div class="done-row"><label><input type="checkbox" data-step="s1" /> I have a YouTube channel on my Gmail</label></div>
+    </section>
+
+    <!-- STEP 2 -->
+    <section class="step" id="s2">
+      <div class="head"><div class="num">2</div><h2>Get your Gmail approved as a tester</h2></div>
+      <p>While the app is in testing, Google only lets approved Gmail accounts connect. KwikPost sends the app owner an approval request for you.</p>
+      <ol>
+        <li>Type the <b>Gmail address</b> that owns your YouTube channel (not a brand email).</li>
+        <li>Click <b>Send approval email</b>. KwikPost emails the owner for you.</li>
+        <li>Wait for the green message. The owner then adds your Gmail as a test user.</li>
+        <li>When the owner confirms, tick the box below.</li>
+      </ol>
+      <label style="display:block;margin-top:12px;font-size:14px;color:var(--text);">Your Gmail address
+        <input type="email" id="userGmail" class="gmail-input" placeholder="yourname@gmail.com" />
+      </label>
+      <div class="links">
+        <button type="button" class="btn" id="mailOwnerBtn">Send approval email</button>
+        <a class="btn ghost" href="https://console.cloud.google.com/auth/audience" target="_blank" rel="noopener">Owner: open Audience page</a>
+      </div>
+      <div class="tip">The email is sent by KwikPost from the server. You do not need an email app.</div>
+      <div class="tip warn">Without this step, Google shows <b>"Access blocked"</b> when you try to connect.</div>
+      <div class="done-row"><label><input type="checkbox" data-step="s2" /> The owner has added my Gmail as a test user</label></div>
+    </section>
+
+    <!-- STEP 3 -->
+    <section class="step" id="s3">
+      <div class="head"><div class="num">3</div><h2>Sign in to the right Gmail in this browser</h2></div>
+      <p>Google must use the same Gmail that the owner added in step 2.</p>
+      <ol>
+        <li>Look at the profile picture at the top right of this browser.</li>
+        <li>If it shows a different account, click it and choose <b>Add account</b> or <b>Switch account</b>.</li>
+        <li>Sign in with the correct Gmail. Check it at <b>My Account</b> below.</li>
+      </ol>
+      <div class="links">
+        <a class="btn ghost" href="https://accounts.google.com/" target="_blank" rel="noopener">Google sign-in</a>
+        <a class="btn ghost" href="https://myaccount.google.com/" target="_blank" rel="noopener">My Google Account (check)</a>
+      </div>
+      <div class="done-row"><label><input type="checkbox" data-step="s3" /> I am signed in to the right Gmail in this browser</label></div>
+    </section>
+
+    <!-- STEP 4 -->
+    <section class="step" id="s4">
+      <div class="head"><div class="num">4</div><h2>Connect YouTube to KwikPost</h2></div>
+      <p>This button opens Google's permission screen. Allow both YouTube permissions.</p>
+      <ol>
+        <li>Make sure the button below is enabled. It turns on after steps 1 to 3 are ticked.</li>
+        <li>Click <b>Connect YouTube</b>. Google opens.</li>
+        <li>Choose your Gmail. If you see <b>"Google hasn't verified this app"</b>, click <b>Continue</b>.</li>
+        <li><b>Tick both boxes</b>: "Manage your YouTube videos" and "View your YouTube account". Missing one causes uploads to fail.</li>
+        <li>Click <b>Continue</b>. You return to this page automatically.</li>
+      </ol>
+      <button class="btn" id="connectBtn" disabled>Connect YouTube</button>
+      <div class="tip">Tip: if the boxes are not ticked, click <b>Select all</b> first, then <b>Continue</b>.</div>
+    </section>
+
+    <!-- STEP 5 -->
+    <section class="step" id="s5">
+      <div class="head"><div class="num">5</div><h2>Check that it works</h2></div>
+      <p>When YouTube is connected, this step turns green automatically. Then you can upload reels as Shorts.</p>
+      <ol>
+        <li>Go to <b>Reels</b>, open a draft, and press <b>Post</b> or <b>Schedule</b>.</li>
+        <li>Choose <b>YouTube Shorts only</b> for a test.</li>
+        <li>When done, check your channel in YouTube Studio.</li>
+      </ol>
+      <div class="links">
+        <a class="btn ghost" href="https://studio.youtube.com/" target="_blank" rel="noopener">Open YouTube Studio</a>
+      </div>
+      <div id="connectedBox" hidden>
+        <p style="color:var(--ok);font-weight:700;">YouTube is connected</p>
+        <button class="btn ghost" id="disconnectBtn">Disconnect YouTube</button>
+      </div>
+    </section>
+
+    <div class="msg" id="msg"></div>
+
+    <div class="final" id="finalBox" hidden>
+      <h2>✅ YouTube is ready</h2>
+      <p>On the Reels page, press <b>Post</b> or <b>Schedule</b> on a draft and choose YouTube Shorts.</p>
+      <div class="links">
+        <a class="btn" href="/reels.html">Go to Reels</a>
+        <a class="btn ghost" href="https://studio.youtube.com/" target="_blank" rel="noopener">Open YouTube Studio</a>
+      </div>
+    </div>
+
+    <!-- Troubleshooting -->
+    <details>
+      <summary>Something went wrong? (common problems and fixes)</summary>
+      <table>
+        <tr><th>What you see</th><th>What to do</th></tr>
+        <tr><td>"Access blocked" or "access_denied"</td><td>Your Gmail is not a test user. Ask the owner to add it (step 2), then try again.</td></tr>
+        <tr><td>"Google hasn't verified this app"</td><td>Expected while testing. Click Continue (or Advanced, then Go to the app).</td></tr>
+        <tr><td>"redirect_uri_mismatch"</td><td>The owner's Google Cloud redirect address does not match the one below. Send the owner the exact address from the owner section.</td></tr>
+        <tr><td>"Approval email was not sent"</td><td>Copy the red message under step 2 and send it to the app owner or the developer.</td></tr>
+        <tr><td>Upload fails after connecting</td><td>Disconnect, then connect again and tick both permission boxes.</td></tr>
+        <tr><td>Wrong account opened</td><td>Sign out of Google in this browser, sign in with the right Gmail, then press Connect again.</td></tr>
+        <tr><td>Connect button stays off</td><td>Tick steps 1, 2 and 3 first. Then reload with Ctrl + Shift + R.</td></tr>
+        <tr><td>Old connection causes errors</td><td>Open <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener">Google permissions</a>, remove KwikPost, then connect again.</td></tr>
+      </table>
+    </details>
+
+    <details>
+      <summary>For the app owner only: adding a tester and checking settings</summary>
+      <p><b>Add a tester Gmail:</b></p>
+      <ol>
+        <li>Open <a href="https://console.cloud.google.com/auth/audience" target="_blank" rel="noopener">Google Auth Platform, Audience</a>.</li>
+        <li>Under <b>Test users</b>, click <b>+ Add users</b>, enter the Gmail, and click <b>Save</b>.</li>
+      </ol>
+      <p><b>Check the app settings:</b></p>
+      <ol>
+        <li><a href="https://console.cloud.google.com/apis/library/youtube.googleapis.com" target="_blank" rel="noopener">YouTube Data API v3</a> must show <b>Enabled</b>.</li>
+        <li><a href="https://console.cloud.google.com/auth/clients" target="_blank" rel="noopener">Clients</a>: the web client must list the redirect address below under Authorized redirect URIs.</li>
+        <li><a href="https://console.cloud.google.com/auth/scopes" target="_blank" rel="noopener">Data Access (scopes)</a>: <code>youtube.upload</code> and <code>youtube.readonly</code> must be added.</li>
+      </ol>
+      <p>Redirect address for this site:</p>
+      <div class="copy"><span id="redirectUri"></span><button type="button" id="copyBtn">Copy</button></div>
+      <p>Use the same address in <code>YOUTUBE_REDIRECT_URI</code> in the server's <code>.env</code> file.</p>
+    </details>
   </div>
 
 <script>
 (function () {
-  function token() { return localStorage.getItem('authToken') || localStorage.getItem('token') || ''; }
-  if (!token()) { window.location.href = '/login.html'; return; }
+  var token = localStorage.getItem('authToken') || localStorage.getItem('token') || '';
+  if (!token) { window.location.href = '/login.html'; return; }
 
-  document.getElementById('ytConnectBtn').onclick = function () {
-    // Same pattern as Instagram when you add the route:
-    window.location.href = '/api/youtube/auth/start?token=' + encodeURIComponent(token());
-  };
+  var KEY = 'kwik-yt-setup-v3';
+  var $ = function (id) { return document.getElementById(id); };
+  var checks = {};
+  try { checks = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch (e) {}
+  var connected = false;
+
+  function api(url, opt) {
+    opt = opt || {};
+    var headers = Object.assign({ 'ngrok-skip-browser-warning': 'true', Authorization: 'Bearer ' + token }, opt.headers || {});
+    if (opt.body) headers['Content-Type'] = 'application/json';
+    return fetch(url, Object.assign({}, opt, { headers: headers })).then(function (res) {
+      if (res.status === 401) { window.location.href = '/login.html'; throw new Error('Please log in again.'); }
+      return res.text().then(function (raw) {
+        var data = null; try { data = JSON.parse(raw); } catch (e) { data = raw; }
+        if (!res.ok || (data && data.error)) throw new Error((data && data.error) || ('Request failed (' + res.status + ')'));
+        return data;
+      });
+    });
+  }
+
+  function msg(text, kind) { $('msg').textContent = text || ''; $('msg').className = 'msg ' + (kind || ''); }
+
+  // ---- Step 2: send the approval email from the server ----
+  $('mailOwnerBtn').addEventListener('click', function () {
+    var gmail = $('userGmail').value.trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(gmail)) {
+      msg('Type your Gmail address first, for example yourname@gmail.com', 'err');
+      $('userGmail').focus();
+      return;
+    }
+    var btn = this;
+    btn.disabled = true;
+    btn.textContent = 'Sending…';
+    msg('Sending the approval email…', '');
+    api('/api/youtube/request-approval', { method: 'POST', body: JSON.stringify({ gmail: gmail }) })
+      .then(function () {
+        msg('Approval email sent to the app owner. Tick the box in step 2 when they confirm.', 'ok');
+      })
+      .catch(function (e) {
+        msg('Approval email was not sent: ' + e.message, 'err');
+      })
+      .then(function () {
+        btn.disabled = false;
+        btn.textContent = 'Send approval email';
+      });
+  });
+
+  // Show the callback address for this site, with a copy button
+  var redirect = window.location.origin + '/api/youtube/callback';
+  $('redirectUri').textContent = redirect;
+  $('copyBtn').addEventListener('click', function () {
+    if (navigator.clipboard) navigator.clipboard.writeText(redirect).then(function () { $('copyBtn').textContent = 'Copied'; });
+  });
+
+  function render() {
+    var done = [!!checks.s1, !!checks.s2, !!checks.s3, connected, connected];
+    var n = done.filter(Boolean).length;
+    $('bar').style.width = Math.round(n / 5 * 100) + '%';
+    $('count').textContent = n + ' of 5 steps done';
+    var now = done.indexOf(false);
+    done.forEach(function (d, i) {
+      var el = $('s' + (i + 1));
+      el.classList.toggle('done', d);
+      el.classList.toggle('now', i === now);
+    });
+    document.querySelectorAll('input[data-step]').forEach(function (cb) { cb.checked = !!checks[cb.dataset.step]; });
+    $('connectBtn').disabled = !(checks.s1 && checks.s2 && checks.s3) || connected;
+    $('connectBtn').hidden = connected;
+    $('connectedBox').hidden = !connected;
+    $('finalBox').hidden = !connected;
+  }
+
+  document.querySelectorAll('input[data-step]').forEach(function (cb) {
+    cb.addEventListener('change', function () {
+      checks[cb.dataset.step] = cb.checked;
+      localStorage.setItem(KEY, JSON.stringify(checks));
+      render();
+    });
+  });
+
+  function loadStatus() {
+    return api('/api/youtube/status').then(function (s) {
+      connected = !!(s && s.connected);
+      render();
+    }).catch(function (e) { msg('Could not check your connection: ' + e.message, 'err'); });
+  }
+
+  $('connectBtn').addEventListener('click', function () {
+    var btn = this;
+    btn.disabled = true; btn.textContent = 'Opening Google…';
+    api('/api/youtube/connect-url', { method: 'POST', body: '{}' })
+      .then(function (d) {
+        if (!d || !d.url) throw new Error('No connection link was returned.');
+        window.location.href = d.url;
+      })
+      .catch(function (e) {
+        btn.disabled = false; btn.textContent = 'Connect YouTube';
+        msg(e.message, 'err');
+      });
+  });
+
+  $('disconnectBtn').addEventListener('click', function () {
+    if (!confirm('Disconnect YouTube from KwikPost?')) return;
+    api('/api/youtube/disconnect', { method: 'POST', body: '{}' })
+      .then(function () { msg('YouTube disconnected.', 'ok'); return loadStatus(); })
+      .catch(function (e) { msg(e.message, 'err'); });
+  });
+
+  var q = new URLSearchParams(window.location.search);
+  if (q.get('youtube_connected')) msg('YouTube sign-in finished. Checking your connection…', 'ok');
+  if (q.get('youtube_error')) msg('YouTube connection failed: ' + q.get('youtube_error') + '. Check steps 2 and 3, then press Connect again.', 'err');
+  if (q.get('youtube_connected') || q.get('youtube_error')) {
+    window.history.replaceState({}, document.title, '/youtube-setup.html');
+  }
+
+  render();
+  loadStatus();
 })();
 </script>
 </body>

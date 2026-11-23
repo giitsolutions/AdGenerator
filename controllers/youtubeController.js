@@ -3,6 +3,8 @@ const fs = require('fs');
 const jwt = require('jsonwebtoken');
 const { getDb } = require('../db/connection');
 const yt = require('../services/youtubeService');
+const emailService = require('../services/emailService');
+const env = require('../config/env');
 
 const JWT_SECRET = process.env.JWT_SECRET;
 // Set YOUTUBE_PRIVACY=public in .env once the app is verified. Until then, keep it private.
@@ -86,10 +88,10 @@ exports.callback = async function (req, res) {
          expiry_date = excluded.expiry_date`,
       [payload.uid, tokens.access_token, tokens.refresh_token || null, tokens.expiry_date || null]
     );
-    res.redirect('/reels.html?youtube_connected=1');
+    res.redirect('/youtube-setup.html?youtube_connected=1');
   } catch (err) {
     console.error('[youtube] callback failed:', err.message);
-    res.redirect('/reels.html?youtube_error=' + encodeURIComponent(err.message));
+    res.redirect('/youtube-setup.html?youtube_error=' + encodeURIComponent(err.message));
   }
 };
 
@@ -103,6 +105,41 @@ exports.disconnect = async function (req, res) {
   const db = await getDb();
   await db.run('DELETE FROM youtube_accounts WHERE user_id = ?', [req.user.id]);
   res.json({ ok: true });
+};
+
+// Step 2 of the setup page: email the app owner to add the user's Gmail as a test user.
+exports.requestApproval = async function (req, res) {
+  try {
+    const gmail = String(req.body.gmail || '').trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(gmail)) {
+      return res.status(400).json({ error: 'Enter a valid Gmail address, for example yourname@gmail.com' });
+    }
+    const to = process.env.APPROVAL_EMAIL_TO;
+    if (!to) return res.status(500).json({ error: 'APPROVAL_EMAIL_TO is not set in the .env file' });
+
+    const transporter = emailService.getTransporter();
+    const info = await transporter.sendMail({
+      from: env.email.user,
+      to: to,
+      subject: 'Please add my Gmail as a test user for KwikPost (YouTube)',
+      text:
+        'Hello,\n\n' +
+        'Please add this Gmail as a test user in the Google Cloud project for KwikPost, so I can connect my YouTube channel:\n\n' +
+        gmail + '\n\n' +
+        'Steps:\n' +
+        '1. Open https://console.cloud.google.com/auth/audience\n' +
+        '2. Under "Test users", click "+ Add users".\n' +
+        '3. Enter ' + gmail + ' and click Save.\n\n' +
+        'Please reply when it is done. Thank you!'
+    });
+
+    
+
+    res.json({ ok: true, to: to, messageId: info.messageId, accepted: info.accepted, rejected: info.rejected });
+  } catch (err) {
+    console.error('[youtube] approval email failed:', err.message);
+    res.status(500).json({ error: 'Could not send the email: ' + err.message });
+  }
 };
 
 // Post now

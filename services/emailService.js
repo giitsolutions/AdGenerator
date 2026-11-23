@@ -105,3 +105,4 @@ async function sendApprovalEmail({ to, campaignName, themeLabel, caption, imageU
 }
 
 module.exports = { sendApprovalEmail, verifyEmailSetup, isUsableEmail };
+module.exports = { ...module.exports, getTransporter };

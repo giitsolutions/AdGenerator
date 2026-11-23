@@ -3,190 +3,317 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>KwikPost — Connect Instagram</title>
+<title>KwikPost: Connect Instagram</title>
+<link rel="icon" href="data:," />
 <script>try{document.documentElement.setAttribute('data-theme',localStorage.getItem('theme')||'dark')}catch(e){}</script>
 <style>
   :root { --bg:#0b0a10; --card:#0f0e15; --soft:#17151f; --line:#2a2634; --text:#f5f2fb; --muted:#a39bbd;
-          --orange:#f97316; --accent:#a855f7; --green:#22c55e; --pink:#e1306c; }
+          --ig1:#f58529; --ig2:#dd2a7b; --ig3:#8134af; --ok:#22c55e; --bad:#f87171; }
   :root[data-theme="light"] { --bg:#f6f3fb; --card:#fff; --soft:#f0ecf8; --line:#ded8ea; --text:#1d1a2b; --muted:#6a6483; }
   * { box-sizing:border-box; }
-  body { margin:0; background:var(--bg); color:var(--text); font:15px/1.55 system-ui,"Segoe UI",sans-serif; }
-  a { color:#c4b5fd; }
-  .top { display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;
+  [hidden] { display:none !important; }
+  body { margin:0; background:var(--bg); color:var(--text); font:16px/1.55 system-ui,"Segoe UI",sans-serif; }
+  a { color:#fdba74; }
+  .top { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;
          padding:12px 18px; border-bottom:1px solid var(--line); }
-  .top h1 { margin:0; font-size:16px; }
-  .nav a { margin-left:8px; padding:6px 12px; border:1px solid var(--line); border-radius:8px; background:var(--soft); color:var(--text); text-decoration:none; font-size:13px; }
-  .wrap { max-width:720px; margin:20px auto 48px; padding:0 16px; }
-  .hero { text-align:center; margin-bottom:22px; }
-  .hero .icon { width:64px; height:64px; margin:0 auto 12px; border-radius:16px;
-    background:linear-gradient(135deg,#feda75,#fa7e1e,#d62976,#962fbf); display:grid; place-items:center; font-size:28px; }
-  .hero h2 { margin:0 0 6px; font-size:22px; }
-  .hero p { margin:0; color:var(--muted); font-size:14px; }
-  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px; margin-bottom:14px; }
-  .step { display:grid; grid-template-columns:44px 1fr; gap:14px; }
-  .num { width:44px; height:44px; border-radius:12px; background:linear-gradient(135deg,var(--orange),var(--accent));
-         display:grid; place-items:center; font-weight:800; font-size:16px; color:#fff; flex-shrink:0; }
-  .step h3 { margin:0 0 6px; font-size:16px; }
-  .step p, .step li { color:var(--muted); font-size:14px; margin:0 0 8px; }
-  .step ul { margin:0 0 8px; padding-left:18px; }
-  .step li { margin-bottom:4px; }
-  .tip { background:var(--soft); border-left:3px solid var(--accent); padding:10px 12px; border-radius:8px; font-size:13px; color:var(--muted); margin-top:8px; }
-  .ok { border-left-color:var(--green); }
-  .warn { border-left-color:var(--orange); }
-  .btn-row { display:flex; flex-wrap:wrap; gap:10px; margin-top:14px; }
-  button, .btn {
-    display:inline-block; background:linear-gradient(120deg,var(--orange),var(--accent)); color:#fff; border:0;
-    border-radius:10px; padding:12px 18px; font-weight:700; font-size:14px; cursor:pointer; text-decoration:none;
-  }
-  .btn.secondary { background:var(--soft); color:var(--text); border:1px solid var(--line); }
-  code { background:var(--soft); padding:2px 6px; border-radius:4px; font-size:12px; }
-  .checklist label { display:flex; gap:8px; align-items:flex-start; margin:8px 0; font-size:14px; cursor:pointer; }
-  .checklist input { margin-top:3px; }
-  .status { margin-top:12px; padding:12px; border-radius:10px; background:var(--soft); font-size:14px; }
-  .status.connected { border:1px solid var(--green); color:#86efac; }
-  .status.missing { border:1px solid var(--line); color:var(--muted); }
+  .top nav a { color:var(--muted); text-decoration:none; font-size:13px; border:1px solid var(--line);
+               border-radius:8px; padding:6px 10px; background:var(--soft); margin-left:6px; }
+  .wrap { max-width:760px; margin:22px auto 60px; padding:0 16px; }
+  .hero { background:linear-gradient(135deg,var(--ig1),var(--ig2) 55%,var(--ig3)); color:#fff; border-radius:18px; padding:22px 24px; }
+  .hero h1 { margin:0 0 6px; font-size:24px; }
+  .hero p { margin:0; opacity:.95; }
+  .progress { margin:20px 0 6px; font-size:14px; color:var(--muted); }
+  .bar { height:8px; background:var(--soft); border-radius:99px; overflow:hidden; }
+  .bar i { display:block; height:100%; width:0; background:linear-gradient(90deg,var(--ig1),var(--ig2),var(--ig3)); transition:width .4s; }
+  .before { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px 18px; margin-top:16px; font-size:14px; color:var(--muted); }
+  .before b { color:var(--text); }
+  .step { background:var(--card); border:2px solid var(--line); border-radius:16px; padding:18px 20px; margin-top:14px; }
+  .step.now { border-color:var(--ig2); }
+  .step.done { border-color:var(--ok); }
+  .head { display:flex; align-items:center; gap:12px; }
+  .num { flex:none; width:38px; height:38px; border-radius:50%; background:var(--soft); border:2px solid var(--line);
+         display:flex; align-items:center; justify-content:center; font-weight:800; }
+  .step.now .num { background:var(--ig2); border-color:var(--ig2); color:#fff; }
+  .step.done .num { background:var(--ok); border-color:var(--ok); color:#052e1f; }
+  .step h2 { font-size:18px; margin:0; }
+  .step p { color:var(--muted); margin:10px 0; font-size:15px; }
+  .step ol { color:var(--muted); margin:8px 0 10px 22px; padding:0; font-size:15px; }
+  .step li { margin-bottom:8px; }
+  .step li b { color:var(--text); }
+  .btn { display:inline-block; border:0; border-radius:12px; padding:12px 18px; font-weight:700; font-size:15px;
+         color:#fff; cursor:pointer; text-decoration:none; background:linear-gradient(135deg,var(--ig1),var(--ig2),var(--ig3)); margin:6px 8px 6px 0; }
+  .btn.ghost { background:var(--soft); color:var(--text); border:1px solid var(--line); }
+  .btn:disabled { opacity:.45; cursor:not-allowed; }
+  .links { display:flex; flex-wrap:wrap; gap:4px 0; }
+  .done-row { margin-top:12px; }
+  .done-row label { display:flex; align-items:center; gap:10px; font-size:16px; cursor:pointer; }
+  .done-row input { width:20px; height:20px; }
+  .tip { background:var(--soft); border-left:4px solid var(--ig2); border-radius:8px; padding:10px 12px; font-size:14px; color:var(--muted); margin-top:10px; }
+  .tip.warn { border-left-color:#f59e0b; }
+  .copy { display:flex; gap:8px; align-items:center; flex-wrap:wrap; background:var(--soft); border:1px solid var(--line);
+          border-radius:10px; padding:10px 12px; margin:8px 0; font-family:ui-monospace,monospace; font-size:13px; word-break:break-all; }
+  .copy span { flex:1; min-width:200px; }
+  table { width:100%; border-collapse:collapse; font-size:14px; margin-top:8px; }
+  th, td { text-align:left; padding:8px 6px; border-bottom:1px solid var(--line); vertical-align:top; }
+  th { color:var(--text); }
+  td { color:var(--muted); }
+  .msg { margin-top:14px; font-size:15px; min-height:22px; }
+  .msg.err { color:var(--bad); }
+  .msg.ok { color:var(--ok); }
+  .final { margin-top:18px; background:var(--card); border:2px solid var(--ok); border-radius:16px; padding:18px 20px; }
+  .final h2 { margin:0 0 6px; font-size:20px; }
+  .final p { margin:0 0 10px; color:var(--muted); }
+  details { margin-top:18px; background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px 18px; font-size:15px; color:var(--muted); }
+  details summary { cursor:pointer; color:var(--text); font-weight:700; }
+  details p { margin:8px 0; }
 </style>
 </head>
 <body>
   <div class="top">
-    <h1>📷 Connect Instagram</h1>
-    <nav class="nav">
-      <a href="/index.html">Dashboard</a>
-      <a href="/posts.html">Posts</a>
+    <strong>📷 Connect Instagram</strong>
+    <nav>
       <a href="/reels.html">Reels</a>
-      <a href="/connect-youtube.html">YouTube setup</a>
+      <a href="/posts.html">Posts</a>
+      <a href="/youtube-setup.html">YouTube setup</a>
     </nav>
   </div>
 
   <div class="wrap">
     <div class="hero">
-      <div class="icon">📸</div>
-      <h2>Connect Instagram to KwikPost</h2>
-      <p>Follow these steps once. After that you can approve posts and publish from the app.</p>
+      <h1>Connect your Instagram in 5 steps</h1>
+      <p>Do one step at a time. Each step has the links you need. The first time takes about 15 minutes.</p>
     </div>
 
-    <div class="card">
-      <div class="step">
-        <div class="num">1</div>
-        <div>
-          <h3>Use a Business or Creator account</h3>
-          <p>Personal Instagram accounts cannot publish via the API.</p>
-          <ul>
-            <li>Open the Instagram app → Profile → Menu → <strong>Settings and activity</strong></li>
-            <li>Go to <strong>Account type and tools</strong></li>
-            <li>Switch to <strong>Professional</strong> → choose <strong>Business</strong> or <strong>Creator</strong></li>
-          </ul>
-          <div class="tip ok">You keep the same username and posts. Only the account type changes.</div>
-        </div>
-      </div>
-    </div>
-
-    <div class="card">
-      <div class="step">
-        <div class="num">2</div>
-        <div>
-          <h3>Create or link a Facebook Page</h3>
-          <p>Instagram publishing needs a Facebook Page linked to that Instagram account.</p>
-          <ul>
-            <li>Go to <a href="https://www.facebook.com/pages/create" target="_blank" rel="noopener">facebook.com/pages/create</a></li>
-            <li>Create a Page for your brand (or use an existing one)</li>
-            <li>On Instagram: Settings → Account → <strong>Linked accounts / Sharing to other apps</strong> → Facebook → link this Page</li>
-            <li>Or from Facebook Page settings → <strong>Linked accounts</strong> → Instagram → connect</li>
-          </ul>
-          <div class="tip warn">The Facebook user who clicks Connect in KwikPost must be an admin of that Page.</div>
-        </div>
-      </div>
-    </div>
-
-    <div class="card">
-      <div class="step">
-        <div class="num">3</div>
-        <div>
-          <h3>Checklist before connecting</h3>
-          <div class="checklist">
-            <label><input type="checkbox" /> Instagram is Business or Creator</label>
-            <label><input type="checkbox" /> Facebook Page exists</label>
-            <label><input type="checkbox" /> Instagram is linked to that Page</label>
-            <label><input type="checkbox" /> I am admin of the Facebook Page</label>
-            <label><input type="checkbox" /> I am logged into the correct Facebook account in the browser</label>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div class="card">
-      <div class="step">
-        <div class="num">4</div>
-        <div>
-          <h3>Connect inside KwikPost</h3>
-          <p>Stay logged into KwikPost, then start Facebook Login. Allow the permissions when asked.</p>
-          <ul>
-            <li>Manage your Page</li>
-            <li>Access Instagram account</li>
-            <li>Publish content to Instagram</li>
-          </ul>
-          <div class="btn-row">
-            <button type="button" id="connectBtn">Connect Instagram with Facebook</button>
-            <a class="btn secondary" href="/posts.html">Back to Posts</a>
-          </div>
-          <div id="igStatus" class="status missing">Checking connection…</div>
-          <div class="tip" style="margin-top:12px;">
-            After success you return to the app with Instagram connected. You only need this again if you disconnect or change accounts.
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div class="card">
-      <div class="step">
-        <div class="num">5</div>
-        <div>
-          <h3>Publish your first post</h3>
-          <ul>
-            <li>Open <strong>Posts</strong> or <strong>Reels</strong></li>
-            <li>Generate or upload content</li>
-            <li>Press <strong>Approve</strong> (or schedule)</li>
-          </ul>
-          <div class="tip ok">If Approve asks you to connect Instagram, finish step 4 first, then approve again.</div>
-        </div>
-      </div>
-    </div>
-
-    <div class="card">
-      <h3 style="margin:0 0 8px;">Common problems</h3>
-      <ul style="margin:0;padding-left:18px;color:var(--muted);font-size:14px;">
-        <li><strong>No Pages found</strong> — Page not linked, or you used a different Facebook login.</li>
-        <li><strong>No Instagram business account</strong> — Link IG ↔ Page again; wait a few minutes and retry.</li>
-        <li><strong>Permission denied</strong> — Accept all requested permissions on the Facebook screen.</li>
-        <li><strong>App in development mode</strong> — Only Facebook app testers/admins can connect until the app is Live (developer setup).</li>
+    <div class="before">
+      <b>Before you start, you need:</b>
+      <ul>
+        <li>An Instagram account (it can be a new one)</li>
+        <li>A Facebook account, logged in on this browser</li>
+        <li>A Facebook Page that you admin (step 2 shows how to make one)</li>
       </ul>
+      <b>Why Facebook?</b> Instagram publishing goes through a Facebook Page. Your Instagram account must be linked to that Page.
     </div>
+
+    <div class="progress" id="count">0 of 5 steps done</div>
+    <div class="bar"><i id="bar"></i></div>
+
+    <!-- STEP 1 -->
+    <section class="step" id="s1">
+      <div class="head"><div class="num">1</div><h2>Switch Instagram to a Business or Creator account</h2></div>
+      <p>Personal accounts cannot publish through the API. Switching does not delete posts or change your username.</p>
+      <ol>
+        <li>Open the <b>Instagram app</b> on your phone (or click the button below to open Instagram in the browser).</li>
+        <li>Go to your profile, tap <b>☰ Menu</b>, then <b>Settings and activity</b>.</li>
+        <li>Tap <b>Account type and tools</b>, then <b>Switch to professional account</b>.</li>
+        <li>Choose <b>Business</b> or <b>Creator</b>, pick a category (for example Gym or Fitness), and tap <b>Done</b>.</li>
+      </ol>
+      <div class="links">
+        <a class="btn" href="https://www.instagram.com/" target="_blank" rel="noopener">Open Instagram</a>
+        <a class="btn ghost" href="https://help.instagram.com/502981923235522" target="_blank" rel="noopener">Instagram help: business account</a>
+      </div>
+      <div class="tip">Check: your profile now shows a <b>Professional dashboard</b> or <b>Insights</b> option.</div>
+      <div class="done-row"><label><input type="checkbox" data-step="s1" /> My Instagram is Business or Creator</label></div>
+    </section>
+
+    <!-- STEP 2 -->
+    <section class="step" id="s2">
+      <div class="head"><div class="num">2</div><h2>Create a Facebook Page (skip if you have one)</h2></div>
+      <p>The Page is the business identity that Instagram publishes through.</p>
+      <ol>
+        <li>Click <b>Create a Facebook Page</b> below. It opens in a new tab.</li>
+        <li>Enter the <b>Page name</b> (your business name) and a <b>Category</b> such as Gym or Fitness.</li>
+        <li>Add a short bio and profile picture if you want, then click <b>Create Page</b>.</li>
+        <li>To check your Pages later, click <b>See my Pages</b>. Make sure you see the Page with an <b>Admin</b> label.</li>
+      </ol>
+      <div class="links">
+        <a class="btn" href="https://www.facebook.com/pages/create" target="_blank" rel="noopener">Create a Facebook Page</a>
+        <a class="btn ghost" href="https://www.facebook.com/pages/?category=your_pages" target="_blank" rel="noopener">See my Pages</a>
+        <a class="btn ghost" href="https://www.facebook.com/login" target="_blank" rel="noopener">Log in to Facebook</a>
+      </div>
+      <div class="tip warn">You must be an <b>Admin</b> of this Page. If you only see it as an editor or moderator, ask the Page owner to make you Admin in Page settings, then continue.</div>
+      <div class="done-row"><label><input type="checkbox" data-step="s2" /> I have a Facebook Page and I am its Admin</label></div>
+    </section>
+
+    <!-- STEP 3 -->
+    <section class="step" id="s3">
+      <div class="head"><div class="num">3</div><h2>Link Instagram to that Page</h2></div>
+      <p>This tells Facebook that the Instagram account belongs to your Page. You can do it from Facebook or from Instagram.</p>
+      <p><b>Option A (recommended): from Accounts Center</b></p>
+      <ol>
+        <li>Click <b>Open Accounts Center</b> below.</li>
+        <li>Click <b>Add accounts</b> (or <b>Accounts</b>, then <b>Add account</b>) and choose <b>Instagram</b>.</li>
+        <li>Log in to the Instagram Business or Creator account and confirm.</li>
+        <li>Check that the Instagram account and your Facebook Page appear in the same Accounts Center.</li>
+      </ol>
+      <p><b>Option B: from Instagram</b></p>
+      <ol>
+        <li>In Instagram, go to <b>Settings and activity</b>, then <b>Accounts Center</b>.</li>
+        <li>Tap <b>Add Facebook Page</b> (or <b>Connected experiences</b>), choose your Page, and confirm.</li>
+      </ol>
+      <div class="links">
+        <a class="btn" href="https://accountscenter.facebook.com/" target="_blank" rel="noopener">Open Accounts Center</a>
+        <a class="btn ghost" href="https://www.facebook.com/help/1462241137382862" target="_blank" rel="noopener">Facebook help: link Instagram to a Page</a>
+        <a class="btn ghost" href="https://www.instagram.com/accounts/manage_access/" target="_blank" rel="noopener">Instagram: Accounts Center</a>
+      </div>
+      <div class="tip">Check: in Accounts Center, your Instagram account is listed next to your Facebook Page.</div>
+      <div class="done-row"><label><input type="checkbox" data-step="s3" /> Instagram is linked to my Facebook Page</label></div>
+    </section>
+
+    <!-- STEP 4 -->
+    <section class="step" id="s4">
+      <div class="head"><div class="num">4</div><h2>Connect Instagram to KwikPost</h2></div>
+      <p>This button opens Facebook. Log in with the account that is Admin of your Page, then approve the permissions.</p>
+      <ol>
+        <li>Make sure the button below is enabled. It turns on after steps 1 to 3 are ticked.</li>
+        <li>Click <b>Connect Instagram</b>. Facebook opens.</li>
+        <li>Choose the <b>Facebook Page</b> and the <b>Instagram account</b> when asked.</li>
+        <li>Allow every permission (Page access, Instagram account, content publishing), then click <b>Continue</b>.</li>
+        <li>You come back to this page automatically.</li>
+      </ol>
+      <button class="btn" id="connectBtn" disabled>Connect Instagram</button>
+      <div class="tip">If Facebook shows <b>"App not active"</b>, see the box for the app owner at the bottom of this page.</div>
+    </section>
+
+    <!-- STEP 5 -->
+    <section class="step" id="s5">
+      <div class="head"><div class="num">5</div><h2>Check that it works</h2></div>
+      <p>When the connection is saved, this step turns green automatically. You can then post reels and posts to Instagram.</p>
+      <div id="connectedBox" hidden>
+        <p style="color:var(--ok);font-weight:700;" id="connectedName">Instagram is connected</p>
+        <button class="btn ghost" id="disconnectBtn">Disconnect Instagram</button>
+      </div>
+    </section>
+
+    <div class="msg" id="msg"></div>
+
+    <div class="final" id="finalBox" hidden>
+      <h2>✅ Instagram is ready</h2>
+      <p>On the Reels or Posts page, press <b>Post</b> or <b>Schedule</b> and choose Instagram.</p>
+      <div class="links">
+        <a class="btn" href="/reels.html">Go to Reels</a>
+        <a class="btn ghost" href="/posts.html">Go to Posts</a>
+      </div>
+    </div>
+
+    <!-- Troubleshooting -->
+    <details>
+      <summary>Something went wrong? (common problems and fixes)</summary>
+      <table>
+        <tr><th>What you see</th><th>What to do</th></tr>
+        <tr><td>"App not active" on Facebook</td><td>Your Facebook account is not yet a role on the app. Send the app owner your Facebook name. They add you (see the owner box below).</td></tr>
+        <tr><td>No Page appears on the Facebook screen</td><td>Repeat step 2 and step 3. The Page must be linked to Instagram, and you must be its Admin.</td></tr>
+        <tr><td>Instagram account not listed</td><td>Switch to Business or Creator (step 1), then link it again (step 3).</td></tr>
+        <tr><td>"You don't have permission"</td><td>Accept all permissions on the Facebook screen. If it still fails, you are not an Admin of the Page.</td></tr>
+        <tr><td>Connect button does nothing</td><td>Tick steps 1, 2 and 3 first. Then reload with Ctrl + Shift + R.</td></tr>
+        <tr><td>Red message after returning here</td><td>Read the message, fix the step it names, then press Connect again.</td></tr>
+      </table>
+    </details>
+
+    <details>
+      <summary>For the app owner only: adding a new user</summary>
+      <p>The Meta app must allow each new Facebook account. While the app is unpublished, only app roles can log in.</p>
+      <ol>
+        <li>Open <a href="https://developers.facebook.com/apps/" target="_blank" rel="noopener">Meta for Developers, My Apps</a> and select the KwikPost app.</li>
+        <li>In the left menu, open <b>App roles</b>, then <b>Roles</b>.</li>
+        <li>Click <b>Add people</b>, type the new user's Facebook name, choose <b>Administrator</b> or <b>Developer</b>, and click <b>Add</b>.</li>
+        <li>The new user accepts the invitation at <a href="https://developers.facebook.com/settings/roles" target="_blank" rel="noopener">developers.facebook.com/settings/roles</a>.</li>
+      </ol>
+      <p>Test users cannot be added as roles. Use a real Facebook account.</p>
+    </details>
   </div>
 
 <script>
 (function () {
-  function token() { return localStorage.getItem('authToken') || localStorage.getItem('token') || ''; }
-  if (!token()) { window.location.href = '/login.html'; return; }
+  var token = localStorage.getItem('authToken') || localStorage.getItem('token') || '';
+  if (!token) { window.location.href = '/login.html'; return; }
 
-  document.getElementById('connectBtn').onclick = function () {
-    window.location.href = '/api/instagram/auth/start?token=' + encodeURIComponent(token());
-  };
+  var KEY = 'kwik-ig-setup-v3';
+  var $ = function (id) { return document.getElementById(id); };
+  var checks = {};
+  try { checks = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch (e) {}
+  var connected = false, pageName = '';
 
-  fetch('/api/auth/me', {
-    headers: { 'Authorization': 'Bearer ' + token(), 'ngrok-skip-browser-warning': 'true' }
-  }).then(function (r) { return r.json(); }).then(function (user) {
-    var el = document.getElementById('igStatus');
-    if (user && user.instagram_business_account_id) {
-      el.className = 'status connected';
-      el.innerHTML = '✅ Connected' + (user.instagram_page_name ? ' to <strong>' + user.instagram_page_name + '</strong>' : '');
-      document.getElementById('connectBtn').textContent = 'Reconnect Instagram';
-    } else {
-      el.className = 'status missing';
-      el.textContent = '❌ Not connected yet — complete the steps above, then press the button.';
-    }
-  }).catch(function () {
-    document.getElementById('igStatus').textContent = 'Could not check status. Make sure you are logged in.';
+  function api(url, opt) {
+    opt = opt || {};
+    var headers = Object.assign({ 'ngrok-skip-browser-warning': 'true', Authorization: 'Bearer ' + token }, opt.headers || {});
+    if (opt.body) headers['Content-Type'] = 'application/json';
+    return fetch(url, Object.assign({}, opt, { headers: headers })).then(function (res) {
+      if (res.status === 401) { window.location.href = '/login.html'; throw new Error('Please log in again.'); }
+      return res.text().then(function (raw) {
+        var data = null; try { data = JSON.parse(raw); } catch (e) { data = raw; }
+        if (!res.ok || (data && data.error)) throw new Error((data && data.error) || ('Request failed (' + res.status + ')'));
+        return data;
+      });
+    });
+  }
+
+  function msg(text, kind) { $('msg').textContent = text || ''; $('msg').className = 'msg ' + (kind || ''); }
+
+  function render() {
+    var done = [!!checks.s1, !!checks.s2, !!checks.s3, connected, connected];
+    var n = done.filter(Boolean).length;
+    $('bar').style.width = Math.round(n / 5 * 100) + '%';
+    $('count').textContent = n + ' of 5 steps done';
+    var now = done.indexOf(false);
+    done.forEach(function (d, i) {
+      var el = $('s' + (i + 1));
+      el.classList.toggle('done', d);
+      el.classList.toggle('now', i === now);
+    });
+    document.querySelectorAll('input[data-step]').forEach(function (cb) { cb.checked = !!checks[cb.dataset.step]; });
+    $('connectBtn').disabled = !(checks.s1 && checks.s2 && checks.s3) || connected;
+    $('connectBtn').hidden = connected;
+    $('connectedBox').hidden = !connected;
+    $('connectedName').textContent = connected ? (pageName ? 'Connected to ' + pageName : 'Instagram is connected') : '';
+    $('finalBox').hidden = !connected;
+  }
+
+  document.querySelectorAll('input[data-step]').forEach(function (cb) {
+    cb.addEventListener('change', function () {
+      checks[cb.dataset.step] = cb.checked;
+      localStorage.setItem(KEY, JSON.stringify(checks));
+      render();
+    });
   });
+
+  function loadStatus() {
+    return api('/api/auth/me').then(function (me) {
+      connected = !!(me && me.instagram_business_account_id);
+      pageName = (me && me.instagram_page_name) || '';
+      render();
+    }).catch(function (e) { msg('Could not check your connection: ' + e.message, 'err'); });
+  }
+
+  $('connectBtn').addEventListener('click', function () {
+    var btn = this;
+    btn.disabled = true; btn.textContent = 'Opening Facebook…';
+    api('/api/instagram/connect-url', { method: 'POST', body: JSON.stringify({ returnTo: '/instagram-setup.html' }) })
+      .then(function (d) {
+        if (!d || !d.url) throw new Error('No connection link was returned.');
+        window.location.href = d.url;
+      })
+      .catch(function (e) {
+        btn.disabled = false; btn.textContent = 'Connect Instagram';
+        msg(e.message, 'err');
+      });
+  });
+
+  $('disconnectBtn').addEventListener('click', function () {
+    if (!confirm('Disconnect Instagram from KwikPost?')) return;
+    api('/api/instagram/disconnect', { method: 'POST', body: '{}' })
+      .then(function () { msg('Instagram disconnected.', 'ok'); return loadStatus(); })
+      .catch(function (e) { msg(e.message, 'err'); });
+  });
+
+  var q = new URLSearchParams(window.location.search);
+  if (q.get('instagram_connected')) msg('Instagram sign-in finished. Checking your connection…', 'ok');
+  if (q.get('instagram_error')) msg('Instagram connection failed: ' + q.get('instagram_error') + '. Check steps 2 and 3, then press Connect again.', 'err');
+  if (q.get('instagram_connected') || q.get('instagram_error')) {
+    window.history.replaceState({}, document.title, '/instagram-setup.html');
+  }
+
+  render();
+  loadStatus();
 })();
 </script>
 </body>
