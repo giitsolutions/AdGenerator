@@ -1,9 +1,10 @@
 const { getDb } = require('./db/connection');
-
 (async () => {
   const db = await getDb();
-  await db.run("UPDATE posts SET status = 'draft', posted_at = NULL WHERE id = ?", [134]);
-  const row = await db.get('SELECT id, status, posted_at FROM posts WHERE id = ?', [134]);
-  console.log(row);
+  await db.run("UPDATE posts SET status = 'generated' WHERE id = 411");
+  console.log('reset');
   process.exit(0);
-})();
+})().catch(function (err) {
+  console.error('Failed:', err.message);
+  process.exit(1);
+});

@@ -140,6 +140,7 @@
 
 
   @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition: none !important; animation: none !important; scroll-behavior: auto !important; } }
+  #sec-generate { display:none !important; }
 </style>
 <script>try{document.documentElement.setAttribute('data-theme',localStorage.getItem('theme')||'dark')}catch(e){}</script>
 </head>
@@ -208,20 +209,8 @@
       </div>
     </section>
 
-    <div class="two">
-      <section id="sec-generate">
-        <h2><span class="num">2</span>Generate a post</h2>
-        <p class="lead">Pick a campaign and AI builds the ad using your next saved photo.</p>
-        <label for="campaignSelect">Campaign</label>
-        <select id="campaignSelect"></select>
-        <label for="genPhoto">Photo for this post</label>
-<select id="genPhoto"></select>
-        <button onclick="generatePost(event)">Generate with AI</button>
-      </section>
-      
-    </div>
-
- 
+    
+    
 
     <section id="sec-connect">
       <h2><span class="num">4</span>Connect Instagram and publish</h2>
