@@ -5,6 +5,8 @@ const postController = require('../controllers/postController');
 const schedulerService = require('../services/schedulerService');
 
 schedulerService.setPerformApproval(postController.performApproval);
+// Lets the auto-poster share the Story after a scheduled post publishes
+schedulerService.setPerformStory(postController.performStory);
 
 router.post('/:id/schedule', requireAuth, postController.schedulePost);
 router.post('/:id/unschedule', requireAuth, postController.unschedulePost);

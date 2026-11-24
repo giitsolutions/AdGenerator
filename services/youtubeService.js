@@ -42,7 +42,7 @@ async function uploadShort({ tokens, filePath, title, description, privacy, publ
   if (!/#shorts/i.test(fullDescription)) fullDescription += '\n\n#Shorts';
 
   const status = {
-    privacyStatus: publishAt ? 'private' : (privacy || 'private'),
+    privacyStatus: publishAt ? 'private' : (privacy || 'public'),
     selfDeclaredMadeForKids: false
   };
   if (publishAt) status.publishAt = publishAt;

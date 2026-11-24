@@ -8,9 +8,14 @@ const TICK_MS = 30 * 1000;
 let running = false;
 let intervalId = null;
 let performApprovalFn = null;
+let performStoryFn = null;
 
 function setPerformApproval(fn) {
   performApprovalFn = fn;
+}
+
+function setPerformStory(fn) {
+  performStoryFn = fn;
 }
 
 function shouldRetryNow(post) {
@@ -20,6 +25,23 @@ function shouldRetryNow(post) {
   const delay = RETRY_DELAYS[Math.min(attempts, RETRY_DELAYS.length - 1)];
   const scheduled = new Date(post.scheduled_at).getTime();
   return Date.now() >= scheduled + delay;
+}
+
+// Posts the Instagram Story for a scheduled post, only after the post itself has published.
+// A Story failure never marks the post as failed, and the Story is never retried or sent twice.
+async function postStoryIfRequested(post) {
+  if (Number(post.story_scheduled) !== 1) return;
+  try {
+    if (!performStoryFn) throw new Error('performStory is not set');
+    await performStoryFn(post.id, post.user_id);
+    console.log('[schedulerService] posted Story for scheduled post', post.id);
+  } catch (err) {
+    const msg = err.message || String(err);
+    console.error('[schedulerService] Story failed for', post.id, msg);
+    await scheduleStore.recordStoryError(post.id, 'Story failed: ' + msg).catch(() => {});
+  } finally {
+    await scheduleStore.clearStoryFlag(post.id).catch(() => {});
+  }
 }
 
 async function processOne(post) {
@@ -32,9 +54,11 @@ async function processOne(post) {
   const claimed = await scheduleStore.markPublishing(post.id, post.scheduled_at);
   if (!claimed) return;
 
+  let published = false;
   try {
     // ADJUST if your performApproval signature is different
     await performApprovalFn(post.id, post.user_id);
+    published = true;
     console.log('[schedulerService] published scheduled post', post.id);
   } catch (err) {
     const msg = err.message || String(err);
@@ -48,6 +72,8 @@ async function processOne(post) {
       console.log('[schedulerService] will retry post', post.id, '(attempt', attempts, ')');
     }
   }
+
+  if (published) await postStoryIfRequested(post);
 }
 
 async function tick() {
@@ -98,6 +124,7 @@ function stopAutoPoster() {
 
 module.exports = {
   setPerformApproval,
+  setPerformStory,
   startAutoPoster,
   stopAutoPoster,
   tick

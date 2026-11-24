@@ -13,7 +13,9 @@ async function ensureColumns() {
     ['last_schedule_error', 'TEXT'],
     ['publish_lock_until', 'TEXT'],
     ['last_error', 'TEXT'],
-    ['error_message', 'TEXT']
+    ['error_message', 'TEXT'],
+    ['story_scheduled', 'INTEGER DEFAULT 0'],    // 1 = also post an Instagram Story when this post publishes
+    ['facebook_scheduled', 'INTEGER DEFAULT 0']  // 1 = also post to the Facebook Page when this post publishes
   ]) {
     if (columns.has(name)) continue;
     await db.exec(`ALTER TABLE posts ADD COLUMN ${name} ${definition}`);
@@ -173,6 +175,71 @@ async function getPostForUser(postId, userId) {
   return db.get(sql, [postId, userId]);
 }
 
+// ---------------------------------------------------------------------
+// Follow-up actions that run right after a scheduled post publishes:
+// an Instagram Story and a Facebook Page post.
+// ---------------------------------------------------------------------
+
+// Remember whether a Story should be posted along with this scheduled post.
+async function setStoryFlag(postId, userId, on) {
+  await ensureColumns();
+  const db = await getDb();
+  await db.run(
+    'UPDATE posts SET story_scheduled = ? WHERE id = ? AND user_id = ?',
+    [on ? 1 : 0, postId, userId]
+  );
+}
+
+// Remember whether the Facebook Page should get this post too.
+async function setFacebookFlag(postId, userId, on) {
+  await ensureColumns();
+  const db = await getDb();
+  await db.run(
+    'UPDATE posts SET facebook_scheduled = ? WHERE id = ? AND user_id = ?',
+    [on ? 1 : 0, postId, userId]
+  );
+}
+
+async function clearStoryFlag(postId) {
+  await ensureColumns();
+  const db = await getDb();
+  await db.run('UPDATE posts SET story_scheduled = 0 WHERE id = ?', [postId]);
+}
+
+async function clearFacebookFlag(postId) {
+  await ensureColumns();
+  const db = await getDb();
+  await db.run('UPDATE posts SET facebook_scheduled = 0 WHERE id = ?', [postId]);
+}
+
+// Atomically claim a follow-up BEFORE sending it. Returns true only for the one
+// caller that flipped the flag from 1 to 0, so a crash or a second scheduler
+// tick can never send the same Story or Facebook post twice.
+async function claimFollowUp(column, postId) {
+  await ensureColumns();
+  const db = await getDb();
+  const result = await db.run(`UPDATE posts SET ${column} = 0 WHERE id = ? AND ${column} = 1`, [postId]);
+  return (result.changes ?? result.affectedRows ?? 0) > 0;
+}
+const claimStory = postId => claimFollowUp('story_scheduled', postId);
+const claimFacebook = postId => claimFollowUp('facebook_scheduled', postId);
+
+// Save a follow-up error on a post whose main publish already succeeded.
+// Several errors are joined, so a Story error and a Facebook error do not overwrite each other.
+async function recordFollowUpError(postId, label, errorMessage) {
+  await ensureColumns();
+  const db = await getDb();
+  const text = `${label}: ${errorMessage || 'failed'}`;
+  await db.run(
+    `UPDATE posts
+     SET last_error = CASE WHEN last_error IS NULL OR last_error = '' THEN ? ELSE last_error || ' | ' || ? END
+     WHERE id = ?`,
+    [text, text, postId]
+  );
+}
+const recordStoryError = (postId, message) => recordFollowUpError(postId, 'Story failed', message);
+const recordFacebookError = (postId, message) => recordFollowUpError(postId, 'Facebook failed', message);
+
 module.exports = {
   ensureColumns,
   markAsScheduled,
@@ -184,5 +251,13 @@ module.exports = {
   getDueScheduledPosts,
   getExpiredScheduledPosts,
   EXPIRED_SCHEDULE_ERROR,
-  getPostForUser
+  getPostForUser,
+  setStoryFlag,
+  clearStoryFlag,
+  claimStory,
+  recordStoryError,
+  setFacebookFlag,
+  clearFacebookFlag,
+  claimFacebook,
+  recordFacebookError
 };
