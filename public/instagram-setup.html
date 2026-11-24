@@ -4,316 +4,244 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>KwikPost: Connect Instagram</title>
-<link rel="icon" href="data:," />
+<!-- To use your old favicon, replace the next line with your previous <link rel="icon" ...> line. -->
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%93%B7%3C/text%3E%3C/svg%3E" />
 <script>try{document.documentElement.setAttribute('data-theme',localStorage.getItem('theme')||'dark')}catch(e){}</script>
 <style>
-  :root { --bg:#0b0a10; --card:#0f0e15; --soft:#17151f; --line:#2a2634; --text:#f5f2fb; --muted:#a39bbd;
-          --ig1:#f58529; --ig2:#dd2a7b; --ig3:#8134af; --ok:#22c55e; --bad:#f87171; }
-  :root[data-theme="light"] { --bg:#f6f3fb; --card:#fff; --soft:#f0ecf8; --line:#ded8ea; --text:#1d1a2b; --muted:#6a6483; }
-  * { box-sizing:border-box; }
-  [hidden] { display:none !important; }
-  body { margin:0; background:var(--bg); color:var(--text); font:16px/1.55 system-ui,"Segoe UI",sans-serif; }
-  a { color:#fdba74; }
-  .top { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;
-         padding:12px 18px; border-bottom:1px solid var(--line); }
-  .top nav a { color:var(--muted); text-decoration:none; font-size:13px; border:1px solid var(--line);
-               border-radius:8px; padding:6px 10px; background:var(--soft); margin-left:6px; }
-  .wrap { max-width:760px; margin:22px auto 60px; padding:0 16px; }
-  .hero { background:linear-gradient(135deg,var(--ig1),var(--ig2) 55%,var(--ig3)); color:#fff; border-radius:18px; padding:22px 24px; }
-  .hero h1 { margin:0 0 6px; font-size:24px; }
-  .hero p { margin:0; opacity:.95; }
-  .progress { margin:20px 0 6px; font-size:14px; color:var(--muted); }
-  .bar { height:8px; background:var(--soft); border-radius:99px; overflow:hidden; }
-  .bar i { display:block; height:100%; width:0; background:linear-gradient(90deg,var(--ig1),var(--ig2),var(--ig3)); transition:width .4s; }
-  .before { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px 18px; margin-top:16px; font-size:14px; color:var(--muted); }
-  .before b { color:var(--text); }
-  .step { background:var(--card); border:2px solid var(--line); border-radius:16px; padding:18px 20px; margin-top:14px; }
-  .step.now { border-color:var(--ig2); }
-  .step.done { border-color:var(--ok); }
-  .head { display:flex; align-items:center; gap:12px; }
-  .num { flex:none; width:38px; height:38px; border-radius:50%; background:var(--soft); border:2px solid var(--line);
-         display:flex; align-items:center; justify-content:center; font-weight:800; }
-  .step.now .num { background:var(--ig2); border-color:var(--ig2); color:#fff; }
-  .step.done .num { background:var(--ok); border-color:var(--ok); color:#052e1f; }
-  .step h2 { font-size:18px; margin:0; }
-  .step p { color:var(--muted); margin:10px 0; font-size:15px; }
-  .step ol { color:var(--muted); margin:8px 0 10px 22px; padding:0; font-size:15px; }
-  .step li { margin-bottom:8px; }
-  .step li b { color:var(--text); }
-  .btn { display:inline-block; border:0; border-radius:12px; padding:12px 18px; font-weight:700; font-size:15px;
-         color:#fff; cursor:pointer; text-decoration:none; background:linear-gradient(135deg,var(--ig1),var(--ig2),var(--ig3)); margin:6px 8px 6px 0; }
-  .btn.ghost { background:var(--soft); color:var(--text); border:1px solid var(--line); }
-  .btn:disabled { opacity:.45; cursor:not-allowed; }
-  .links { display:flex; flex-wrap:wrap; gap:4px 0; }
-  .done-row { margin-top:12px; }
-  .done-row label { display:flex; align-items:center; gap:10px; font-size:16px; cursor:pointer; }
-  .done-row input { width:20px; height:20px; }
-  .tip { background:var(--soft); border-left:4px solid var(--ig2); border-radius:8px; padding:10px 12px; font-size:14px; color:var(--muted); margin-top:10px; }
-  .tip.warn { border-left-color:#f59e0b; }
-  .copy { display:flex; gap:8px; align-items:center; flex-wrap:wrap; background:var(--soft); border:1px solid var(--line);
-          border-radius:10px; padding:10px 12px; margin:8px 0; font-family:ui-monospace,monospace; font-size:13px; word-break:break-all; }
-  .copy span { flex:1; min-width:200px; }
-  table { width:100%; border-collapse:collapse; font-size:14px; margin-top:8px; }
-  th, td { text-align:left; padding:8px 6px; border-bottom:1px solid var(--line); vertical-align:top; }
-  th { color:var(--text); }
-  td { color:var(--muted); }
-  .msg { margin-top:14px; font-size:15px; min-height:22px; }
-  .msg.err { color:var(--bad); }
-  .msg.ok { color:var(--ok); }
-  .final { margin-top:18px; background:var(--card); border:2px solid var(--ok); border-radius:16px; padding:18px 20px; }
-  .final h2 { margin:0 0 6px; font-size:20px; }
-  .final p { margin:0 0 10px; color:var(--muted); }
-  details { margin-top:18px; background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px 18px; font-size:15px; color:var(--muted); }
-  details summary { cursor:pointer; color:var(--text); font-weight:700; }
-  details p { margin:8px 0; }
+:root{--bg:#0b0a10;--card:#0f0e15;--soft:#17151f;--line:#2a2634;--text:#f5f2fb;--muted:#a39bbd;--ig1:#f58529;--ig2:#dd2a7b;--ig3:#8134af;--ok:#22c55e;--bad:#f87171;--warn:#f59e0b}
+:root[data-theme="light"]{--bg:#f6f3fb;--card:#fff;--soft:#f0ecf8;--line:#ded8ea;--text:#1d1a2b;--muted:#6a6483}
+*{box-sizing:border-box}[hidden]{display:none!important}
+body{margin:0;background:var(--bg);color:var(--text);font:16px/1.55 system-ui,"Segoe UI",sans-serif}
+a{color:#fdba74}:focus-visible{outline:3px solid #fdba74;outline-offset:2px}
+.top{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;padding:12px 18px;border-bottom:1px solid var(--line)}
+.top nav a{color:var(--muted);text-decoration:none;font-size:13px;border:1px solid var(--line);border-radius:8px;padding:6px 10px;background:var(--soft);margin-left:6px}
+.wrap{max-width:740px;margin:18px auto 60px;padding:0 16px}
+.stepper{position:sticky;top:0;z-index:5;display:flex;gap:6px;overflow-x:auto;padding:10px 0;background:var(--bg)}
+.pill{flex:none;display:flex;align-items:center;gap:6px;font-size:13px;color:var(--muted);border:1px solid var(--line);background:var(--soft);border-radius:99px;padding:5px 12px 5px 6px}
+.pill b{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--card);border:1px solid var(--line);font-size:12px}
+.pill.now{border-color:var(--ig2);color:var(--text)}.pill.now b{background:var(--ig2);border-color:var(--ig2);color:#fff}
+.pill.done{border-color:var(--ok);color:var(--text)}.pill.done b{background:var(--ok);border-color:var(--ok);color:#052e1f}
+.status{border-radius:18px;padding:24px;margin-top:6px}
+.status.off{background:linear-gradient(135deg,var(--ig1),var(--ig2) 55%,var(--ig3));color:#fff}
+.status.on{background:var(--card);border:2px solid var(--ok)}
+.status.wait{background:var(--card);border:1px solid var(--line);color:var(--muted)}
+.status h1{margin:0 0 6px;font-size:26px;line-height:1.2}.status p{margin:0 0 14px}
+.next{margin:14px 0 0;padding:0;list-style:none;font-size:14px;counter-reset:n}
+.next li{counter-increment:n;display:flex;gap:10px;margin:6px 0}
+.next li:before{content:counter(n);flex:none;width:22px;height:22px;border-radius:50%;background:rgba(255,255,255,.25);font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px;margin:0 0 14px}
+.grid div{background:var(--soft);border-radius:10px;padding:8px 12px;font-size:14px}
+.grid dt{color:var(--muted);font-size:12px}.grid dd{margin:0;font-weight:700;word-break:break-word}
+.btn{display:inline-block;border:0;border-radius:12px;padding:13px 20px;font-weight:700;font-size:16px;color:#fff;cursor:pointer;text-decoration:none;background:linear-gradient(135deg,var(--ig1),var(--ig2),var(--ig3));margin:6px 8px 6px 0;font-family:inherit}
+.btn.big{padding:16px 28px;font-size:18px;width:100%;max-width:380px;text-align:center}
+.btn.white{background:#fff;color:#b3205f}.btn.ghost{background:var(--soft);color:var(--text);border:1px solid var(--line)}
+.btn.small{padding:9px 14px;font-size:14px}.btn:disabled{opacity:.55;cursor:wait}
+.linkbtn{background:none;border:0;color:var(--muted);text-decoration:underline;cursor:pointer;font:inherit;font-size:14px;padding:6px 4px}
+.problem{margin-top:14px;background:var(--card);border:2px solid var(--bad);border-radius:16px;padding:16px 18px}
+.problem h2{margin:0 0 6px;font-size:18px;color:var(--bad)}.problem p{margin:0 0 10px;color:var(--muted);font-size:15px}
+.raw{font-size:12px;opacity:.8;word-break:break-word}
+.msg{margin-top:12px;font-size:15px;min-height:22px}.msg.ok{color:var(--ok)}.msg.err{color:var(--bad)}
+h2.sec{font-size:19px;margin:26px 0 4px}.sub{margin:0 0 12px;color:var(--muted);font-size:15px}
+.prog{display:flex;align-items:center;gap:10px;margin-bottom:10px;font-size:14px;color:var(--muted)}
+.bar{flex:1;height:8px;background:var(--soft);border-radius:99px;overflow:hidden}
+.bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--ig1),var(--ig2),var(--ig3));transition:width .3s}
+details.item{background:var(--card);border:2px solid var(--line);border-radius:14px;margin-top:10px}
+details.item.done{border-color:var(--ok)}
+details.item summary{cursor:pointer;list-style:none;display:flex;align-items:center;gap:12px;padding:14px 16px;font-weight:700}
+details.item summary::-webkit-details-marker{display:none}
+summary small{display:block;font-weight:400;color:var(--muted);font-size:13px}
+.num{flex:none;width:32px;height:32px;border-radius:50%;background:var(--soft);border:2px solid var(--line);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px}
+details.item.done .num{background:var(--ok);border-color:var(--ok);color:#052e1f}
+.chip{margin-left:auto;font-size:12px;font-weight:700;color:var(--ok)}
+.body{padding:0 18px 16px}.body p{color:var(--muted);margin:6px 0 10px;font-size:15px}
+.body ol{color:var(--muted);margin:8px 0 10px 20px;padding:0;font-size:15px}.body li{margin-bottom:7px}
+.body b{color:var(--text)}
+.tabs{display:flex;gap:6px;margin-top:8px}
+.tab{border:1px solid var(--line);background:var(--soft);color:var(--muted);border-radius:99px;padding:6px 14px;font:inherit;font-size:14px;cursor:pointer}
+.tab[aria-selected=true]{background:var(--ig2);border-color:var(--ig2);color:#fff}
+.tip{background:var(--soft);border-left:4px solid var(--ok);border-radius:8px;padding:9px 12px;font-size:14px;color:var(--muted);margin:10px 0}
+.tip.warn{border-left-color:var(--warn)}
+.row{display:flex;flex-wrap:wrap;gap:4px 0;align-items:center;margin-top:6px}
+details.plain{margin-top:10px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 18px;font-size:15px;color:var(--muted)}
+details.plain summary{cursor:pointer;color:var(--text);font-weight:700}details.plain p,details.plain ol{margin:8px 0}
+details.plain ol{padding-left:20px}
+input.txt{background:var(--soft);border:1px solid var(--line);color:var(--text);border-radius:10px;padding:9px 12px;font:inherit;font-size:15px;width:100%;max-width:320px}
+@media(prefers-reduced-motion:reduce){.bar i{transition:none}}
 </style>
 </head>
 <body>
-  <div class="top">
-    <strong>📷 Connect Instagram</strong>
-    <nav>
-      <a href="/reels.html">Reels</a>
-      <a href="/posts.html">Posts</a>
-      <a href="/youtube-setup.html">YouTube setup</a>
-    </nav>
+<div class="top"><strong>📷 Connect Instagram</strong>
+<nav><a href="/reels.html">Reels</a><a href="/posts.html">Posts</a><a href="/youtube-setup.html">YouTube setup</a></nav></div>
+
+<div class="wrap">
+<nav class="stepper" id="stepper" aria-label="Progress"></nav>
+
+<section class="status wait" id="stLoading" aria-live="polite">Checking your Instagram connection…</section>
+
+<section class="status off" id="stOff" hidden>
+  <h1>Connect your Instagram</h1>
+  <p>One click. Facebook opens, you approve, and you come straight back here. Connecting Instagram also turns on posting to your Facebook Page.</p>
+  <button class="btn big white" id="connectBtn">Connect Instagram</button>
+  <ol class="next">
+    <li>Log in to Facebook with the account that is <b>Admin of your Page</b>.</li>
+    <li>Tick your <b>Instagram account</b>, then your <b>Facebook Page</b>.</li>
+    <li>Leave every permission switched on and press <b>Continue</b> or <b>Save</b>.</li>
+    <li>You land back here and this card turns green.</li>
+  </ol>
+  <p style="margin:14px 0 0;font-size:14px">First time, or Facebook shows an error? Follow the checklist below. It takes about 10 minutes once.</p>
+</section>
+
+<section class="status on" id="stOn" hidden>
+  <h1 style="color:var(--ok)">✅ Instagram is connected</h1>
+  <dl class="grid" id="info"></dl>
+  <div class="row">
+    <a class="btn" id="continueBtn" href="/reels.html" hidden>Continue publishing</a>
+    <a class="btn" id="goReels" href="/reels.html">Go to Reels</a>
+    <a class="btn ghost" href="/posts.html">Go to Posts</a>
   </div>
-
-  <div class="wrap">
-    <div class="hero">
-      <h1>Connect your Instagram in 5 steps</h1>
-      <p>Do one step at a time. Each step has the links you need. The first time takes about 15 minutes.</p>
-    </div>
-
-    <div class="before">
-      <b>Before you start, you need:</b>
-      <ul>
-        <li>An Instagram account (it can be a new one)</li>
-        <li>A Facebook account, logged in on this browser</li>
-        <li>A Facebook Page that you admin (step 2 shows how to make one)</li>
-      </ul>
-      <b>Why Facebook?</b> Instagram publishing goes through a Facebook Page. Your Instagram account must be linked to that Page.
-    </div>
-
-    <div class="progress" id="count">0 of 5 steps done</div>
-    <div class="bar"><i id="bar"></i></div>
-
-    <!-- STEP 1 -->
-    <section class="step" id="s1">
-      <div class="head"><div class="num">1</div><h2>Switch Instagram to a Business or Creator account</h2></div>
-      <p>Personal accounts cannot publish through the API. Switching does not delete posts or change your username.</p>
-      <ol>
-        <li>Open the <b>Instagram app</b> on your phone (or click the button below to open Instagram in the browser).</li>
-        <li>Go to your profile, tap <b>☰ Menu</b>, then <b>Settings and activity</b>.</li>
-        <li>Tap <b>Account type and tools</b>, then <b>Switch to professional account</b>.</li>
-        <li>Choose <b>Business</b> or <b>Creator</b>, pick a category (for example Gym or Fitness), and tap <b>Done</b>.</li>
-      </ol>
-      <div class="links">
-        <a class="btn" href="https://www.instagram.com/" target="_blank" rel="noopener">Open Instagram</a>
-        <a class="btn ghost" href="https://help.instagram.com/502981923235522" target="_blank" rel="noopener">Instagram help: business account</a>
-      </div>
-      <div class="tip">Check: your profile now shows a <b>Professional dashboard</b> or <b>Insights</b> option.</div>
-      <div class="done-row"><label><input type="checkbox" data-step="s1" /> My Instagram is Business or Creator</label></div>
-    </section>
-
-    <!-- STEP 2 -->
-    <section class="step" id="s2">
-      <div class="head"><div class="num">2</div><h2>Create a Facebook Page (skip if you have one)</h2></div>
-      <p>The Page is the business identity that Instagram publishes through.</p>
-      <ol>
-        <li>Click <b>Create a Facebook Page</b> below. It opens in a new tab.</li>
-        <li>Enter the <b>Page name</b> (your business name) and a <b>Category</b> such as Gym or Fitness.</li>
-        <li>Add a short bio and profile picture if you want, then click <b>Create Page</b>.</li>
-        <li>To check your Pages later, click <b>See my Pages</b>. Make sure you see the Page with an <b>Admin</b> label.</li>
-      </ol>
-      <div class="links">
-        <a class="btn" href="https://www.facebook.com/pages/create" target="_blank" rel="noopener">Create a Facebook Page</a>
-        <a class="btn ghost" href="https://www.facebook.com/pages/?category=your_pages" target="_blank" rel="noopener">See my Pages</a>
-        <a class="btn ghost" href="https://www.facebook.com/login" target="_blank" rel="noopener">Log in to Facebook</a>
-      </div>
-      <div class="tip warn">You must be an <b>Admin</b> of this Page. If you only see it as an editor or moderator, ask the Page owner to make you Admin in Page settings, then continue.</div>
-      <div class="done-row"><label><input type="checkbox" data-step="s2" /> I have a Facebook Page and I am its Admin</label></div>
-    </section>
-
-    <!-- STEP 3 -->
-    <section class="step" id="s3">
-      <div class="head"><div class="num">3</div><h2>Link Instagram to that Page</h2></div>
-      <p>This tells Facebook that the Instagram account belongs to your Page. You can do it from Facebook or from Instagram.</p>
-      <p><b>Option A (recommended): from Accounts Center</b></p>
-      <ol>
-        <li>Click <b>Open Accounts Center</b> below.</li>
-        <li>Click <b>Add accounts</b> (or <b>Accounts</b>, then <b>Add account</b>) and choose <b>Instagram</b>.</li>
-        <li>Log in to the Instagram Business or Creator account and confirm.</li>
-        <li>Check that the Instagram account and your Facebook Page appear in the same Accounts Center.</li>
-      </ol>
-      <p><b>Option B: from Instagram</b></p>
-      <ol>
-        <li>In Instagram, go to <b>Settings and activity</b>, then <b>Accounts Center</b>.</li>
-        <li>Tap <b>Add Facebook Page</b> (or <b>Connected experiences</b>), choose your Page, and confirm.</li>
-      </ol>
-      <div class="links">
-        <a class="btn" href="https://accountscenter.facebook.com/" target="_blank" rel="noopener">Open Accounts Center</a>
-        <a class="btn ghost" href="https://www.facebook.com/help/1462241137382862" target="_blank" rel="noopener">Facebook help: link Instagram to a Page</a>
-        <a class="btn ghost" href="https://www.instagram.com/accounts/manage_access/" target="_blank" rel="noopener">Instagram: Accounts Center</a>
-      </div>
-      <div class="tip">Check: in Accounts Center, your Instagram account is listed next to your Facebook Page.</div>
-      <div class="done-row"><label><input type="checkbox" data-step="s3" /> Instagram is linked to my Facebook Page</label></div>
-    </section>
-
-    <!-- STEP 4 -->
-    <section class="step" id="s4">
-      <div class="head"><div class="num">4</div><h2>Connect Instagram to KwikPost</h2></div>
-      <p>This button opens Facebook. Log in with the account that is Admin of your Page, then approve the permissions.</p>
-      <ol>
-        <li>Make sure the button below is enabled. It turns on after steps 1 to 3 are ticked.</li>
-        <li>Click <b>Connect Instagram</b>. Facebook opens.</li>
-        <li>Choose the <b>Facebook Page</b> and the <b>Instagram account</b> when asked.</li>
-        <li>Allow every permission (Page access, Instagram account, content publishing), then click <b>Continue</b>.</li>
-        <li>You come back to this page automatically.</li>
-      </ol>
-      <button class="btn" id="connectBtn" disabled>Connect Instagram</button>
-      <div class="tip">If Facebook shows <b>"App not active"</b>, see the box for the app owner at the bottom of this page.</div>
-    </section>
-
-    <!-- STEP 5 -->
-    <section class="step" id="s5">
-      <div class="head"><div class="num">5</div><h2>Check that it works</h2></div>
-      <p>When the connection is saved, this step turns green automatically. You can then post reels and posts to Instagram.</p>
-      <div id="connectedBox" hidden>
-        <p style="color:var(--ok);font-weight:700;" id="connectedName">Instagram is connected</p>
-        <button class="btn ghost" id="disconnectBtn">Disconnect Instagram</button>
-      </div>
-    </section>
-
-    <div class="msg" id="msg"></div>
-
-    <div class="final" id="finalBox" hidden>
-      <h2>✅ Instagram is ready</h2>
-      <p>On the Reels or Posts page, press <b>Post</b> or <b>Schedule</b> and choose Instagram.</p>
-      <div class="links">
-        <a class="btn" href="/reels.html">Go to Reels</a>
-        <a class="btn ghost" href="/posts.html">Go to Posts</a>
-      </div>
-    </div>
-
-    <!-- Troubleshooting -->
-    <details>
-      <summary>Something went wrong? (common problems and fixes)</summary>
-      <table>
-        <tr><th>What you see</th><th>What to do</th></tr>
-        <tr><td>"App not active" on Facebook</td><td>Your Facebook account is not yet a role on the app. Send the app owner your Facebook name. They add you (see the owner box below).</td></tr>
-        <tr><td>No Page appears on the Facebook screen</td><td>Repeat step 2 and step 3. The Page must be linked to Instagram, and you must be its Admin.</td></tr>
-        <tr><td>Instagram account not listed</td><td>Switch to Business or Creator (step 1), then link it again (step 3).</td></tr>
-        <tr><td>"You don't have permission"</td><td>Accept all permissions on the Facebook screen. If it still fails, you are not an Admin of the Page.</td></tr>
-        <tr><td>Connect button does nothing</td><td>Tick steps 1, 2 and 3 first. Then reload with Ctrl + Shift + R.</td></tr>
-        <tr><td>Red message after returning here</td><td>Read the message, fix the step it names, then press Connect again.</td></tr>
-      </table>
-    </details>
-
-    <details>
-      <summary>For the app owner only: adding a new user</summary>
-      <p>The Meta app must allow each new Facebook account. While the app is unpublished, only app roles can log in.</p>
-      <ol>
-        <li>Open <a href="https://developers.facebook.com/apps/" target="_blank" rel="noopener">Meta for Developers, My Apps</a> and select the KwikPost app.</li>
-        <li>In the left menu, open <b>App roles</b>, then <b>Roles</b>.</li>
-        <li>Click <b>Add people</b>, type the new user's Facebook name, choose <b>Administrator</b> or <b>Developer</b>, and click <b>Add</b>.</li>
-        <li>The new user accepts the invitation at <a href="https://developers.facebook.com/settings/roles" target="_blank" rel="noopener">developers.facebook.com/settings/roles</a>.</li>
-      </ol>
-      <p>Test users cannot be added as roles. Use a real Facebook account.</p>
-    </details>
+  <div class="row">
+    <button class="linkbtn" id="recheckBtn">Check again</button>
+    <button class="linkbtn" id="reconnectBtn">Reconnect (use if posting stops working)</button>
+    <button class="linkbtn" id="disconnectBtn">Disconnect</button>
   </div>
+</section>
+
+<section class="problem" id="problem" role="alert" hidden>
+  <h2 id="pTitle"></h2><p id="pBody"></p><div class="row" id="pActions"></div><div class="raw" id="pRaw"></div>
+</section>
+<div class="msg" id="msg" aria-live="polite"></div>
+
+<section id="prep" hidden>
+  <h2 class="sec">Get your accounts ready</h2>
+  <p class="sub">Already have a Business or Creator Instagram linked to a Facebook Page you manage? Skip this and press <b>Connect Instagram</b>. Menu names change now and then, so follow the closest match.</p>
+  <div class="prog"><span id="count">0 of 3 done</span><div class="bar"><i id="bar"></i></div><button class="linkbtn" id="allDone">Mark all done</button></div>
+  <div id="steps"></div>
+</section>
+
+<h2 class="sec">Need more help?</h2>
+<p class="sub">Answers for every step of Instagram, Facebook Page and YouTube, what Facebook will ask you, and a search for error messages.</p>
+<a class="btn" href="/support.html#ig">Open Instagram help</a>
+<a class="btn ghost" href="/support.html">Search an error message</a>
+</div>
 
 <script>
-(function () {
-  var token = localStorage.getItem('authToken') || localStorage.getItem('token') || '';
-  if (!token) { window.location.href = '/login.html'; return; }
+(function(){
+var token=localStorage.getItem('authToken')||localStorage.getItem('token')||'';
+if(!token){window.location.href='/login.html';return;}
+var KEY='kwik-ig-setup-v3',IDS=['s1','s2','s3'],$=function(i){return document.getElementById(i)};
+var checks={};try{checks=JSON.parse(localStorage.getItem(KEY)||'{}')}catch(e){}
+var connected=false,loaded=false,me=null;
 
-  var KEY = 'kwik-ig-setup-v3';
-  var $ = function (id) { return document.getElementById(id); };
-  var checks = {};
-  try { checks = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch (e) {}
-  var connected = false, pageName = '';
+var S=[
+{id:'s1',t:'Make Instagram a Business or Creator account',m:'About 2 minutes',
+ why:'Personal accounts cannot publish through the API. Switching keeps your posts, followers and username.',
+ tabs:[{l:'On my phone',s:['Open the <b>Instagram app</b> and tap your <b>profile picture</b> (bottom right).','Tap <b>☰</b> (top right), then <b>Settings and activity</b>.','Tap <b>Account type and tools</b> (or find <b>For professionals</b>), then <b>Switch to professional account</b>.','Choose <b>Creator</b> or <b>Business</b>, pick a category such as Gym or Fitness, and tap <b>Done</b>.','If it offers to connect a Facebook Page, you can do that now and skip item 3.']},
+ {l:'On my computer',s:['Open <b>instagram.com</b> and log in.','Click <b>More</b> (bottom left), then <b>Settings</b>.','Open <b>Account type and tools</b>, then <b>Switch to professional account</b>.','Choose <b>Creator</b> or <b>Business</b>, pick a category and finish.']}],
+ links:[['Open Instagram','https://www.instagram.com/',1],['Instagram help','https://help.instagram.com/502981923235522']],
+ see:'Your profile now shows <b>Professional dashboard</b> or <b>Insights</b>.',
+ warn:'Switch the same Instagram account you want KwikPost to post to.',next:'Done, next'},
+{id:'s2',t:'Have a Facebook Page you are Admin of',m:'About 3 minutes, skip if you already have one',
+ why:'The Page is the business identity Instagram publishes through. Use the same Facebook login you will use in the Connect step.',
+ tabs:[{l:'Create a Page',s:['Click <b>Create a Facebook Page</b> below.','Enter the <b>Page name</b> (your business name) and a <b>Category</b> such as Gym or Fitness.','Add a short bio and profile picture if you like, then click <b>Create Page</b>.']},
+ {l:'Check I am Admin',s:['Click <b>See my Pages</b> below.','Open your Page and look for <b>Admin</b> next to your name, or open <b>Settings</b> then <b>Page access</b>.','If you are only Editor or Moderator, ask the owner to make you <b>Admin</b> there.']}],
+ links:[['Create a Facebook Page','https://www.facebook.com/pages/create',1],['See my Pages','https://www.facebook.com/pages/?category=your_pages'],['Log in to Facebook','https://www.facebook.com/login']],
+ see:'Your Page is listed with an <b>Admin</b> label.',
+ warn:'Being an Editor or Moderator is not enough. You must be Admin.',next:'Done, next'},
+{id:'s3',t:'Link Instagram to that Page',m:'About 3 minutes',
+ why:'This tells Facebook the Instagram account belongs to your Page. Use either method.',
+ tabs:[{l:'Accounts Center',s:['Click <b>Open Accounts Center</b> below and log in.','Choose <b>Add accounts</b> (or <b>Accounts</b>, then <b>Add account</b>), then <b>Instagram</b>.','Log in to your Business or Creator account and confirm.','Check that Instagram and your Page appear together.']},
+ {l:'From your Page',s:['Open your Facebook Page and go to <b>Settings</b>.','Open <b>Linked accounts</b> (sometimes under <b>Instagram</b>).','Click <b>Connect account</b>, log in to Instagram and confirm.']}],
+ links:[['Open Accounts Center','https://accountscenter.facebook.com/',1],['Facebook help','https://www.facebook.com/help/1462241137382862']],
+ see:'Your Instagram username is shown next to your Page.',
+ warn:'The Instagram account must already be Business or Creator (item 1).',next:'Done, connect now'}];
 
-  function api(url, opt) {
-    opt = opt || {};
-    var headers = Object.assign({ 'ngrok-skip-browser-warning': 'true', Authorization: 'Bearer ' + token }, opt.headers || {});
-    if (opt.body) headers['Content-Type'] = 'application/json';
-    return fetch(url, Object.assign({}, opt, { headers: headers })).then(function (res) {
-      if (res.status === 401) { window.location.href = '/login.html'; throw new Error('Please log in again.'); }
-      return res.text().then(function (raw) {
-        var data = null; try { data = JSON.parse(raw); } catch (e) { data = raw; }
-        if (!res.ok || (data && data.error)) throw new Error((data && data.error) || ('Request failed (' + res.status + ')'));
-        return data;
-      });
-    });
-  }
+function stepHtml(x,i){
+ var tabs='<div class="tabs" role="tablist">'+x.tabs.map(function(t,k){return '<button class="tab" role="tab" data-k="'+k+'" aria-selected="'+(k==0)+'">'+t.l+'</button>'}).join('')+'</div>';
+ var panels=x.tabs.map(function(t,k){return '<ol data-p="'+k+'"'+(k?' hidden':'')+'>'+t.s.map(function(s){return '<li>'+s+'</li>'}).join('')+'</ol>'}).join('');
+ var links=x.links.map(function(l){return '<a class="btn small'+(l[2]?'':' ghost')+'" href="'+l[1]+'" target="_blank" rel="noopener">'+l[0]+'</a>'}).join('');
+ return '<details class="item" id="'+x.id+'"><summary><span class="num">'+(i+1)+'</span><span>'+x.t+'<small>'+x.m+'</small></span><span class="chip" hidden>Done</span></summary><div class="body"><p>'+x.why+'</p>'+tabs+panels+'<div class="row">'+links+'<button class="btn small ghost" data-done="'+x.id+'">'+x.next+'</button></div><div class="tip"><b>You should see:</b> '+x.see+'</div><div class="tip warn"><b>Watch out:</b> '+x.warn+'</div></div></details>';}
+$('steps').innerHTML=S.map(stepHtml).join('');
 
-  function msg(text, kind) { $('msg').textContent = text || ''; $('msg').className = 'msg ' + (kind || ''); }
+function api(url,opt){opt=opt||{};
+ var h=Object.assign({'ngrok-skip-browser-warning':'true',Authorization:'Bearer '+token},opt.headers||{});
+ if(opt.body)h['Content-Type']='application/json';
+ return fetch(url,Object.assign({},opt,{headers:h})).then(function(r){
+  if(r.status===401){window.location.href='/login.html';throw new Error('Please log in again.');}
+  return r.text().then(function(raw){var d=null;try{d=JSON.parse(raw)}catch(e){d=raw}
+   if(!r.ok||(d&&d.error))throw new Error((d&&d.error)||('Request failed ('+r.status+')'));return d;});});}
+function msg(t,k){$('msg').textContent=t||'';$('msg').className='msg '+(k||'');}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(checks))}catch(e){}}
+function pending(){try{
+ if(sessionStorage.getItem('kwik-pending-reel-action'))return{href:'/reels.html',label:'Continue publishing your reel'};
+ if(sessionStorage.getItem('kwik-pending-post-action'))return{href:'/posts.html',label:'Continue publishing your post'};}catch(e){}return null;}
+function mask(v){v=String(v||'');return v.length>4?'••••'+v.slice(-4):v;}
 
-  function render() {
-    var done = [!!checks.s1, !!checks.s2, !!checks.s3, connected, connected];
-    var n = done.filter(Boolean).length;
-    $('bar').style.width = Math.round(n / 5 * 100) + '%';
-    $('count').textContent = n + ' of 5 steps done';
-    var now = done.indexOf(false);
-    done.forEach(function (d, i) {
-      var el = $('s' + (i + 1));
-      el.classList.toggle('done', d);
-      el.classList.toggle('now', i === now);
-    });
-    document.querySelectorAll('input[data-step]').forEach(function (cb) { cb.checked = !!checks[cb.dataset.step]; });
-    $('connectBtn').disabled = !(checks.s1 && checks.s2 && checks.s3) || connected;
-    $('connectBtn').hidden = connected;
-    $('connectedBox').hidden = !connected;
-    $('connectedName').textContent = connected ? (pageName ? 'Connected to ' + pageName : 'Instagram is connected') : '';
-    $('finalBox').hidden = !connected;
-  }
+function info(){var d=$('info');d.textContent='';
+ [['Instagram account',me&&me.instagram_business_account_id?'Connected ('+mask(me.instagram_business_account_id)+')':'Connected'],
+  ['Facebook Page',(me&&me.instagram_page_name)||'Linked'],
+  ['Facebook posting',me&&'facebook_page_id' in me?(me.facebook_page_id?'Page ready':'Not set, reconnect'):'Uses the same connection']].forEach(function(r){
+  var w=document.createElement('div'),a=document.createElement('dt'),b=document.createElement('dd');
+  a.textContent=r[0];b.textContent=r[1];w.appendChild(a);w.appendChild(b);d.appendChild(w);});}
 
-  document.querySelectorAll('input[data-step]').forEach(function (cb) {
-    cb.addEventListener('change', function () {
-      checks[cb.dataset.step] = cb.checked;
-      localStorage.setItem(KEY, JSON.stringify(checks));
-      render();
-    });
-  });
+function render(){
+ $('stLoading').hidden=loaded;$('stOff').hidden=!loaded||connected;$('stOn').hidden=!loaded||!connected;$('prep').hidden=!loaded||connected;
+ var n=0;IDS.forEach(function(id){var d=!!checks[id];if(d)n++;var e=$(id);e.classList.toggle('done',d);e.querySelector('.chip').hidden=!d;});
+ $('count').textContent=n+' of 3 done';$('bar').style.width=Math.round(n/3*100)+'%';
+ var done=[!!checks.s1||connected,!!checks.s2||connected,!!checks.s3||connected,connected,connected],now=done.indexOf(false);
+ $('stepper').innerHTML=['Account type','Facebook Page','Link them','Connect','Ready'].map(function(l,i){
+  return '<span class="pill'+(done[i]?' done':i===now?' now':'')+'"><b>'+(done[i]?'✓':i+1)+'</b>'+l+'</span>';}).join('');
+ if(connected){info();var p=pending();$('continueBtn').hidden=!p;if(p){$('continueBtn').href=p.href;$('continueBtn').textContent=p.label;}
+  $('goReels').className=p&&p.href==='/reels.html'?'btn ghost':'btn';}
+}
+function openNext(){var nx=IDS.filter(function(s){return !checks[s]})[0];IDS.forEach(function(s){$(s).open=(s===nx)});}
+function jump(id){$('prep').hidden=false;IDS.forEach(function(s){$(s).open=(s===id)});$(id).scrollIntoView({behavior:'smooth',block:'start'});}
 
-  function loadStatus() {
-    return api('/api/auth/me').then(function (me) {
-      connected = !!(me && me.instagram_business_account_id);
-      pageName = (me && me.instagram_page_name) || '';
-      render();
-    }).catch(function (e) { msg('Could not check your connection: ' + e.message, 'err'); });
-  }
+function explain(raw){var e=(raw||'').toLowerCase();
+ if(/not active|developer|app role|not authorized for this app/.test(e))return{t:'The app owner must add your Facebook account first',b:'The app is in Development mode, so only people with an app role can log in. Send the owner your Facebook name, wait until they add you, accept the invitation, then try again.',a:[{l:'Copy message for the owner',r:'owner'}]};
+ if(/no (facebook )?pages?|page.*(not found|none)|pages_show_list/.test(e))return{t:'No Facebook Page found',b:'Facebook did not return a Page you are Admin of. Create or fix your Page, then try again.',a:[{l:'Open Page steps',r:'step',s:'s2'}]};
+ if(/no instagram|instagram.*(not found|not linked|business|professional)|instagram_business/.test(e))return{t:'No Instagram account is linked to your Page',b:'Make sure Instagram is a Business or Creator account and linked to your Facebook Page.',a:[{l:'Open linking steps',r:'step',s:'s3'},{l:'Check account type',r:'step',s:'s1'}]};
+ if(/permission|denied|declined|cancel|access_denied/.test(e))return{t:'Facebook needs every permission allowed',b:'The connection was cancelled or a permission was switched off. Try again and leave all permissions on.',a:[]};
+ return{t:'The connection did not finish',b:'If the details name a Page or Instagram account, use the checklist. Otherwise try again.',a:[]};}
+function problem(raw){var x=explain(raw);$('pTitle').textContent=x.t;$('pBody').textContent=x.b;$('pRaw').textContent=raw?'Details: '+raw:'';
+ var bx=$('pActions');bx.textContent='';
+ x.a.forEach(function(a){var b=document.createElement('button');b.className='btn small';b.textContent=a.l;
+  b.onclick=function(){a.r==='step'?jump(a.s):copyOwner()};bx.appendChild(b);});
+ var r=document.createElement('button');r.className='btn small ghost';r.textContent='Try again';
+ r.onclick=function(){$('problem').hidden=true;connect($('connectBtn'))};bx.appendChild(r);
+ $('problem').hidden=false;$('problem').scrollIntoView({behavior:'smooth',block:'center'});}
+function copyOwner(){var n=(window.prompt('Your Facebook name (optional):','')||'').trim();
+ var t='Hi, please add my Facebook account'+(n?' ('+n+')':'')+' as a role (Developer or Administrator) on the KwikPost Meta app so I can connect Instagram. App roles > Roles > Add people. Thanks!';
+ function ok(){msg('Message copied. Paste it to the app owner.','ok')}
+ if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(t).then(ok,function(){window.prompt('Copy this message:',t)});else window.prompt('Copy this message:',t);}
 
-  $('connectBtn').addEventListener('click', function () {
-    var btn = this;
-    btn.disabled = true; btn.textContent = 'Opening Facebook…';
-    api('/api/instagram/connect-url', { method: 'POST', body: JSON.stringify({ returnTo: '/instagram-setup.html' }) })
-      .then(function (d) {
-        if (!d || !d.url) throw new Error('No connection link was returned.');
-        window.location.href = d.url;
-      })
-      .catch(function (e) {
-        btn.disabled = false; btn.textContent = 'Connect Instagram';
-        msg(e.message, 'err');
-      });
-  });
+function connect(btn){var lb=btn.textContent;$('problem').hidden=true;msg('');btn.disabled=true;btn.textContent='Opening Facebook…';
+ api('/api/instagram/connect-url',{method:'POST',body:JSON.stringify({returnTo:'/instagram-setup.html'})})
+ .then(function(d){if(!d||!d.url)throw new Error('No connection link was returned.');window.location.href=d.url;})
+ .catch(function(e){btn.disabled=false;btn.textContent=lb;problem(e.message);});}
+function load(){return api('/api/auth/me').then(function(m){me=m;connected=!!(m&&m.instagram_business_account_id);loaded=true;render();})
+ .catch(function(e){loaded=true;render();msg('Could not check your connection: '+e.message,'err');});}
 
-  $('disconnectBtn').addEventListener('click', function () {
-    if (!confirm('Disconnect Instagram from KwikPost?')) return;
-    api('/api/instagram/disconnect', { method: 'POST', body: '{}' })
-      .then(function () { msg('Instagram disconnected.', 'ok'); return loadStatus(); })
-      .catch(function (e) { msg(e.message, 'err'); });
-  });
+$('steps').addEventListener('click',function(ev){
+ var t=ev.target.closest('.tab');
+ if(t){var it=t.closest('.body');it.querySelectorAll('.tab').forEach(function(b){b.setAttribute('aria-selected',b===t)});
+  it.querySelectorAll('ol[data-p]').forEach(function(o){o.hidden=o.dataset.p!==t.dataset.k});return;}
+ var d=ev.target.closest('[data-done]');
+ if(d){checks[d.dataset.done]=true;save();render();
+  if(IDS.every(function(s){return checks[s]})){IDS.forEach(function(s){$(s).open=false});window.scrollTo({top:0,behavior:'smooth'});msg('Great. Now press Connect Instagram.','ok');}
+  else openNext();}});
+$('allDone').onclick=function(){IDS.forEach(function(s){checks[s]=true;$(s).open=false});save();render();window.scrollTo({top:0,behavior:'smooth'});msg('Great. Now press Connect Instagram.','ok');};
+$('connectBtn').onclick=function(){connect(this)};
+$('reconnectBtn').onclick=function(){connect(this)};
+$('recheckBtn').onclick=function(){msg('Checking…');load().then(function(){msg(connected?'Still connected.':'Not connected.',connected?'ok':'err')})};
+$('disconnectBtn').onclick=function(){if(!confirm('Disconnect Instagram from KwikPost?'))return;
+ api('/api/instagram/disconnect',{method:'POST',body:'{}'}).then(function(){msg('Instagram disconnected.','ok');return load()}).catch(function(e){msg(e.message,'err')});};
+document.addEventListener('visibilitychange',function(){if(!document.hidden)load()});
 
-  var q = new URLSearchParams(window.location.search);
-  if (q.get('instagram_connected')) msg('Instagram sign-in finished. Checking your connection…', 'ok');
-  if (q.get('instagram_error')) msg('Instagram connection failed: ' + q.get('instagram_error') + '. Check steps 2 and 3, then press Connect again.', 'err');
-  if (q.get('instagram_connected') || q.get('instagram_error')) {
-    window.history.replaceState({}, document.title, '/instagram-setup.html');
-  }
-
-  render();
-  loadStatus();
+var q=new URLSearchParams(window.location.search),err=q.get('instagram_error');
+if(q.get('instagram_connected'))msg('Instagram sign-in finished. Checking your connection…','ok');
+if(q.get('instagram_connected')||err)window.history.replaceState({},document.title,'/instagram-setup.html');
+openNext();render();
+load().then(function(){if(err&&!connected)problem(err);else if(q.get('instagram_connected')&&connected)msg('Connected. You are ready to publish.','ok');});
 })();
 </script>
 </body>

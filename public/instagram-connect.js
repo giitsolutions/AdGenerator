@@ -397,15 +397,10 @@
       });
 
       // Old backend without /connect-url: use the legacy start URL.
-      if (res.status === 404) {
-        console.warn(
-          '[Instagram Connect] /connect-url not found, using legacy /auth/start. ' +
-          'Update instagramAuthController.js and instagramAuthRoutes.js.'
+           if (res.status === 404) {
+        throw new Error(
+          'Instagram connect route not found on the server. Check instagramAuthRoutes.js.'
         );
-        window.location.assign(
-          window.location.href = '/instagram-setup.html'
-        );
-        return;
       }
 
       if (res.status === 401) {

@@ -239,8 +239,14 @@
 <div id="claimOverlay" class="img-edit-overlay" onclick="if(event.target===this)closeClaim()">
   <div class="img-edit-card" role="dialog" aria-labelledby="claimTitle">
     <h3 id="claimTitle">Contact us</h3>
-    <p class="lead">Reach out using either option below.</p>
-    <div id="claimContent"></div>
+    <div id="claimContent">
+      <div class="claim-row claim-wa">
+        <a href="https://wa.me/919876543210?text=Hi%2C%20I%27m%20interested%20in%20KwikPost" target="_blank" rel="noopener">💬 Chat on WhatsApp</a>
+      </div>
+      <div class="claim-row claim-mail">
+        <a href="mailto:you@yourbrand.com?subject=Enquiry%20about%20KwikPost">📧 Email us</a>
+      </div>
+    </div>
     <div class="img-edit-actions">
       <button type="button" class="btn-secondary" onclick="closeClaim()">Close</button>
     </div>
@@ -250,11 +256,7 @@
 <script src="schedule.js"></script>
 <script src="app.js"></script>
 <script>
-  // The old Connect button in section 4 used the removed /auth/start URL.
-  // This replaces it, and works whether or not a post is being scheduled.
   window.connectInstagram = function () {
-  window.location.href = '/instagram-setup.html';
-
     window.startInstagramConnect(null);
   };
 </script>

@@ -68,8 +68,15 @@
   border: 1px solid var(--calendar-line);
   border-radius: 8px;
 }
+
+/* Every day cell stacks from the top, so the date is always in the top-left corner.
+   (Day cells are buttons, and buttons centre their content vertically by default.) */
 .schedule-calendar-day {
-  display: block;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  align-items: stretch;
+  align-content: flex-start;
   overflow: hidden;
   padding: 6px;
   background: var(--calendar-card);
@@ -80,13 +87,23 @@
 .schedule-calendar-day:hover,
 .schedule-calendar-day.is-selected { border-color: var(--calendar-accent); }
 .schedule-calendar-day.is-today .schedule-calendar-day-number { color: var(--calendar-accent); }
-.schedule-calendar-day-number { display: block; margin-bottom: 4px; font-size: .85rem; font-weight: 800; }
+.schedule-calendar-day-number {
+  display: block;
+  align-self: flex-start;
+  margin: 0 0 4px;
+  font-size: .85rem;
+  font-weight: 800;
+  line-height: 1.2;
+  text-align: left;
+}
 
 /* Day cell list: original width, shorter height */
 .schedule-calendar-day-items {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(48px, 1fr));
   gap: 4px;
+  flex: none;
+  width: 100%;
   max-height: 86px;
   overflow-x: hidden;
   overflow-y: auto;
@@ -137,7 +154,12 @@
   display: none !important;
 }
 
-.schedule-calendar-day-empty { color: var(--calendar-muted); font-size: .68rem; }
+.schedule-calendar-day-empty {
+  align-self: flex-start;
+  color: var(--calendar-muted);
+  font-size: .68rem;
+  text-align: left;
+}
 
 /* ========== Day details (click a date) — FULL details visible ========== */
 .schedule-calendar-details {
@@ -317,8 +339,9 @@
 }
 .schedule-calendar-day.is-today .schedule-calendar-day-number {
   display: inline-block;
+  align-self: flex-start;
   padding: 1px 10px;
   border-radius: 99px;
   background: linear-gradient(120deg, #f97316, #a855f7);
   color: #fff;
-} 
+}

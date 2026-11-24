@@ -2,7 +2,9 @@
    Campaigns, posts, onboarding, theme, Edit text (opens edit.html),
    Claim now contact popup
    + Schedule / auto-publish buttons
-   + Per-post topic (sent with Generate) */
+   + Per-post topic (sent with Generate)
+   FIXES: campaigns list loads without the campaignSelect dropdown;
+          connectInstagram no longer redirects to /instagram-setup.html */
 
 const CAMPAIGNS_API = '/api/campaigns';
 const POSTS_API     = '/api/posts';
@@ -128,9 +130,8 @@ function campaignPayload(v) {
 })();
 
 // ===== INSTAGRAM =====
+// FIX: removed the extra redirect to /instagram-setup.html
 async function connectInstagram() {
-  window.location.href = '/instagram-setup.html';
-
   try {
     const d = await api('/api/instagram/connect-url', {
       method: 'POST',
@@ -180,10 +181,11 @@ let campaignsCache = [];
 let editingCampaignId = null;
 let postsCache = [];
 
+// FIX: works even when the campaignSelect dropdown is not on the page
 async function loadCampaigns() {
   const sel = $('campaignSelect');
   const listBox = $('campaignsList');
-  if (!sel) return;
+  if (!sel && !listBox) return;
   try {
     const data = await api(CAMPAIGNS_API);
     const list = Array.isArray(data) ? data : ((data && data.campaigns) || []);
@@ -191,17 +193,19 @@ async function loadCampaigns() {
     onboard.campaigns = list.length;
     updateOnboarding();
 
-    const current = sel.value || localStorage.getItem(SELECTED_CAMPAIGN_KEY);
-    sel.innerHTML = list.length
-      ? list.map(function (c) {
-          return '<option value="' + esc(c.id) + '">' +
-                 esc(c.product_name || c.productName || c.name || ('Campaign ' + c.id)) + '</option>';
-        }).join('')
-      : '<option value="">No campaigns yet</option>';
-    if (current && list.some(function (c) { return String(c.id) === String(current); })) {
-      sel.value = current;
+    if (sel) {
+      const current = sel.value || localStorage.getItem(SELECTED_CAMPAIGN_KEY);
+      sel.innerHTML = list.length
+        ? list.map(function (c) {
+            return '<option value="' + esc(c.id) + '">' +
+                   esc(c.product_name || c.productName || c.name || ('Campaign ' + c.id)) + '</option>';
+          }).join('')
+        : '<option value="">No campaigns yet</option>';
+      if (current && list.some(function (c) { return String(c.id) === String(current); })) {
+        sel.value = current;
+      }
+      if (sel.value) localStorage.setItem(SELECTED_CAMPAIGN_KEY, sel.value);
     }
-    if (sel.value) localStorage.setItem(SELECTED_CAMPAIGN_KEY, sel.value);
 
     if (listBox) {
       if (!list.length) {
@@ -229,8 +233,9 @@ async function loadCampaigns() {
       }
     }
   } catch (err) {
-    sel.innerHTML = '<option value="">Could not load campaigns</option>';
-    if (listBox) listBox.innerHTML = '<p class="settings-note">Could not load campaigns.</p>';
+    console.error('loadCampaigns failed:', err);
+    if (sel) sel.innerHTML = '<option value="">Could not load campaigns</option>';
+    if (listBox) listBox.innerHTML = '<p class="settings-note">Could not load campaigns: ' + esc(err.message) + '</p>';
   }
 }
 
@@ -401,7 +406,7 @@ function injectClaimButtons() {
 // ===== GENERATE (with topic) =====
 function generatePost(evt) {
   return withBusy(btnOf(evt), async function () {
-    const campaign_id = $('campaignSelect').value;
+    const campaign_id = $('campaignSelect') ? $('campaignSelect').value : '';
     if (!campaign_id) throw new Error('Create/select a campaign first');
 
     const photoId = $('genPhoto') ? $('genPhoto').value : '';
@@ -474,7 +479,7 @@ function saveThemes(evt) {
     const themes = $('themesInput').value.split('\n').map(function (t) { return t.trim(); }).filter(Boolean);
     if (!themes.length) throw new Error('Enter at least one theme');
     if (themes.length > 20) throw new Error('Maximum 20 themes');
-    const campaign_id = $('campaignSelect').value;
+    const campaign_id = $('campaignSelect') ? $('campaignSelect').value : '';
     if (!campaign_id) throw new Error('Select a campaign first');
     await api(CAMPAIGNS_API + '/' + encodeURIComponent(campaign_id) + '/themes', {
       method: 'POST',
@@ -487,6 +492,7 @@ function saveThemes(evt) {
 }
 
 // ===== POSTS (with Schedule / Cancel / Retry) =====
+// Note: still runs on the dashboard because the stats and onboarding use the counts.
 async function loadPosts() {
   const box = $('postsList');
   try {
@@ -718,8 +724,8 @@ function updateOnboarding() {
   const steps = [
     { title: 'Connect your Instagram', desc: 'Use a Business or Creator account linked to a Facebook Page.', done: onboard.connected, target: 'sec-connect', btn: 'Connect' },
     { title: 'Create your first campaign', desc: 'Tell us about your product, audience and tone.', done: onboard.campaigns > 0, target: 'sec-campaign', btn: 'Start' },
-    { title: 'Generate your first post', desc: 'Type a topic and let AI write the ad.', done: onboard.posts > 0, target: 'sec-generate', btn: 'Generate' },
-    { title: 'Approve a post', desc: 'Review it, approve it, then schedule publishing.', done: onboard.approved, target: 'sec-review', btn: 'Review' }
+    { title: 'Generate your first post', desc: 'Type a topic and let AI write the ad.', done: onboard.posts > 0, target: '/posts.html', btn: 'Generate' },
+    { title: 'Approve a post', desc: 'Review it, approve it, then schedule publishing.', done: onboard.approved, target: '/posts.html', btn: 'Review' }
   ];
   const doneCount = steps.filter(function (s) { return s.done; }).length;
   const allDone = doneCount === steps.length;

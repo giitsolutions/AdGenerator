@@ -28,6 +28,8 @@ router.post('/:id/retry', requireAuth, postController.retryScheduledPost);
 router.post('/:id/back-to-generated', requireAuth, postController.movePostToGenerated);
 router.post('/:id/story', requireAuth, postController.postStory);
 router.post('/:id/approve', requireAuth, postController.approvePost);
+router.post('/:id/publish-now', requireAuth, postController.publishNow);
+router.post('/:id/publish-facebook', requireAuth, postController.publishFacebook);
 router.post('/:id/reject', requireAuth, postController.rejectPost);
 router.post('/:id/edit-link', requireAuth, editPostController.createEditLink);
 

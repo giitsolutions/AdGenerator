@@ -6,6 +6,7 @@ const postModel = require('../models/postModel');
 const campaignModel = require('../models/campaignModel');
 const themeModel = require('../models/themeModel');
 const instagramService = require('../services/instagramService');
+const facebookService = require('../services/facebookService');
 const { publishStoryToInstagram } = require('../services/instagramStoryService');
 const themedPostService = require('../services/themedPostService');
 const config = require('../config/env');
@@ -13,6 +14,7 @@ const userModel = require('../models/userModel');
 const { buildContactBlock } = require('../utils/captionBuilder');
 const { createTransitionError } = require('../models/contentWorkflow');
 const scheduleStore = require('../models/scheduleStore');
+const { getDb } = require('../db/connection');
 
 const IMAGE_UPLOAD_DIR = path.join(__dirname, '..', 'public', 'uploads', 'images');
 const IMAGE_BACKGROUND_DIR = path.join(__dirname, '..', 'storage', 'backgrounds');
@@ -21,8 +23,11 @@ const REEL_SOURCE_DIR = path.join(__dirname, '..', 'storage', 'reel-sources');
 const MAX_IMAGE_UPLOAD_BYTES = 8 * 1024 * 1024;
 const MAX_SCHEDULE_AHEAD_DAYS = 365;
 
+// Posts being published right now (Instagram, Facebook). Stops double clicks from posting twice.
+const publishing = new Set();
+
 // ---------------------------------------------------------------------
-// Instagram connection guard (used by approve, schedule, reschedule, retry)
+// Instagram connection guard (approve, schedule, reschedule, retry, publish)
 // Sends a 409 and returns false when the user has not connected Instagram.
 // ---------------------------------------------------------------------
 async function ensureInstagramConnected(userId, res, postId, action = 'schedule') {
@@ -179,8 +184,8 @@ async function listPosts(req, res, next) {
 }
 
 /**
- * Build the final Instagram caption from post + campaign data.
- * Empty sections are skipped, so an absent email/WhatsApp leaves the caption unchanged.
+ * Build the final caption from post + campaign data.
+ * Empty sections are skipped.
  */
 function buildFinalCaption(post, campaign) {
   const linkLine = campaign && campaign.website ? campaign.website : '🔗 Link in bio';
@@ -208,14 +213,53 @@ function buildFinalCaption(post, campaign) {
     .trim();
 }
 
-// Posts being published right now. Two quick clicks on the same Approve link
-// would otherwise both pass the "not posted yet" check and post twice.
-const publishing = new Set();
-
 function alreadyPostedError(message) {
   const err = new Error(message);
   err.code = 'ALREADY_POSTED';
   return err;
+}
+
+/**
+ * Sends one post to the OWNER's Instagram account and returns Instagram's result.
+ * Throws the real Instagram error if it fails. Does NOT change the post status.
+ */
+async function sendToInstagram(post, userId) {
+  const instagramUser = await userModel.getUserWithInstagramToken(userId);
+  if (!instagramUser) {
+    const notConnected = new Error('Instagram is not connected. Reconnect it, then try again.');
+    notConnected.code = 'INSTAGRAM_NOT_CONNECTED';
+    throw notConnected;
+  }
+
+  const campaign = await campaignModel.getCampaignById(post.campaign_id, userId);
+  const fullCaption = buildFinalCaption(post, campaign);
+
+  const credentials = {
+    instagramBusinessAccountId: instagramUser.instagram_business_account_id,
+    accessToken: instagramUser.instagram_access_token
+  };
+
+  if (post.content_type === 'reel' || post.media_type === 'reel' || post.video_url) {
+    return instagramService.publishReelToInstagram({
+      videoUrl: post.video_url,
+      caption: fullCaption,
+      ...credentials
+    });
+  }
+  return instagramService.publishToInstagram({
+    imageUrl: post.image_url,
+    caption: fullCaption,
+    ...credentials
+  });
+}
+
+async function markThemeUsedSafely(post) {
+  if (!post.theme_id) return;
+  try {
+    await themeModel.markThemeUsed(post.theme_id);
+  } catch (err) {
+    console.error(`[postController] Post ${post.id} published, but theme ${post.theme_id} could not be marked used:`, err.message);
+  }
 }
 
 async function performApproval(postId, userId) {
@@ -248,46 +292,9 @@ async function publishDraft(postId, userId) {
   }
 
   try {
-    // Safety net: the user may have disconnected after scheduling.
-    const instagramUser = await userModel.getUserWithInstagramToken(userId);
-    if (!instagramUser) {
-      const notConnected = new Error('Instagram is not connected. Reconnect it, then press Retry.');
-      notConnected.code = 'INSTAGRAM_NOT_CONNECTED';
-      throw notConnected;
-    }
-
-    const campaign = await campaignModel.getCampaignById(post.campaign_id, userId);
-    const fullCaption = buildFinalCaption(post, campaign);
-
-    const credentials = {
-      instagramBusinessAccountId: instagramUser.instagram_business_account_id,
-      accessToken: instagramUser.instagram_access_token
-    };
-
-    let igResult;
-    if (post.content_type === 'reel') {
-      igResult = await instagramService.publishReelToInstagram({
-        videoUrl: post.video_url,
-        caption: fullCaption,
-        ...credentials
-      });
-    } else {
-      igResult = await instagramService.publishToInstagram({
-        imageUrl: post.image_url,
-        caption: fullCaption,
-        ...credentials
-      });
-    }
-
+    const igResult = await sendToInstagram(post, userId);
     await postModel.markAsPosted(post.id, userId);
-
-    if (post.theme_id) {
-      try {
-        await themeModel.markThemeUsed(post.theme_id);
-      } catch (err) {
-        console.error(`[postController] Post ${post.id} published, but theme ${post.theme_id} could not be marked used:`, err.message);
-      }
-    }
+    await markThemeUsedSafely(post);
     return igResult;
   } catch (err) {
     try {
@@ -300,6 +307,111 @@ async function publishDraft(postId, userId) {
 }
 
 /**
+ * "Post now" to Instagram (POST /api/posts/:id/publish-now).
+ * Marks the post as posted only after Instagram accepts it. Writes the status
+ * directly, so the status-transition check cannot block a successful publish.
+ */
+async function publishNow(req, res) {
+  const key = String(req.params.id);
+  if (publishing.has(key)) {
+    return res.status(409).json({ error: 'This post is already being published. Please wait a moment.' });
+  }
+  publishing.add(key);
+  try {
+    const post = await postModel.getPostById(req.params.id, req.userId);
+    if (!post) return res.status(404).json({ error: 'Post not found.' });
+    if (post.status === 'posted') return res.json({ ok: true, message: 'Already posted to Instagram.' });
+    if (!post.image_url && !post.video_url) {
+      return res.status(400).json({ error: 'This post has no image or video, so it cannot be posted.' });
+    }
+    if (!(await ensureInstagramConnected(req.userId, res, post.id, 'publish'))) return;
+
+    let igResult;
+    try {
+      igResult = await sendToInstagram(post, req.userId);
+    } catch (err) {
+      console.error(`[postController] Publish now failed for post ${post.id}:`, err.message);
+      return res.status(502).json({ error: err.message });
+    }
+
+    const db = await getDb();
+    await db.run(
+      "UPDATE posts SET status = 'posted', posted_at = CURRENT_TIMESTAMP, last_error = NULL WHERE id = ? AND user_id = ?",
+      [post.id, req.userId]
+    );
+    await markThemeUsedSafely(post);
+
+    return res.json({
+      ok: true,
+      message: 'Published to Instagram.',
+      mediaId: igResult && igResult.mediaId ? igResult.mediaId : null
+    });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  } finally {
+    publishing.delete(key);
+  }
+}
+
+/**
+ * "Post now" to the Facebook Page (POST /api/posts/:id/publish-facebook).
+ * Does not change the post status, so Instagram and Facebook can be posted separately.
+ */
+async function publishFacebook(req, res) {
+  const key = 'fb:' + req.params.id;
+  if (publishing.has(key)) {
+    return res.status(409).json({ error: 'Already posting to Facebook. Please wait.' });
+  }
+  publishing.add(key);
+  try {
+    const post = await postModel.getPostById(req.params.id, req.userId);
+    if (!post) return res.status(404).json({ error: 'Post not found.' });
+    if (!post.image_url && !post.video_url) {
+      return res.status(400).json({ error: 'This post has no image or video.' });
+    }
+
+    const db = await getDb();
+    const user = await db.get(
+      'SELECT facebook_page_id, instagram_access_token FROM users WHERE id = ?',
+      [req.userId]
+    );
+    if (!user || !user.facebook_page_id || !user.instagram_access_token) {
+      return res.status(409).json({
+        error: 'Facebook Page is not connected. Reconnect Instagram to link your Facebook Page.'
+      });
+    }
+
+    const campaign = await campaignModel.getCampaignById(post.campaign_id, req.userId);
+    const caption = buildFinalCaption(post, campaign);
+    const isReel = post.content_type === 'reel' || post.media_type === 'reel' || !!post.video_url;
+
+    try {
+      const result = isReel
+        ? await facebookService.publishReelToFacebook({
+            pageId: user.facebook_page_id,
+            pageToken: user.instagram_access_token,
+            videoUrl: post.video_url,
+            caption
+          })
+        : await facebookService.publishPhotoToFacebook({
+            pageId: user.facebook_page_id,
+            pageToken: user.instagram_access_token,
+            imageUrl: post.image_url,
+            caption
+          });
+      return res.json({ ok: true, message: 'Published to Facebook.', result });
+    } catch (err) {
+      console.error(`[postController] Facebook publish failed for post ${post.id}:`, err.message);
+      return res.status(502).json({ error: err.message });
+    }
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  } finally {
+    publishing.delete(key);
+  }
+}
+
+/**
  * Reject = DELETE the post.
  * If it came from a daily theme, regenerate a new version of the same theme
  * and email it again. A failed regeneration does not undo the delete.
@@ -307,7 +419,6 @@ async function publishDraft(postId, userId) {
 async function performRejection(postId, userId, { waitForRegeneration = true } = {}) {
   const post = await postModel.getPostById(postId, userId);
   if (!post) throw new Error('Post not found');
-  // An old "Reject" link must never delete a post that was already approved.
   if (post.status === 'posted') {
     throw alreadyPostedError('This post was already published, so it cannot be rejected.');
   }
@@ -333,7 +444,6 @@ async function performRejection(postId, userId, { waitForRegeneration = true } =
     return { deleted: true, regenerated: false, regenerating: false, cleanupWarnings };
   }
 
-  // New take on the SAME theme. Never throws: the delete above already happened.
   const regenerate = async () => {
     try {
       const theme = await themeModel.getThemeById(themeId);
@@ -360,7 +470,6 @@ async function performRejection(postId, userId, { waitForRegeneration = true } =
     }
   };
 
-  // Email click: answer at once and build the new post in the background
   if (!waitForRegeneration) {
     regenerate();
     return { deleted: true, regenerated: false, regenerating: true, cleanupWarnings };
@@ -371,7 +480,6 @@ async function performRejection(postId, userId, { waitForRegeneration = true } =
 
 async function approvePost(req, res, next) {
   try {
-    // Works for posts and reels. The draft is NOT changed when Instagram is missing.
     const post = await postModel.getPostById(req.params.id, req.userId);
     if (!post) return res.status(404).json({ error: 'Post not found.' });
     if (!(await ensureInstagramConnected(req.userId, res, post.id, 'approve'))) return;
@@ -413,7 +521,6 @@ async function rejectPost(req, res, next) {
 
 // ---------------------------------------------------------------------
 // Scheduling: a ready_to_post item is published automatically at the chosen time.
-// Instagram must be connected here (and is checked again at publish time).
 // ---------------------------------------------------------------------
 async function schedulePost(req, res, next) {
   try {
@@ -456,7 +563,6 @@ async function postStory(req, res, next) {
     if (!post.image_url && !post.video_url) {
       return res.status(400).json({ error: 'This item has no image or video to share as a Story.' });
     }
-    // Same rule as Approve: no Instagram yet -> 409 so the Connect popup opens.
     if (!(await ensureInstagramConnected(req.userId, res, post.id, 'share a Story of'))) return;
 
     if (postingStory.has(key)) {
@@ -538,7 +644,6 @@ async function retryScheduledPost(req, res, next) {
   }
 }
 
-// Data for public/schedule.html (calendar + list of the user's posts)
 async function scheduleOverview(req, res, next) {
   try {
     res.json({ posts: await postModel.getAllPosts(req.userId, {
@@ -576,10 +681,6 @@ async function scheduleCalendar(req, res, next) {
   }
 }
 
-/**
- * Fallback for older dashboard calls. Text editing now happens in edit.html
- * (see editPostController.js), so this only returns a clear message.
- */
 async function updatePostImage(req, res, next) {
   res.status(400).json({
     error: 'Edit text now opens the edit page. Use "Edit text" on the post.'
@@ -613,7 +714,6 @@ async function approvePostViaEmail(req, res) {
     const payload = jwt.verify(token, config.jwtSecret);
     if (payload.action !== 'approve') throw new Error('Invalid token action');
 
-    // No Instagram yet: leave the post as a draft and send the user to connect it.
     if (!(await userModel.isInstagramConnected(payload.userId))) {
       return renderEmailResultPage(res, {
         success: false,
@@ -680,5 +780,7 @@ module.exports = {
   scheduleOverview,
   scheduleCalendar,
   performApproval,
-  performRejection
+  performRejection,
+  publishNow,
+  publishFacebook
 };
