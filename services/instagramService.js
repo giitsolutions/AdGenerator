@@ -1,3 +1,5 @@
+const fs = require('fs');
+const path = require('path');
 const axios = require('axios');
 const config = require('../config/env');
 const { ensurePublicImageUrl, renderStoryImage } = require('./imageService');
@@ -84,6 +86,41 @@ async function graphRequest(method, url, params) {
   return response.data;
 }
 
+// The video file on this computer, for a relative URL like /uploads/reels/x.mp4.
+function localVideoFile(videoUrl) {
+  if (!videoUrl || /^https?:\/\//i.test(videoUrl)) return null;
+  const root = path.join(__dirname, '..', 'public');
+  const file = path.normalize(path.join(root, videoUrl.split('?')[0]));
+  if (!file.startsWith(root + path.sep) || !fs.existsSync(file)) return null;
+  return file;
+}
+
+// Uploads the video bytes straight to Instagram (resumable upload), so the
+// app also works from localhost, with no public URL needed.
+async function uploadReelFile(container, file, accessToken) {
+  const uploadUri = container.uri ||
+    `https://rupload.facebook.com/ig-api-upload/${config.facebook.graphApiVersion}/${container.id}`;
+  const data = fs.readFileSync(file);
+  const response = await axios({
+    method: 'post',
+    url: uploadUri,
+    data,
+    headers: {
+      Authorization: 'OAuth ' + accessToken,
+      offset: '0',
+      file_size: String(data.length),
+      'Content-Type': 'application/octet-stream'
+    },
+    maxBodyLength: Infinity,
+    maxContentLength: Infinity,
+    timeout: 5 * 60 * 1000,
+    validateStatus: () => true
+  });
+  if (response.status < 200 || response.status >= 300 || (response.data && response.data.error)) {
+    throw new Error('Instagram video upload failed: ' + graphErrorMessage(response));
+  }
+}
+
 async function publishReelToInstagram({
   videoUrl,
   caption,
@@ -94,19 +131,40 @@ async function publishReelToInstagram({
     throw new Error('Connect an Instagram professional account before publishing a Reel');
   }
 
-  const videoPublicUrl = publicVideoUrl(videoUrl);
   const graphBase = `https://graph.facebook.com/${config.facebook.graphApiVersion}`;
-  const container = await graphRequest('post', `${graphBase}/${instagramBusinessAccountId}/media`, {
-    media_type: 'REELS',
-    video_url: videoPublicUrl,
-    caption: caption || '',
-    share_to_feed: true,
-    access_token: accessToken
-  });
+
+  // Use the public HTTPS address when there is one. On localhost there is
+  // none, so the video file is uploaded to Instagram directly instead.
+  let videoPublicUrl = null;
+  let publicError = null;
+  try {
+    videoPublicUrl = publicVideoUrl(videoUrl);
+  } catch (error) {
+    publicError = error;
+  }
+  const localFile = videoPublicUrl ? null : localVideoFile(videoUrl);
+  if (!videoPublicUrl && !localFile) throw publicError;
+
+  const container = await graphRequest('post', `${graphBase}/${instagramBusinessAccountId}/media`, localFile
+    ? {
+      media_type: 'REELS',
+      upload_type: 'resumable',
+      caption: caption || '',
+      share_to_feed: true,
+      access_token: accessToken
+    }
+    : {
+      media_type: 'REELS',
+      video_url: videoPublicUrl,
+      caption: caption || '',
+      share_to_feed: true,
+      access_token: accessToken
+    });
 
   if (!container || !container.id) {
     throw new Error('Instagram did not return a Reel media container ID');
   }
+  if (localFile) await uploadReelFile(container, localFile, accessToken);
 
   const deadline = Date.now() + config.reels.pollTimeoutMs;
   let status;
